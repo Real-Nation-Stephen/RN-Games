@@ -65,6 +65,15 @@ textarea {
   filter: brightness(0.95);
 }
 
+.btn-danger {
+  border-color: rgba(220, 80, 80, 0.55);
+  background: rgba(180, 40, 40, 0.25);
+  color: #fecaca;
+}
+.btn-danger:hover {
+  background: rgba(200, 50, 50, 0.4);
+}
+
 .shell {
   max-width: 1100px;
   margin: 0 auto;

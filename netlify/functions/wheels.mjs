@@ -62,6 +62,7 @@ function emptyWheelRecord(id, slug) {
     thumbnailUrl: "",
     faviconUrl: "",
     reportingSheetTab: "",
+    showPoweredBy: true,
   };
 }
 
@@ -192,6 +193,7 @@ export const handler = async (event, context) => {
         "thumbnailUrl",
         "reportingEnabled",
         "faviconUrl",
+        "showPoweredBy",
       ];
       for (const k of assign) {
         if (body[k] !== undefined) existing[k] = body[k];

@@ -36,9 +36,9 @@ export default function App() {
             <img src="/admin/rn-logo.png" alt="Real Nation" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
           </Link>
           <div>
-            <h1>RNGames — Wheel Studio</h1>
+            <h1>Real Nation Digital — Game Studio</h1>
             <p className="muted" style={{ margin: "4px 0 0" }}>
-              Create and manage spinning wheels
+              Create and manage your games
             </p>
           </div>
         </div>
@@ -63,7 +63,7 @@ export default function App() {
 
       {!user ? (
         <div className="card">
-          <p>Sign in to manage wheels.</p>
+          <p>Sign in to manage your games.</p>
           <button type="button" className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => netlifyIdentity.open()}>
             Log in
           </button>

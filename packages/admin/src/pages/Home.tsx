@@ -55,10 +55,16 @@ export default function Home() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Your wheels</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 16 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Your games</h2>
+          <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.85rem", maxWidth: 520 }}>
+            Spinning wheel experiences today — quizzes, slots, surveys, and more formats will plug into this studio over
+            time for fast, fully branded campaigns.
+          </p>
+        </div>
         <button type="button" className="btn btn-primary" onClick={() => void createWheel()}>
-          New wheel
+          New spinning wheel
         </button>
       </div>
 
@@ -67,7 +73,7 @@ export default function Home() {
 
       {!loading && wheels.length === 0 && (
         <div className="card">
-          <p>No wheels yet. Create one to get started.</p>
+          <p>No games yet. Create a spinning wheel to get started.</p>
         </div>
       )}
 

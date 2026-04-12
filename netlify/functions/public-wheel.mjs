@@ -25,6 +25,7 @@ function toPublicWheel(w) {
     landscape: w.landscape,
     reportingEnabled: w.reportingEnabled,
     prizeSchemaVersion: w.prizeSchemaVersion,
+    showPoweredBy: w.showPoweredBy !== false,
   };
 }
 

@@ -347,6 +347,28 @@ body.is-debug .wheel-frame {
   outline-offset: 2px;
 }
 
+.powered-by-rn {
+  position: fixed;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 850;
+  line-height: 0;
+  opacity: 0.92;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+  transition: opacity 0.2s ease;
+}
+
+.powered-by-rn:hover {
+  opacity: 1;
+}
+
+.powered-by-rn img {
+  display: block;
+  height: clamp(36px, 8vmin, 52px);
+  width: auto;
+  max-width: min(220px, 46vw);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

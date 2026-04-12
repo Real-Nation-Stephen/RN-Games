@@ -5,7 +5,7 @@ export default defineConfig({
   root: resolve(__dirname),
   /** Must match `dist/play/` in assemble-dist so `/slug` routes still load `/play/assets/*`. */
   base: "/play/",
-  publicDir: false,
+  publicDir: "public",
   build: {
     outDir: "dist",
     emptyDir: true,

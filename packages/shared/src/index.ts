@@ -1,4 +1,4 @@
-/** Shared wheel types and validation for RNGames platform */
+/** Shared wheel types and validation for Real Nation Digital — Game Studio */
 
 export const RESERVED_SLUGS = new Set([
   "admin",
@@ -71,6 +71,8 @@ export interface WheelRecord {
   faviconUrl?: string;
   /** Google Sheet tab name for this wheel’s spin log (set when reporting is enabled) */
   reportingSheetTab?: string;
+  /** Show “Powered by Real Nation” on the public game page (default true) */
+  showPoweredBy?: boolean;
 }
 
 export type WheelListItem = Pick<
@@ -122,6 +124,7 @@ export function emptyWheel(partial: { id: string; slug: string }): WheelRecord {
       segmentPanels: null,
     },
     faviconUrl: "",
+    showPoweredBy: true,
     sounds: {
       spin: null,
       segmentReveal: Array.from({ length: n }, () => null),

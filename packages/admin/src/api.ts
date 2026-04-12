@@ -38,6 +38,16 @@ export async function apiGet(path: string) {
   return res.json();
 }
 
+export async function apiDelete(path: string) {
+  const res = await fetch(path, { method: "DELETE", headers: authHeaders() });
+  if (res.status === 401) {
+    netlifyIdentity.open();
+    throw new Error("Unauthorized");
+  }
+  if (res.status === 204) return;
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function apiSend(path: string, method: string, body?: unknown) {
   const res = await fetch(path, {
     method,

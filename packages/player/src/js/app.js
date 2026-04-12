@@ -40,6 +40,7 @@ const els = {
   imgFrame: document.getElementById("img-frame"),
   bgMusic: document.getElementById("bg-music"),
   fsBtn: document.getElementById("wheel-fs-btn"),
+  poweredBy: document.getElementById("powered-by-rn"),
 };
 
 /** @type {any} */
@@ -281,6 +282,7 @@ function showError(msg) {
   els.playerErrorMsg.textContent = msg;
   els.app.hidden = true;
   if (els.fsBtn) els.fsBtn.hidden = true;
+  if (els.poweredBy) els.poweredBy.hidden = true;
 }
 
 function applyFaviconAndTitle() {
@@ -337,6 +339,9 @@ function applyLoadedConfig() {
   els.playerError.hidden = true;
   applyAssets();
   applyFaviconAndTitle();
+  if (els.poweredBy) {
+    els.poweredBy.hidden = config.showPoweredBy === false;
+  }
   layoutScale();
   updateOrientationGate();
   wireUi();

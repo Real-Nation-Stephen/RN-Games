@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { apiGet, apiSend, uploadFile } from "../api";
+import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 
 type Wheel = {
   id: string;
@@ -30,6 +30,7 @@ type Wheel = {
   landscape: { minAspectRatio: number };
   thumbnailUrl?: string;
   faviconUrl?: string;
+  showPoweredBy?: boolean;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -62,6 +63,7 @@ function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
 }
 
 export default function WheelEditor() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [wheel, setWheel] = useState<Wheel | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -107,6 +109,24 @@ export default function WheelEditor() {
       if (res?.wheel) setWheel(res.wheel);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteWheel() {
+    if (!wheel) return;
+    const ok = window.confirm(
+      "Delete this game and its public URL?\n\nThis permanently removes the wheel and cannot be undone.\n\nClick OK to delete, or Cancel to keep it.",
+    );
+    if (!ok) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiDelete(`/api/wheels?id=${encodeURIComponent(wheel.id)}`);
+      navigate("/");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setSaving(false);
     }
@@ -192,7 +212,7 @@ export default function WheelEditor() {
       <p>
         <Link to="/">← Wheels</Link>
       </p>
-      <h2 style={{ marginTop: 8 }}>Edit wheel</h2>
+      <h2 style={{ marginTop: 8 }}>Edit spinning wheel</h2>
       {err && <p className="muted">{err}</p>}
 
       <div className="card">
@@ -261,6 +281,14 @@ export default function WheelEditor() {
           }}
         />
         {wheel.faviconUrl ? <span className="muted"> ✓</span> : null}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={wheel.showPoweredBy !== false}
+            onChange={(e) => setWheel({ ...wheel, showPoweredBy: e.target.checked })}
+          />
+          Show “Powered by Real Nation” on the public game page
+        </label>
       </div>
 
       <div className="card">
@@ -419,12 +447,15 @@ export default function WheelEditor() {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
         <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
           {saving ? "Saving…" : "Save"}
         </button>
         <button type="button" className="btn" disabled={saving} onClick={() => void saveWithThumbnail()}>
           Save + thumbnail
+        </button>
+        <button type="button" className="btn btn-danger" disabled={saving} onClick={() => void deleteWheel()}>
+          Delete game
         </button>
       </div>
     </div>
@@ -458,5 +489,6 @@ function publicConfig(w: Wheel) {
     landscape: w.landscape,
     reportingEnabled: w.reportingEnabled,
     prizeSchemaVersion: w.prizeSchemaVersion,
+    showPoweredBy: w.showPoweredBy !== false,
   };
 }
