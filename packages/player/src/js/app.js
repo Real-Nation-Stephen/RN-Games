@@ -39,6 +39,7 @@ const els = {
   imgWheel: document.getElementById("img-wheel"),
   imgFrame: document.getElementById("img-frame"),
   bgMusic: document.getElementById("bg-music"),
+  fsBtn: document.getElementById("wheel-fs-btn"),
 };
 
 /** @type {any} */
@@ -89,6 +90,12 @@ function segmentIsWin(segmentIndex) {
   return o === true;
 }
 
+function resultHeadlineUrl(winnerIndex) {
+  const h = config.assets.segmentHeadlines;
+  if (Array.isArray(h) && h[winnerIndex]) return h[winnerIndex];
+  return config.assets.headline;
+}
+
 function resultPanelUrl(winnerIndex) {
   const panels = config.assets.segmentPanels;
   if (Array.isArray(panels) && panels.length === config.segmentCount) {
@@ -136,6 +143,7 @@ function resetToHeadline() {
   els.restartLayer.setAttribute("aria-hidden", "true");
   els.spinZone.setAttribute("aria-label", "Spin the wheel");
   clearOutcomeStyling();
+  setImgSrc(els.imgHeadline, config.assets.headline);
 }
 
 function logSpin(winnerIndex, isWin) {
@@ -154,6 +162,7 @@ function logSpin(winnerIndex, isWin) {
 
 function showResult(winnerIndex) {
   const isWin = segmentIsWin(winnerIndex);
+  setImgSrc(els.imgHeadline, resultHeadlineUrl(winnerIndex));
   setImgSrc(els.imgResult, resultPanelUrl(winnerIndex));
   els.imgResult.alt = isWin ? "You won" : "Try again";
 
@@ -276,6 +285,50 @@ function showError(msg) {
   els.playerError.hidden = false;
   els.playerErrorMsg.textContent = msg;
   els.app.hidden = true;
+  if (els.fsBtn) els.fsBtn.hidden = true;
+}
+
+function applyFaviconAndTitle() {
+  const url = config.faviconUrl;
+  let link = document.querySelector('link[rel="icon"]');
+  if (url) {
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = url;
+  } else if (link) {
+    link.remove();
+  }
+  if (config.title) {
+    document.title = config.title;
+  }
+}
+
+let fullscreenWired = false;
+function wireFullscreenIfNeeded() {
+  const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
+  if (isPreview || !els.fsBtn) return;
+  els.fsBtn.hidden = false;
+  if (fullscreenWired) return;
+  fullscreenWired = true;
+  els.fsBtn.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      /* ignore */
+    }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    const fs = !!document.fullscreenElement;
+    els.fsBtn.setAttribute("aria-pressed", fs ? "true" : "false");
+    els.fsBtn.textContent = fs ? "Exit fullscreen" : "Fullscreen";
+  });
 }
 
 function applyLoadedConfig() {
@@ -288,14 +341,17 @@ function applyLoadedConfig() {
   els.app.hidden = false;
   els.playerError.hidden = true;
   applyAssets();
+  applyFaviconAndTitle();
   layoutScale();
   updateOrientationGate();
   wireUi();
+  wireFullscreenIfNeeded();
 }
 
 function setupPreviewMode() {
   els.playerError.hidden = true;
   els.app.hidden = true;
+  if (els.fsBtn) els.fsBtn.hidden = true;
   window.addEventListener("message", (e) => {
     if (e.origin !== window.location.origin) return;
     if (e.data?.type !== "rngames-wheel-config") return;

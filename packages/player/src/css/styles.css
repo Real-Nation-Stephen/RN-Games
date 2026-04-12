@@ -80,11 +80,25 @@ body::before {
   transition: box-shadow 0.45s ease, filter 0.45s ease;
 }
 
+/* Mirrors body::page background so html2canvas (#fit) includes the BG image in thumbnails/PDF */
+#page-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: transparent;
+  background-image: var(--page-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 #stage {
   width: calc(var(--design-w) * 1px);
   height: calc(var(--design-h) * 1px);
   transform-origin: 0 0;
   position: relative;
+  z-index: 1;
   background: transparent;
   transition: filter 0.35s ease, box-shadow 0.45s ease;
 }
@@ -320,6 +334,31 @@ body.is-debug .wheel-frame {
   color: var(--muted);
   font-size: clamp(0.9rem, 2.8vw, 1.05rem);
   line-height: 1.45;
+}
+
+.wheel-fs-btn {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 900;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(12, 14, 22, 0.65);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.wheel-fs-btn:hover {
+  background: rgba(12, 14, 22, 0.85);
+}
+
+.wheel-fs-btn:focus-visible {
+  outline: 2px solid #6ae8ff;
+  outline-offset: 2px;
 }
 
 .sr-only {

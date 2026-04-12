@@ -23,6 +23,9 @@ export interface WheelAssets {
   frame: string;
   winPanel: string;
   losePanel: string;
+  /** Optional per-segment headline/copy art for the result state (left column, default layer) */
+  segmentHeadlines?: (string | null)[] | null;
+  /** Optional per-segment result panel art (left column, result layer); falls back to win/lose */
   segmentPanels?: (string | null)[] | null;
 }
 
@@ -66,6 +69,10 @@ export interface WheelRecord {
   spin: WheelSpinSettings;
   landscape: WheelLandscape;
   thumbnailUrl?: string;
+  /** Optional tab icon for this wheel’s public URL */
+  faviconUrl?: string;
+  /** Google Sheet tab name for this wheel’s spin log (set when reporting is enabled) */
+  reportingSheetTab?: string;
 }
 
 export type WheelListItem = Pick<
@@ -114,9 +121,16 @@ export function emptyWheel(partial: { id: string; slug: string }): WheelRecord {
       frame: "",
       winPanel: "",
       losePanel: "",
+      segmentHeadlines: null,
       segmentPanels: null,
     },
-    sounds: { spin: null, segmentReveal: [], music: null, musicVolume: 0.35 },
+    faviconUrl: "",
+    sounds: {
+      spin: null,
+      segmentReveal: Array.from({ length: n }, () => null),
+      music: null,
+      musicVolume: 0.35,
+    },
     spin: {
       minFullRotations: 5,
       maxFullRotations: 8,

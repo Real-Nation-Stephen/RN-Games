@@ -29,6 +29,7 @@ type Wheel = {
   spin: Record<string, number | string>;
   landscape: { minAspectRatio: number };
   thumbnailUrl?: string;
+  faviconUrl?: string;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -91,10 +92,10 @@ export default function WheelEditor() {
     await new Promise((r) => setTimeout(r, 400));
     const iframe = iframeRef.current;
     if (!iframe?.contentDocument) return;
-    const stage = iframe.contentDocument.getElementById("stage");
-    if (!stage) return;
+    const fit = iframe.contentDocument.getElementById("fit");
+    if (!fit) return;
     try {
-      const canvas = await html2canvas(stage, {
+      const canvas = await html2canvas(fit, {
         scale: 0.35,
         useCORS: true,
         allowTaint: false,
@@ -117,9 +118,9 @@ export default function WheelEditor() {
     if (!iframe?.contentDocument) return;
     pushPreview();
     await new Promise((r) => setTimeout(r, 150));
-    const stage = iframe.contentDocument.getElementById("stage");
-    if (!stage) return;
-    const canvas = await html2canvas(stage, {
+    const fit = iframe.contentDocument.getElementById("fit");
+    if (!fit) return;
+    const canvas = await html2canvas(fit, {
       scale: 0.5,
       useCORS: true,
       allowTaint: false,
@@ -144,6 +145,11 @@ export default function WheelEditor() {
       sounds: {
         ...wheel.sounds,
         segmentReveal: Array.from({ length: n }, (_, i) => wheel.sounds.segmentReveal?.[i] ?? null),
+      },
+      assets: {
+        ...wheel.assets,
+        segmentHeadlines: Array.from({ length: n }, (_, i) => wheel.assets.segmentHeadlines?.[i] ?? null),
+        segmentPanels: Array.from({ length: n }, (_, i) => wheel.assets.segmentPanels?.[i] ?? null),
       },
     });
   }
@@ -221,6 +227,20 @@ export default function WheelEditor() {
             </>
           )}
         </p>
+        <label className="field" style={{ marginTop: 12 }}>
+          Tab icon (wheel pages only)
+        </label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            setWheel({ ...wheel, faviconUrl: url });
+          }}
+        />
+        {wheel.faviconUrl ? <span className="muted"> ✓</span> : null}
       </div>
 
       <div className="card">
@@ -238,6 +258,8 @@ export default function WheelEditor() {
               <th>#</th>
               <th>Prize label</th>
               <th>Win (confetti)</th>
+              <th>Headline / copy (result)</th>
+              <th>Result panel</th>
               <th>Reveal sound</th>
             </tr>
           </thead>
@@ -270,6 +292,46 @@ export default function WheelEditor() {
                 <td>
                   <input
                     type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const { url } = await uploadFile(f);
+                      const segmentHeadlines = [
+                        ...(wheel.assets.segmentHeadlines || Array.from({ length: wheel.segmentCount }, () => null)),
+                      ];
+                      segmentHeadlines[i] = url;
+                      setWheel({
+                        ...wheel,
+                        assets: { ...wheel.assets, segmentHeadlines },
+                      });
+                    }}
+                  />
+                  {wheel.assets.segmentHeadlines?.[i] && <span className="muted"> ✓</span>}
+                </td>
+                <td>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const { url } = await uploadFile(f);
+                      const segmentPanels = [
+                        ...(wheel.assets.segmentPanels || Array.from({ length: wheel.segmentCount }, () => null)),
+                      ];
+                      segmentPanels[i] = url;
+                      setWheel({
+                        ...wheel,
+                        assets: { ...wheel.assets, segmentPanels },
+                      });
+                    }}
+                  />
+                  {wheel.assets.segmentPanels?.[i] && <span className="muted"> ✓</span>}
+                </td>
+                <td>
+                  <input
+                    type="file"
                     accept="audio/*"
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
@@ -297,8 +359,12 @@ export default function WheelEditor() {
         <AssetRow label="Background" onFile={(f) => void pickAsset("background", f)} />
         <AssetRow label="Wheel" onFile={(f) => void pickAsset("wheel", f)} />
         <AssetRow label="Frame" onFile={(f) => void pickAsset("frame", f)} />
-        <AssetRow label="Win panel" onFile={(f) => void pickAsset("winPanel", f)} />
-        <AssetRow label="Lose panel" onFile={(f) => void pickAsset("losePanel", f)} />
+        <AssetRow label="Win panel (fallback)" onFile={(f) => void pickAsset("winPanel", f)} />
+        <AssetRow label="Lose panel (fallback)" onFile={(f) => void pickAsset("losePanel", f)} />
+        <p className="muted" style={{ marginTop: 8 }}>
+          Per-segment headline and result images can be set in the segments table above. Win/lose panels are used when a
+          segment has no custom result panel.
+        </p>
       </div>
 
       <div className="card">
@@ -378,7 +444,9 @@ function AssetRow({ label, onFile }: { label: string; onFile: (f: File) => void 
 function publicConfig(w: Wheel) {
   return {
     id: w.id,
+    title: w.title,
     slug: w.slug,
+    faviconUrl: w.faviconUrl,
     segmentCount: w.segmentCount,
     prizes: w.prizes,
     segmentOutcome: w.segmentOutcome,

@@ -1,6 +1,10 @@
 import { connectLambda } from "@netlify/blobs";
-import { readIndex, getWheelJson } from "./lib/blobs.mjs";
-import { appendSpinRow } from "./lib/sheets.mjs";
+import { readIndex, getWheelJson, setWheelJson } from "./lib/blobs.mjs";
+import {
+  appendSpinRowToTab,
+  ensureWheelReportingTab,
+  sanitizeSheetTabName,
+} from "./lib/sheets.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -48,7 +52,8 @@ export const handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid segment" }), headers };
     }
 
-    await appendSpinRow({
+    const tab = wheel.reportingSheetTab || sanitizeSheetTabName(wheel.slug, wheel.id);
+    const row = {
       timestampUtc: new Date().toISOString(),
       wheelSlug: slug,
       wheelId: wheel.id,
@@ -56,7 +61,15 @@ export const handler = async (event) => {
       prizeLabel: String(prizeLabel ?? wheel.prizes[idx] ?? ""),
       outcome: outcome === "win" || outcome === true ? "win" : "lose",
       schemaVersion: wheel.prizeSchemaVersion ?? 1,
-    });
+    };
+
+    await ensureWheelReportingTab(tab, { prizeLabels: wheel.prizes || [] });
+    await appendSpinRowToTab(tab, row);
+
+    if (!wheel.reportingSheetTab) {
+      wheel.reportingSheetTab = tab;
+      await setWheelJson(wheel.id, wheel);
+    }
 
     return { statusCode: 204, body: "", headers };
   } catch (e) {

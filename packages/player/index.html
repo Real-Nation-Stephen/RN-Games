@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="/src/css/styles.css" />
   </head>
   <body>
+    <button type="button" id="wheel-fs-btn" class="wheel-fs-btn" hidden aria-pressed="false">
+      Fullscreen
+    </button>
     <div id="player-error" class="player-error" hidden>
       <p id="player-error-msg">Could not load wheel.</p>
     </div>
@@ -22,6 +25,7 @@
 
     <div id="app" hidden>
       <div id="fit">
+        <div id="page-bg" aria-hidden="true"></div>
         <div id="stage">
           <div class="layout">
             <section class="panel__logo" aria-label="Logo area">

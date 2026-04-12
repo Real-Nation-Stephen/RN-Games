@@ -10,7 +10,9 @@ const headers = {
 function toPublicWheel(w) {
   return {
     id: w.id,
+    title: w.title,
     slug: w.slug,
+    faviconUrl: w.faviconUrl || "",
     segmentCount: w.segmentCount,
     prizes: w.prizes,
     segmentOutcome: w.segmentOutcome,

@@ -9,6 +9,7 @@ import {
   deleteWheelBlob,
 } from "./lib/blobs.mjs";
 import { validateSlug } from "./lib/validate.mjs";
+import { ensureWheelReportingTab, sanitizeSheetTabName } from "./lib/sheets.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -43,6 +44,7 @@ function emptyWheelRecord(id, slug) {
       frame: "",
       winPanel: "",
       losePanel: "",
+      segmentHeadlines: null,
       segmentPanels: null,
     },
     sounds: {
@@ -59,6 +61,8 @@ function emptyWheelRecord(id, slug) {
     },
     landscape: { minAspectRatio: 1.25 },
     thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
   };
 }
 
@@ -71,6 +75,13 @@ function syncSegmentArrays(w) {
   if (w.weights && w.weights.length !== n) w.weights = null;
   w.sounds = w.sounds || {};
   w.sounds.segmentReveal = Array.from({ length: n }, (__, i) => w.sounds.segmentReveal?.[i] ?? null);
+  const a = w.assets || (w.assets = {});
+  if (Array.isArray(a.segmentPanels)) {
+    a.segmentPanels = Array.from({ length: n }, (__, i) => a.segmentPanels[i] ?? null);
+  }
+  if (Array.isArray(a.segmentHeadlines)) {
+    a.segmentHeadlines = Array.from({ length: n }, (__, i) => a.segmentHeadlines[i] ?? null);
+  }
 }
 
 export const handler = async (event, context) => {
@@ -167,6 +178,8 @@ export const handler = async (event, context) => {
         }
       }
 
+      const prevReporting = existing.reportingEnabled;
+
       const assign = [
         "title",
         "clientName",
@@ -182,6 +195,7 @@ export const handler = async (event, context) => {
         "landscape",
         "thumbnailUrl",
         "reportingEnabled",
+        "faviconUrl",
       ];
       for (const k of assign) {
         if (body[k] !== undefined) existing[k] = body[k];
@@ -196,6 +210,16 @@ export const handler = async (event, context) => {
 
       existing.updatedAt = new Date().toISOString();
       syncSegmentArrays(existing);
+
+      if (existing.reportingEnabled && !prevReporting && process.env.GOOGLE_SHEET_ID) {
+        try {
+          const tab = sanitizeSheetTabName(existing.slug, existing.id);
+          await ensureWheelReportingTab(tab, { prizeLabels: existing.prizes || [] });
+          existing.reportingSheetTab = tab;
+        } catch (err) {
+          console.error("ensureWheelReportingTab failed", err);
+        }
+      }
 
       await setWheelJson(id, existing);
 

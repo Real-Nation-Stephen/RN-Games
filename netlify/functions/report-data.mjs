@@ -1,6 +1,6 @@
 import { connectLambda } from "@netlify/blobs";
-import { readIndex } from "./lib/blobs.mjs";
-import { readSpinRows } from "./lib/sheets.mjs";
+import { readIndex, getWheelJson } from "./lib/blobs.mjs";
+import { readSpinRows, readSpinRowsFromTab } from "./lib/sheets.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -39,7 +39,11 @@ export const handler = async (event) => {
   }
 
   try {
-    const rows = await readSpinRows();
+    const wheel = await getWheelJson(item.id);
+    const rows = wheel?.reportingSheetTab
+      ? await readSpinRowsFromTab(wheel.reportingSheetTab)
+      : await readSpinRows();
+
     const fromMs = from ? Date.parse(from) : 0;
     const toMs = to ? Date.parse(to) : Number.MAX_SAFE_INTEGER;
 
@@ -66,6 +70,7 @@ export const handler = async (event) => {
         counts,
         from: from || null,
         to: to || null,
+        sheetTab: wheel?.reportingSheetTab || null,
       }),
     };
   } catch (e) {
