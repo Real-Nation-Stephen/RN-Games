@@ -148,7 +148,6 @@ export default function WheelEditor() {
       },
       assets: {
         ...wheel.assets,
-        segmentHeadlines: Array.from({ length: n }, (_, i) => wheel.assets.segmentHeadlines?.[i] ?? null),
         segmentPanels: Array.from({ length: n }, (_, i) => wheel.assets.segmentPanels?.[i] ?? null),
       },
     });
@@ -259,7 +258,6 @@ export default function WheelEditor() {
               <th>Prize label</th>
               <th>Win (confetti)</th>
               <th>Headline / copy (result)</th>
-              <th>Result panel</th>
               <th>Reveal sound</th>
             </tr>
           </thead>
@@ -288,26 +286,6 @@ export default function WheelEditor() {
                       setWheel({ ...wheel, segmentOutcome });
                     }}
                   />
-                </td>
-                <td>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      const { url } = await uploadFile(f);
-                      const segmentHeadlines = [
-                        ...(wheel.assets.segmentHeadlines || Array.from({ length: wheel.segmentCount }, () => null)),
-                      ];
-                      segmentHeadlines[i] = url;
-                      setWheel({
-                        ...wheel,
-                        assets: { ...wheel.assets, segmentHeadlines },
-                      });
-                    }}
-                  />
-                  {wheel.assets.segmentHeadlines?.[i] && <span className="muted"> ✓</span>}
                 </td>
                 <td>
                   <input
@@ -362,8 +340,8 @@ export default function WheelEditor() {
         <AssetRow label="Win panel (fallback)" onFile={(f) => void pickAsset("winPanel", f)} />
         <AssetRow label="Lose panel (fallback)" onFile={(f) => void pickAsset("losePanel", f)} />
         <p className="muted" style={{ marginTop: 8 }}>
-          Per-segment headline and result images can be set in the segments table above. Win/lose panels are used when a
-          segment has no custom result panel.
+          Per-segment headline/copy images are set in the segments table. Win/lose panels above are used only when a
+          segment has no result image.
         </p>
       </div>
 

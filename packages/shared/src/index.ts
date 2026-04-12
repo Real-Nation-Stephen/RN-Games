@@ -23,9 +23,7 @@ export interface WheelAssets {
   frame: string;
   winPanel: string;
   losePanel: string;
-  /** Optional per-segment headline/copy art for the result state (left column, default layer) */
-  segmentHeadlines?: (string | null)[] | null;
-  /** Optional per-segment result panel art (left column, result layer); falls back to win/lose */
+  /** Optional per-segment image for the headline/copy area when that segment wins (result layer) */
   segmentPanels?: (string | null)[] | null;
 }
 
@@ -121,7 +119,6 @@ export function emptyWheel(partial: { id: string; slug: string }): WheelRecord {
       frame: "",
       winPanel: "",
       losePanel: "",
-      segmentHeadlines: null,
       segmentPanels: null,
     },
     faviconUrl: "",

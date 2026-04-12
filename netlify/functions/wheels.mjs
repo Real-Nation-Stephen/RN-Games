@@ -44,7 +44,6 @@ function emptyWheelRecord(id, slug) {
       frame: "",
       winPanel: "",
       losePanel: "",
-      segmentHeadlines: null,
       segmentPanels: null,
     },
     sounds: {
@@ -78,9 +77,6 @@ function syncSegmentArrays(w) {
   const a = w.assets || (w.assets = {});
   if (Array.isArray(a.segmentPanels)) {
     a.segmentPanels = Array.from({ length: n }, (__, i) => a.segmentPanels[i] ?? null);
-  }
-  if (Array.isArray(a.segmentHeadlines)) {
-    a.segmentHeadlines = Array.from({ length: n }, (__, i) => a.segmentHeadlines[i] ?? null);
   }
 }
 

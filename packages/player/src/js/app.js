@@ -90,18 +90,14 @@ function segmentIsWin(segmentIndex) {
   return o === true;
 }
 
-function resultHeadlineUrl(winnerIndex) {
-  const h = config.assets.segmentHeadlines;
-  if (Array.isArray(h) && h[winnerIndex]) return h[winnerIndex];
-  return config.assets.headline;
-}
-
 function resultPanelUrl(winnerIndex) {
   const panels = config.assets.segmentPanels;
   if (Array.isArray(panels) && panels.length === config.segmentCount) {
     const u = panels[winnerIndex];
     if (u) return u;
   }
+  const legacy = config.assets.segmentHeadlines;
+  if (Array.isArray(legacy) && legacy[winnerIndex]) return legacy[winnerIndex];
   return segmentIsWin(winnerIndex)
     ? config.assets.winPanel
     : config.assets.losePanel;
@@ -162,7 +158,6 @@ function logSpin(winnerIndex, isWin) {
 
 function showResult(winnerIndex) {
   const isWin = segmentIsWin(winnerIndex);
-  setImgSrc(els.imgHeadline, resultHeadlineUrl(winnerIndex));
   setImgSrc(els.imgResult, resultPanelUrl(winnerIndex));
   els.imgResult.alt = isWin ? "You won" : "Try again";
 
