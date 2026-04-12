@@ -34,6 +34,33 @@ type Wheel = {
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
+/** html2canvas cannot see `body::before`; apply the same page BG on the cloned `#fit` only (thumbnails/PDF). */
+function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  const bgImage =
+    idoc && idwin
+      ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--page-bg-image").trim()
+      : "";
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: "#0c1410",
+    onclone: (doc: Document) => {
+      const f = doc.getElementById("fit");
+      if (!f) return;
+      f.style.backgroundColor = "#0c1410";
+      if (bgImage && bgImage !== "none") {
+        f.style.backgroundImage = bgImage;
+        f.style.backgroundSize = "cover";
+        f.style.backgroundPosition = "center";
+        f.style.backgroundRepeat = "no-repeat";
+      }
+    },
+  };
+}
+
 export default function WheelEditor() {
   const { id } = useParams<{ id: string }>();
   const [wheel, setWheel] = useState<Wheel | null>(null);
@@ -97,10 +124,7 @@ export default function WheelEditor() {
     try {
       const canvas = await html2canvas(fit, {
         scale: 0.35,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: "#000000",
+        ...getFitHtml2CanvasOptions(iframe),
       });
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.85));
       if (!blob) return;
@@ -122,10 +146,7 @@ export default function WheelEditor() {
     if (!fit) return;
     const canvas = await html2canvas(fit, {
       scale: 0.5,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      backgroundColor: "#000000",
+      ...getFitHtml2CanvasOptions(iframe),
     });
     const img = canvas.toDataURL("image/jpeg", 0.92);
     const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });

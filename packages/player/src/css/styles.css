@@ -80,25 +80,11 @@ body::before {
   transition: box-shadow 0.45s ease, filter 0.45s ease;
 }
 
-/* Mirrors body::page background so html2canvas (#fit) includes the BG image in thumbnails/PDF */
-#page-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-color: transparent;
-  background-image: var(--page-bg-image);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
 #stage {
   width: calc(var(--design-w) * 1px);
   height: calc(var(--design-h) * 1px);
   transform-origin: 0 0;
   position: relative;
-  z-index: 1;
   background: transparent;
   transition: filter 0.35s ease, box-shadow 0.45s ease;
 }
