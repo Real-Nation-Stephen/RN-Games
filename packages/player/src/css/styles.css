@@ -37,6 +37,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* When [hidden] is set, it must win over display:flex — otherwise the panel stays visible and stacks above #app. */
+.player-error[hidden] {
+  display: none !important;
+}
+
 .player-error {
   min-height: 100vh;
   display: flex;
