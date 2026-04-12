@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   root: resolve(__dirname),
+  /** Must match `dist/play/` in assemble-dist so `/slug` routes still load `/play/assets/*`. */
+  base: "/play/",
   publicDir: false,
   build: {
     outDir: "dist",

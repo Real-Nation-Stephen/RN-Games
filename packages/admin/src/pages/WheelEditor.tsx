@@ -55,6 +55,21 @@ export default function WheelEditor() {
     void load();
   }, [load]);
 
+  const pushPreview = useCallback(() => {
+    if (!wheel || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: "rngames-wheel-config", config: publicConfig(wheel) },
+      window.location.origin,
+    );
+  }, [wheel]);
+
+  /** Live-sync preview when wheel state changes (debounced). */
+  useEffect(() => {
+    if (!wheel) return;
+    const t = window.setTimeout(() => pushPreview(), 80);
+    return () => window.clearTimeout(t);
+  }, [wheel, pushPreview]);
+
   async function save() {
     if (!wheel) return;
     setSaving(true);
@@ -69,14 +84,6 @@ export default function WheelEditor() {
     }
   }
 
-  function pushPreview() {
-    if (!wheel || !iframeRef.current?.contentWindow) return;
-    iframeRef.current.contentWindow.postMessage(
-      { type: "rngames-wheel-config", config: publicConfig(wheel) },
-      window.location.origin,
-    );
-  }
-
   async function saveWithThumbnail() {
     if (!wheel) return;
     await save();
@@ -87,7 +94,13 @@ export default function WheelEditor() {
     const stage = iframe.contentDocument.getElementById("stage");
     if (!stage) return;
     try {
-      const canvas = await html2canvas(stage, { scale: 0.35, useCORS: true, allowTaint: true });
+      const canvas = await html2canvas(stage, {
+        scale: 0.35,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        backgroundColor: "#000000",
+      });
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.85));
       if (!blob) return;
       const file = new File([blob], `thumb-${wheel.id}.jpg`, { type: "image/jpeg" });
@@ -102,12 +115,20 @@ export default function WheelEditor() {
   async function downloadPdf() {
     const iframe = iframeRef.current;
     if (!iframe?.contentDocument) return;
+    pushPreview();
+    await new Promise((r) => setTimeout(r, 150));
     const stage = iframe.contentDocument.getElementById("stage");
     if (!stage) return;
-    const canvas = await html2canvas(stage, { scale: 0.5, useCORS: true, allowTaint: true });
-    const img = canvas.toDataURL("image/png");
+    const canvas = await html2canvas(stage, {
+      scale: 0.5,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: "#000000",
+    });
+    const img = canvas.toDataURL("image/jpeg", 0.92);
     const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });
-    pdf.addImage(img, "PNG", 0, 0, canvas.width, canvas.height);
+    pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height);
     pdf.save(`${wheel?.slug || "wheel"}-preview.pdf`);
   }
 
@@ -328,6 +349,7 @@ export default function WheelEditor() {
           ref={iframeRef}
           title="Preview"
           src={`/play/index.html?preview=1`}
+          onLoad={() => pushPreview()}
           style={{ width: "100%", height: 420, border: "1px solid var(--rn-border)", borderRadius: 8, background: "#000" }}
         />
       </div>

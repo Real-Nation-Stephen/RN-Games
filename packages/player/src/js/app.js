@@ -58,14 +58,23 @@ function applyPageBackground(url) {
   }
 }
 
+function setImgSrc(el, url) {
+  if (!url) {
+    el.removeAttribute("src");
+    return;
+  }
+  el.crossOrigin = "anonymous";
+  el.src = url;
+}
+
 function applyAssets() {
   const a = config.assets;
-  els.imgLogo.src = a.logo;
-  els.imgHeadline.src = a.headline;
-  els.imgButton.src = a.button;
-  els.imgRestart.src = a.restart;
-  els.imgWheel.src = a.wheel;
-  els.imgFrame.src = a.frame;
+  setImgSrc(els.imgLogo, a.logo);
+  setImgSrc(els.imgHeadline, a.headline);
+  setImgSrc(els.imgButton, a.button);
+  setImgSrc(els.imgRestart, a.restart);
+  setImgSrc(els.imgWheel, a.wheel);
+  setImgSrc(els.imgFrame, a.frame);
   els.imgLogo.alt = "Brand logo";
   els.imgHeadline.alt = "Headline and copy";
   els.imgButton.alt = "Tap to spin";
@@ -145,7 +154,7 @@ function logSpin(winnerIndex, isWin) {
 
 function showResult(winnerIndex) {
   const isWin = segmentIsWin(winnerIndex);
-  els.imgResult.src = resultPanelUrl(winnerIndex);
+  setImgSrc(els.imgResult, resultPanelUrl(winnerIndex));
   els.imgResult.alt = isWin ? "You won" : "Try again";
 
   clearOutcomeStyling();

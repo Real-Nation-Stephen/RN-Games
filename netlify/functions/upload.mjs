@@ -33,8 +33,8 @@ export const handler = async (event, context) => {
       return { statusCode: 400, body: JSON.stringify({ error: "File too large (max 12MB)" }), headers };
     }
     const id = await saveBinary(buf, contentType || "application/octet-stream");
-    const site = process.env.URL || "";
-    const url = `${site}/api/file?id=${encodeURIComponent(id)}`;
+    /** Same-origin relative URL so saved wheels keep working across domains / deploy contexts. */
+    const url = `/api/file?id=${encodeURIComponent(id)}`;
     return {
       statusCode: 200,
       headers,
