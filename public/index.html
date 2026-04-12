@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spinning Wheel</title>
+    <link rel="stylesheet" href="css/styles.css?v=6" />
+  </head>
+  <body>
+    <div id="orientation-gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+      <div>
+        <h1 id="gate-title">Rotate your device</h1>
+        <p>
+          This experience is built for a wide landscape layout (about <strong>5∶4</strong> width-to-height
+          or wider). Please use a landscape screen or wider window to continue.
+        </p>
+      </div>
+    </div>
+
+    <div id="app">
+      <div id="fit">
+        <div id="stage">
+          <div class="layout">
+            <section class="panel__logo" aria-label="Logo area">
+              <img id="img-logo" width="630" height="360" decoding="async" alt="" />
+            </section>
+            <section class="panel__copy panel__copy--stack" aria-label="Headline and result">
+              <div class="copy-layer copy-layer--default">
+                <img id="img-headline" width="630" height="480" decoding="async" alt="" />
+              </div>
+              <div class="copy-layer copy-layer--result" id="copy-result-layer" aria-hidden="true">
+                <img id="img-result" width="630" height="480" decoding="async" alt="" />
+              </div>
+            </section>
+            <section
+              class="panel__button panel__button--stack"
+              id="spin-zone"
+              role="button"
+              tabindex="0"
+              aria-label="Spin the wheel"
+            >
+              <div class="button-layer button-layer--spin">
+                <img id="img-button" width="630" height="240" decoding="async" alt="" />
+              </div>
+              <div class="button-layer button-layer--restart" id="restart-layer" aria-hidden="true">
+                <img id="img-restart" width="630" height="240" decoding="async" alt="" />
+              </div>
+            </section>
+            <section class="panel__wheel" id="panel-wheel" aria-label="Wheel">
+              <div class="wheel-frame">
+                <div id="wheel-rotate" class="wheel-frame__rotate">
+                  <img id="img-wheel" width="910" height="910" decoding="async" alt="" />
+                </div>
+                <div class="wheel-frame__overlay">
+                  <img id="img-frame" width="910" height="910" decoding="async" alt="" />
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/app.js?v=6"></script>
+  </body>
+</html>

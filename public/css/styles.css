@@ -1,0 +1,339 @@
+/* Design canvas: 1920×1080 — scaled to fit viewport with locked aspect ratio */
+
+:root {
+  --design-w: 1920;
+  --design-h: 1080;
+  --pad: max(12px, min(2.5vmin, 28px));
+  --left-w: 630px;
+  --right-w: 1290px;
+  --logo-h: 360px;
+  --headline-h: 480px;
+  --button-h: 240px;
+  --wheel-box: 910px;
+  --min-landscape-ratio: 1.25;
+  --overlay-bg: rgba(12, 14, 22, 0.92);
+  --text: #f4f4f8;
+  --muted: rgba(244, 244, 248, 0.72);
+  --page-bg-image: url("../assets/background-hkn.png");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #0c1410;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Full-viewport background (not clipped to the 1920×1080 stage) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #0c1410;
+  background-image: var(--page-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Flex centre for the fitted stage */
+#app {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pad);
+}
+
+#fit {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  line-height: 0;
+  transition: box-shadow 0.45s ease, filter 0.45s ease;
+}
+
+#stage {
+  width: calc(var(--design-w) * 1px);
+  height: calc(var(--design-h) * 1px);
+  transform-origin: 0 0;
+  position: relative;
+  background: transparent;
+  transition: filter 0.35s ease, box-shadow 0.45s ease;
+}
+
+#stage.stage--outcome-win {
+  filter: saturate(1.08) brightness(1.04);
+  box-shadow: 0 0 0 2px rgba(255, 210, 90, 0.35), 0 0 48px rgba(255, 200, 80, 0.22);
+}
+
+#stage.stage--outcome-lose {
+  filter: saturate(0.88) brightness(0.97);
+  box-shadow: 0 0 0 2px rgba(120, 140, 180, 0.25), 0 0 36px rgba(40, 60, 100, 0.2);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--left-w) var(--right-w);
+  grid-template-rows: var(--logo-h) var(--headline-h) var(--button-h);
+  width: 100%;
+  height: 100%;
+}
+
+.panel__logo {
+  grid-column: 1;
+  grid-row: 1;
+  overflow: hidden;
+  background: transparent;
+}
+
+.panel__copy {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  background: transparent;
+}
+
+.panel__copy--stack {
+  position: relative;
+}
+
+.copy-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.copy-layer--default {
+  opacity: 1;
+  z-index: 1;
+}
+
+.copy-layer--result {
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#app.state-result .copy-layer--default {
+  opacity: 0;
+}
+
+#app.state-result .copy-layer--result {
+  opacity: 1;
+}
+
+.panel__button {
+  grid-column: 1;
+  grid-row: 3;
+  overflow: hidden;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+.panel__button--stack {
+  position: relative;
+}
+
+.button-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-layer--spin {
+  opacity: 1;
+  z-index: 1;
+}
+
+.button-layer--restart {
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#app.state-result .button-layer--spin {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#app.state-result .button-layer--restart {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel__button:focus-visible {
+  outline: 3px solid #6ae8ff;
+  outline-offset: -3px;
+}
+
+.panel__button.is-spinning {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.panel__button img,
+.panel__logo img,
+.panel__copy img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.panel__wheel {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel__wheel.is-land {
+  animation: wheel-land 0.7s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+@keyframes wheel-land {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-6px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.wheel-frame {
+  width: var(--wheel-box);
+  height: var(--wheel-box);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wheel-frame__rotate {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  will-change: transform;
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+}
+
+.wheel-frame__rotate img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.wheel-frame__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.wheel-frame__overlay img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+body.is-debug .panel__logo {
+  box-shadow: inset 0 0 0 3px rgba(255, 105, 180, 0.85);
+}
+
+body.is-debug .panel__copy {
+  box-shadow: inset 0 0 0 3px rgba(60, 200, 120, 0.85);
+}
+
+body.is-debug .panel__button {
+  box-shadow: inset 0 0 0 3px rgba(80, 140, 255, 0.85);
+}
+
+body.is-debug .panel__wheel {
+  box-shadow: inset 0 0 0 3px rgba(240, 220, 80, 0.75);
+}
+
+body.is-debug .wheel-frame {
+  box-shadow: inset 0 0 0 3px rgba(255, 80, 80, 0.85);
+}
+
+/* Orientation / landscape gate */
+#orientation-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--overlay-bg);
+  text-align: center;
+}
+
+#orientation-gate.is-visible {
+  display: flex;
+}
+
+#orientation-gate h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+#orientation-gate p {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--muted);
+  font-size: clamp(0.9rem, 2.8vw, 1.05rem);
+  line-height: 1.45;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-layer,
+  .button-layer {
+    transition-duration: 0.01ms;
+  }
+
+  .panel__wheel.is-land {
+    animation: none;
+  }
+
+  #stage.stage--outcome-win,
+  #stage.stage--outcome-lose {
+    transition: none;
+  }
+}

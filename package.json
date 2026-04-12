@@ -1,0 +1,25 @@
+{
+  "name": "rngames-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/player",
+    "packages/admin",
+    "packages/report"
+  ],
+  "scripts": {
+    "build": "npm run build -w @rngames/shared && npm run build -w @rngames/player && npm run build -w @rngames/admin && npm run build -w @rngames/report && node scripts/assemble-dist.mjs",
+    "build:preview": "VITE_DEV_AUTH=1 npm run build",
+    "dev:admin": "npm run dev -w @rngames/admin",
+    "dev:player": "npm run dev -w @rngames/player",
+    "dev:report": "npm run dev -w @rngames/report"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.0.0",
+    "@netlify/functions": "^2.8.0",
+    "googleapis": "^144.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

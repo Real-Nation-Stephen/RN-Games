@@ -1,0 +1,58 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[[edge_functions]]
+  path = "/*"
+  function = "router"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs", "googleapis"]
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/report/*"
+  to = "/report/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/wheels"
+  to = "/.netlify/functions/wheels"
+  status = 200
+
+[[redirects]]
+  from = "/api/upload"
+  to = "/.netlify/functions/upload"
+  status = 200
+
+[[redirects]]
+  from = "/api/file"
+  to = "/.netlify/functions/file"
+  status = 200
+
+[[redirects]]
+  from = "/api/public-wheel"
+  to = "/.netlify/functions/public-wheel"
+  status = 200
+
+[[redirects]]
+  from = "/api/log-spin"
+  to = "/.netlify/functions/log-spin"
+  status = 200
+
+[[redirects]]
+  from = "/api/report-data"
+  to = "/.netlify/functions/report-data"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
