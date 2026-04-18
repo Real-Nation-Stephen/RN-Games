@@ -9,6 +9,10 @@ const RESERVED = new Set([
   "robots.txt",
   "_next",
   ".netlify",
+  /** Reserved for Quiz public routes */
+  "quiz",
+  /** Scratch ticket prototype / future public route */
+  "scratcher",
 ]);
 
 export default async (request, context) => {

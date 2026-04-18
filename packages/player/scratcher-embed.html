@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scratch ticket (embed)</title>
+    <!-- Format: ?format=16x9 | 1x1 | 9x16 | 4x3 (default 16x9). Stage only, no chrome. -->
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/scratcher.css" />
+  </head>
+  <body class="scratcher-embed">
+    <div id="app">
+      <div id="fit">
+        <div id="stage" class="scratcher-stage">
+          <div class="scratcher-active" id="scratcher-active">
+            <img
+              id="scratcher-bottom"
+              class="scratcher-bottom"
+              width="1300"
+              height="700"
+              alt=""
+              decoding="async"
+            />
+            <canvas id="scratch-canvas" class="scratch-canvas" width="1300" height="700" aria-label="Scratch to reveal"></canvas>
+            <div class="scratcher-button-slot" id="scratcher-button-slot" aria-hidden="true">
+              <button type="button" id="scratcher-cta" class="scratcher-cta">
+                <img id="scratcher-button-img" width="300" height="60" alt="Continue" decoding="async" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/scratcher/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scratch ticket — 4∶3 test</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/scratcher.css" />
+  </head>
+  <body class="scratcher-page" data-scratcher-format="4x3">
+    <button type="button" id="wheel-fs-btn" class="wheel-fs-btn" aria-pressed="false">Fullscreen</button>
+    <p id="scratcher-size-hint" class="scratcher-size-hint" hidden>
+      This demo is best viewed on a larger display or wider window.
+    </p>
+    <div id="orientation-gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+      <div>
+        <h1 id="gate-title">Rotate your device</h1>
+        <p id="gate-body">Loading…</p>
+      </div>
+    </div>
+
+    <div id="app">
+      <div id="fit">
+        <div id="stage" class="scratcher-stage">
+          <div class="scratcher-active" id="scratcher-active">
+            <img id="scratcher-bottom" class="scratcher-bottom" width="1300" height="700" alt="" decoding="async" />
+            <canvas id="scratch-canvas" class="scratch-canvas" width="1300" height="700" aria-label="Scratch to reveal"></canvas>
+            <div class="scratcher-button-slot" id="scratcher-button-slot" aria-hidden="true">
+              <button type="button" id="scratcher-cta" class="scratcher-cta">
+                <img id="scratcher-button-img" width="300" height="60" alt="" decoding="async" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+      hidden
+    >
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
+    </a>
+    <script type="module" src="/src/scratcher/main.js"></script>
+  </body>
+</html>

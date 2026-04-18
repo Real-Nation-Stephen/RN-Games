@@ -6,6 +6,7 @@ import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 
 type Wheel = {
   id: string;
+  gameType?: string;
   title: string;
   clientName: string;
   slug: string;
@@ -75,11 +76,15 @@ export default function WheelEditor() {
     setErr(null);
     try {
       const data = await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`);
+      if (data.gameType === "scratcher") {
+        navigate(`/scratchers/${id}`, { replace: true });
+        return;
+      }
       setWheel(data);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     void load();
@@ -143,10 +148,10 @@ export default function WheelEditor() {
     if (!fit) return;
     try {
       const canvas = await html2canvas(fit, {
-        scale: 0.35,
+        scale: 0.4,
         ...getFitHtml2CanvasOptions(iframe),
       });
-      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
       if (!blob) return;
       const file = new File([blob], `thumb-${wheel.id}.jpg`, { type: "image/jpeg" });
       const { url } = await uploadFile(file);
@@ -165,10 +170,10 @@ export default function WheelEditor() {
     const fit = iframe.contentDocument.getElementById("fit");
     if (!fit) return;
     const canvas = await html2canvas(fit, {
-      scale: 0.5,
+      scale: 2,
       ...getFitHtml2CanvasOptions(iframe),
     });
-    const img = canvas.toDataURL("image/jpeg", 0.92);
+    const img = canvas.toDataURL("image/jpeg", 0.95);
     const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });
     pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height);
     pdf.save(`${wheel?.slug || "wheel"}-preview.pdf`);

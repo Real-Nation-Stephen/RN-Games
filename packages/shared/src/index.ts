@@ -11,7 +11,57 @@ export const RESERVED_SLUGS = new Set([
   "robots.txt",
   "_next",
   ".netlify",
+  /** Reserved for the Quiz game type public routes */
+  "quiz",
+  /** Scratch ticket experience (prototype route) */
+  "scratcher",
 ]);
+
+/** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
+export type GameType = "spinning-wheel" | "quiz" | "scratcher";
+
+/** Scratch card layout presets (one format per scratcher game in v1). */
+export type ScratcherFormatId = "16x9" | "1x1" | "9x16" | "4x3";
+
+export interface ScratcherAssets {
+  top: string;
+  bottomWin: string;
+  bottomLose: string;
+  button: string;
+  /** Full-bleed page background behind the stage (optional) */
+  backgroundImage: string;
+}
+
+export interface ScratcherSounds {
+  win?: string | null;
+  lose?: string | null;
+}
+
+export interface ScratcherRecord {
+  id: string;
+  gameType: "scratcher";
+  title: string;
+  clientName: string;
+  slug: string;
+  updatedAt: string;
+  reportingEnabled: boolean;
+  reportingLockedAt?: string | null;
+  thumbnailUrl?: string;
+  faviconUrl?: string;
+  reportingSheetTab?: string;
+  showPoweredBy?: boolean;
+  scratcherFormat: ScratcherFormatId;
+  assets: ScratcherAssets;
+  /** Hex fill when no background image, e.g. #0a1628 */
+  backgroundColor: string;
+  sounds: ScratcherSounds;
+  /** CTA opens this URL (optional) */
+  winButtonUrl: string;
+  /** 0–1, fraction of scratch layer cleared before reveal */
+  clearThreshold: number;
+  /** 0–100; 100 or missing lose image ⇒ always win bottom */
+  winChancePercent: number;
+}
 
 export interface WheelAssets {
   logo: string;
@@ -48,6 +98,8 @@ export interface WheelLandscape {
 
 export interface WheelRecord {
   id: string;
+  /** Always `spinning-wheel` for wheel documents */
+  gameType?: GameType;
   title: string;
   clientName: string;
   slug: string;
@@ -77,8 +129,38 @@ export interface WheelRecord {
 
 export type WheelListItem = Pick<
   WheelRecord,
-  "id" | "title" | "clientName" | "slug" | "updatedAt" | "reportingEnabled" | "thumbnailUrl"
+  "id" | "gameType" | "title" | "clientName" | "slug" | "updatedAt" | "reportingEnabled" | "thumbnailUrl"
 >;
+
+export function emptyScratcher(partial: { id: string; slug: string }): ScratcherRecord {
+  return {
+    id: partial.id,
+    gameType: "scratcher",
+    title: "Untitled scratcher",
+    clientName: "",
+    slug: partial.slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    scratcherFormat: "16x9",
+    assets: {
+      top: "",
+      bottomWin: "",
+      bottomLose: "",
+      button: "",
+      backgroundImage: "",
+    },
+    backgroundColor: "#0a1628",
+    sounds: { win: null, lose: null },
+    winButtonUrl: "",
+    clearThreshold: 0.97,
+    winChancePercent: 50,
+  };
+}
 
 export function validateSlug(raw: string): { ok: true; slug: string } | { ok: false; error: string } {
   const slug = raw.trim().toLowerCase();
@@ -98,6 +180,7 @@ export function emptyWheel(partial: { id: string; slug: string }): WheelRecord {
   const n = 12;
   return {
     id: partial.id,
+    gameType: "spinning-wheel",
     title: "Untitled wheel",
     clientName: "",
     slug: partial.slug,

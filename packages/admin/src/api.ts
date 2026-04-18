@@ -4,6 +4,20 @@ import netlifyIdentity from "netlify-identity-widget";
 const DEV_BEARER =
   "eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZXYtbG9jYWwiLCJlbWFpbCI6ImRldkBsb2NhbC5wcmV2aWV3In0.dev";
 
+/** Avoid dumping full Netlify/HTML 404 pages into UI `Error.message`. */
+function formatApiErrorBody(text: string): string {
+  const t = text.trim();
+  if (
+    t.startsWith("<!DOCTYPE") ||
+    t.startsWith("<html") ||
+    (t.includes("<head>") && t.includes("</body>"))
+  ) {
+    return "API error: got an HTML page instead of JSON (usually 404). Start Netlify dev on port 8888 so /api proxies correctly (npx netlify-cli dev).";
+  }
+  if (t.length > 400) return `${t.slice(0, 400)}…`;
+  return t;
+}
+
 function authHeaders(): HeadersInit {
   if (import.meta.env.VITE_DEV_AUTH === "1") {
     return { "Content-Type": "application/json", Authorization: `Bearer ${DEV_BEARER}` };
@@ -34,7 +48,7 @@ export async function apiGet(path: string) {
     netlifyIdentity.open();
     throw new Error("Unauthorized");
   }
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
   return res.json();
 }
 
@@ -45,7 +59,7 @@ export async function apiDelete(path: string) {
     throw new Error("Unauthorized");
   }
   if (res.status === 204) return;
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
 }
 
 export async function apiSend(path: string, method: string, body?: unknown) {
@@ -59,7 +73,7 @@ export async function apiSend(path: string, method: string, body?: unknown) {
     throw new Error("Unauthorized");
   }
   if (res.status === 204) return null;
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
   const t = await res.text();
   return t ? JSON.parse(t) : null;
 }
@@ -75,6 +89,6 @@ export async function uploadFile(file: File): Promise<{ id: string; url: string 
       filename: file.name,
     }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
   return res.json();
 }

@@ -10,7 +10,14 @@ export default defineConfig({
     outDir: "dist",
     emptyDir: true,
     rollupOptions: {
-      input: resolve(__dirname, "index.html"),
+      input: {
+        main: resolve(__dirname, "index.html"),
+        scratcher: resolve(__dirname, "scratcher.html"),
+        "scratcher-embed": resolve(__dirname, "scratcher-embed.html"),
+        "scratcher-test-1x1": resolve(__dirname, "scratcher-test-1x1.html"),
+        "scratcher-test-9x16": resolve(__dirname, "scratcher-test-9x16.html"),
+        "scratcher-test-4x3": resolve(__dirname, "scratcher-test-4x3.html"),
+      },
     },
   },
   server: {

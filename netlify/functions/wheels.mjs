@@ -17,10 +17,41 @@ const headers = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
 };
 
+function emptyScratcherRecord(id, slug) {
+  return {
+    id,
+    gameType: "scratcher",
+    title: "Untitled scratcher",
+    clientName: "",
+    slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    scratcherFormat: "16x9",
+    assets: {
+      top: "",
+      bottomWin: "",
+      bottomLose: "",
+      button: "",
+      backgroundImage: "",
+    },
+    backgroundColor: "#0a1628",
+    sounds: { win: null, lose: null },
+    winButtonUrl: "",
+    clearThreshold: 0.97,
+    winChancePercent: 50,
+  };
+}
+
 function emptyWheelRecord(id, slug) {
   const n = 12;
   return {
     id,
+    gameType: "spinning-wheel",
     title: "Untitled wheel",
     clientName: "",
     slug,
@@ -118,13 +149,15 @@ export const handler = async (event, context) => {
         return { statusCode: 409, body: JSON.stringify({ error: "Slug already in use" }), headers };
       }
       const id = randomUUID();
-      const wheel = emptyWheelRecord(id, slugCheck.slug);
+      const isScratcher = body.gameType === "scratcher";
+      const wheel = isScratcher ? emptyScratcherRecord(id, slugCheck.slug) : emptyWheelRecord(id, slugCheck.slug);
       wheel.title = body.title || wheel.title;
       wheel.clientName = body.clientName || "";
       await setWheelJson(id, wheel);
       const entry = {
         id,
         slug: wheel.slug,
+        gameType: wheel.gameType || "spinning-wheel",
         title: wheel.title,
         clientName: wheel.clientName,
         updatedAt: wheel.updatedAt,
@@ -159,7 +192,9 @@ export const handler = async (event, context) => {
         existing.slug = slugCheck.slug;
       }
 
-      if (existing.reportingEnabled && existing.reportingLockedAt) {
+      const isWheel = existing.gameType !== "scratcher";
+
+      if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
         for (const k of schemaKeys) {
           if (body[k] !== undefined && JSON.stringify(body[k]) !== JSON.stringify(existing[k])) {
@@ -177,26 +212,47 @@ export const handler = async (event, context) => {
 
       const prevReporting = existing.reportingEnabled;
 
-      const assign = [
-        "title",
-        "clientName",
-        "segmentCount",
-        "prizes",
-        "segmentOutcome",
-        "weights",
-        "useWeightedSpin",
-        "wheelRotationOffsetDeg",
-        "assets",
-        "sounds",
-        "spin",
-        "landscape",
-        "thumbnailUrl",
-        "reportingEnabled",
-        "faviconUrl",
-        "showPoweredBy",
-      ];
-      for (const k of assign) {
-        if (body[k] !== undefined) existing[k] = body[k];
+      if (isWheel) {
+        const assign = [
+          "title",
+          "clientName",
+          "segmentCount",
+          "prizes",
+          "segmentOutcome",
+          "weights",
+          "useWeightedSpin",
+          "wheelRotationOffsetDeg",
+          "assets",
+          "sounds",
+          "spin",
+          "landscape",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+      } else {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "scratcherFormat",
+          "assets",
+          "backgroundColor",
+          "sounds",
+          "winButtonUrl",
+          "clearThreshold",
+          "winChancePercent",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
       }
 
       if (body.reportingEnabled === true && !existing.reportingLockedAt) {
@@ -207,9 +263,9 @@ export const handler = async (event, context) => {
       }
 
       existing.updatedAt = new Date().toISOString();
-      syncSegmentArrays(existing);
+      if (isWheel) syncSegmentArrays(existing);
 
-      if (existing.reportingEnabled && !prevReporting && process.env.GOOGLE_SHEET_ID) {
+      if (isWheel && existing.reportingEnabled && !prevReporting && process.env.GOOGLE_SHEET_ID) {
         try {
           const tab = sanitizeSheetTabName(existing.slug, existing.id);
           await ensureWheelReportingTab(tab, { prizeLabels: existing.prizes || [] });
@@ -226,6 +282,7 @@ export const handler = async (event, context) => {
       const entry = {
         id,
         slug: existing.slug,
+        gameType: existing.gameType || (isWheel ? "spinning-wheel" : "scratcher"),
         title: existing.title,
         clientName: existing.clientName,
         updatedAt: existing.updatedAt,

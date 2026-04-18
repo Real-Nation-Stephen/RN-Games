@@ -383,6 +383,10 @@ async function bootstrap() {
   }
 
   config = await res.json();
+  if (config.gameType === "scratcher") {
+    window.location.replace(`/play/scratcher.html?slug=${encodeURIComponent(wheelSlug)}`);
+    return;
+  }
   applyLoadedConfig();
 }
 
