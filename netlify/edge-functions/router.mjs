@@ -13,6 +13,7 @@ const RESERVED = new Set([
   "quiz",
   /** Scratch ticket prototype / future public route */
   "scratcher",
+  "flip-cards",
 ]);
 
 export default async (request, context) => {

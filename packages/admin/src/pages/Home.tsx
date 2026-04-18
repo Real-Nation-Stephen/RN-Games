@@ -27,6 +27,10 @@ function isQuiz(w: Item) {
   return w.gameType === "quiz";
 }
 
+function isFlipCards(w: Item) {
+  return w.gameType === "flip-cards";
+}
+
 function GamesTable({
   items,
   editPath,
@@ -182,6 +186,24 @@ export default function Home() {
     }
   }
 
+  async function createFlipCards() {
+    const slug = `flip-${Date.now().toString(36)}`;
+    try {
+      const res = await apiSend("/api/wheels", "POST", {
+        gameType: "flip-cards",
+        slug,
+        title: "New flip cards",
+        clientName: "",
+      });
+      await load();
+      if (res?.wheel?.id) {
+        window.location.href = `/admin/flip-cards/${res.wheel.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Create failed");
+    }
+  }
+
   async function createScratcher() {
     const slug = `scratch-${Date.now().toString(36)}`;
     try {
@@ -203,6 +225,7 @@ export default function Home() {
   const spinningWheels = wheels.filter(isSpinningWheel);
   const scratchers = wheels.filter(isScratcher);
   const quizGames = wheels.filter(isQuiz);
+  const flipCardGames = wheels.filter(isFlipCards);
 
   const placeholderZip = "#";
 
@@ -226,6 +249,9 @@ export default function Home() {
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void createScratcher()}>
             New scratcher
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createFlipCards()}>
+            New flip cards
           </button>
         </div>
       </section>
@@ -265,6 +291,23 @@ export default function Home() {
               </div>
             ) : (
               <GamesTable items={scratchers} editPath={(w) => `/scratchers/${w.id}`} copyLabel="Copy public URL" />
+            )}
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <SectionHeader
+              title="Your flip cards"
+              newLabel="New flip cards"
+              onNew={createFlipCards}
+              resourceHref={placeholderZip}
+              resourceLabel="Download flip card templates (ZIP)"
+            />
+            {flipCardGames.length === 0 ? (
+              <div className="card">
+                <p style={{ margin: 0 }}>No flip card games yet.</p>
+              </div>
+            ) : (
+              <GamesTable items={flipCardGames} editPath={(w) => `/flip-cards/${w.id}`} copyLabel="Copy public URL" />
             )}
           </section>
 

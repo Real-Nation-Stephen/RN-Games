@@ -80,6 +80,10 @@ export default function WheelEditor() {
         navigate(`/scratchers/${id}`, { replace: true });
         return;
       }
+      if (data.gameType === "flip-cards") {
+        navigate(`/flip-cards/${id}`, { replace: true });
+        return;
+      }
       setWheel(data);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");

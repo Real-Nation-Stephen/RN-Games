@@ -387,6 +387,10 @@ async function bootstrap() {
     window.location.replace(`/play/scratcher.html?slug=${encodeURIComponent(wheelSlug)}`);
     return;
   }
+  if (config.gameType === "flip-cards") {
+    window.location.replace(`/play/flip-cards.html?slug=${encodeURIComponent(wheelSlug)}`);
+    return;
+  }
   applyLoadedConfig();
 }
 

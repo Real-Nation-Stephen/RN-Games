@@ -30,6 +30,60 @@ function toPublicWheel(w) {
   };
 }
 
+function toPublicFlipCard(f) {
+  const n = Math.min(15, Math.max(1, Number(f.deckSize) || 7));
+  const dealt = Math.min(Math.max(1, Number(f.cardsDealt) || 1), n);
+  const maxCol = Math.min(6, Math.max(1, Number(f.maxColumns) || 4));
+  const src = Array.isArray(f.cards) ? f.cards : [];
+  const cards = Array.from({ length: n }, (_, i) => {
+    const c = src[i] || {};
+    return {
+      frontImage: c.frontImage || "",
+      backImage: c.backImage || "",
+      header: c.header || `Card ${i + 1}`,
+      body: c.body || "",
+      overlayButtonText: c.overlayButtonText || "Back",
+      soundUrl: c.soundUrl || "",
+    };
+  });
+  return {
+    gameType: "flip-cards",
+    id: f.id,
+    title: f.title,
+    slug: f.slug,
+    faviconUrl: f.faviconUrl || "",
+    showPoweredBy: f.showPoweredBy !== false,
+    selectionHeading: f.selectionHeading || "",
+    deckSize: n,
+    cardsDealt: dealt,
+    maxColumns: maxCol,
+    brandLogoCorner: f.brandLogoCorner || "bl",
+    sharedFrontImage: (f.sharedFrontImage || "").trim(),
+    backgroundImage: f.backgroundImage || "",
+    backgroundColor: f.backgroundColor || "#9f2527",
+    brandLogoUrl: f.brandLogoUrl || "",
+    sounds: {
+      music: f.sounds?.music || null,
+      musicVolume: typeof f.sounds?.musicVolume === "number" ? f.sounds.musicVolume : 0.35,
+    },
+    fonts: {
+      heading: f.fonts?.heading || "",
+      body: f.fonts?.body || "",
+      button: f.fonts?.button || "",
+    },
+    shuffle: {
+      enabled: f.shuffle?.enabled !== false,
+      label: f.shuffle?.label || "Shuffle",
+      buttonBg: f.shuffle?.buttonBg || "rgba(255,255,255,0.15)",
+      textColor: f.shuffle?.textColor || "#ffffff",
+      textSizePx: Number(f.shuffle?.textSizePx) || 16,
+      buttonFontSizePx: Number(f.shuffle?.buttonFontSizePx) || 15,
+    },
+    cards,
+    reportingEnabled: f.reportingEnabled,
+  };
+}
+
 function toPublicScratcher(s) {
   const winChance = Math.min(100, Math.max(0, Number(s.winChancePercent) || 50));
   const loseUrl = (s.assets?.bottomLose || "").trim();
@@ -82,7 +136,12 @@ export const handler = async (event) => {
   if (!doc) {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
   }
-  const payload = doc.gameType === "scratcher" ? toPublicScratcher(doc) : toPublicWheel(doc);
+  const payload =
+    doc.gameType === "scratcher"
+      ? toPublicScratcher(doc)
+      : doc.gameType === "flip-cards"
+        ? toPublicFlipCard(doc)
+        : toPublicWheel(doc);
   return {
     statusCode: 200,
     headers,

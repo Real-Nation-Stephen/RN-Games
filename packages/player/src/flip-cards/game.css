@@ -1,0 +1,82 @@
+@import "./dada-test.css";
+
+/* Full-page background (editor: image +/or hex) */
+body.flip-cards-game::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--flip-bg-solid, #9f2527);
+  background-image: var(--flip-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.brand-mark img {
+  max-width: min(200px, 40vw);
+  max-height: clamp(36px, 10vh, 72px);
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.selection-grid-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.selection-main {
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(8px, 1.5vh, 16px);
+}
+
+.shuffle-bar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 0;
+  width: 100%;
+}
+
+.shuffle-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  padding: 10px 22px;
+  cursor: pointer;
+  font-family: var(--flip-font-button, inherit);
+  transition:
+    background 0.2s,
+    transform 0.15s ease;
+}
+
+.shuffle-btn:hover {
+  filter: brightness(1.08);
+}
+
+.shuffle-btn:active {
+  transform: scale(0.98);
+}
+
+.detail-copy h2 {
+  font-family: var(--flip-font-heading, inherit);
+}
+
+.detail-copy p {
+  font-family: var(--flip-font-body, inherit);
+}
+
+.selection-title {
+  font-family: var(--flip-font-heading, inherit);
+}
+
+.back-btn {
+  font-family: var(--flip-font-button, inherit);
+}

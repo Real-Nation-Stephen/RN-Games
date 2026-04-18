@@ -17,6 +17,8 @@ export default defineConfig({
         "scratcher-test-1x1": resolve(__dirname, "scratcher-test-1x1.html"),
         "scratcher-test-9x16": resolve(__dirname, "scratcher-test-9x16.html"),
         "scratcher-test-4x3": resolve(__dirname, "scratcher-test-4x3.html"),
+        "flip-cards-dada-test": resolve(__dirname, "flip-cards-dada-test.html"),
+        "flip-cards": resolve(__dirname, "flip-cards.html"),
       },
     },
   },

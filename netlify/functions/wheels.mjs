@@ -47,6 +47,70 @@ function emptyScratcherRecord(id, slug) {
   };
 }
 
+function emptyFlipCardRecord(id, slug) {
+  const n = 7;
+  return {
+    id,
+    gameType: "flip-cards",
+    title: "Untitled flip cards",
+    clientName: "",
+    slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    selectionHeading: "Tap a card to learn more",
+    deckSize: n,
+    cardsDealt: 2,
+    maxColumns: 4,
+    brandLogoCorner: "bl",
+    sharedFrontImage: "",
+    backgroundImage: "",
+    backgroundColor: "#9f2527",
+    brandLogoUrl: "",
+    sounds: { music: null, musicVolume: 0.35 },
+    fonts: { heading: "", body: "", button: "" },
+    shuffle: {
+      enabled: true,
+      label: "Shuffle",
+      buttonBg: "rgba(255,255,255,0.15)",
+      textColor: "#ffffff",
+      textSizePx: 16,
+      buttonFontSizePx: 15,
+    },
+    cards: Array.from({ length: n }, (_, i) => ({
+      frontImage: "",
+      backImage: "",
+      header: `Card ${i + 1}`,
+      body: "Placeholder copy for this card.",
+      overlayButtonText: "Back",
+      soundUrl: "",
+    })),
+  };
+}
+
+function syncFlipCards(f) {
+  const n = Math.min(15, Math.max(1, Number(f.deckSize) || 7));
+  f.deckSize = n;
+  f.cardsDealt = Math.min(Math.max(1, Number(f.cardsDealt) || 1), n);
+  f.maxColumns = Math.min(6, Math.max(1, Number(f.maxColumns) || 4));
+  const prev = Array.isArray(f.cards) ? f.cards : [];
+  f.cards = Array.from({ length: n }, (_, i) => {
+    const c = prev[i];
+    return {
+      frontImage: c?.frontImage || "",
+      backImage: c?.backImage || "",
+      header: c?.header || `Card ${i + 1}`,
+      body: c?.body || "",
+      overlayButtonText: c?.overlayButtonText || "Back",
+      soundUrl: c?.soundUrl || "",
+    };
+  });
+}
+
 function emptyWheelRecord(id, slug) {
   const n = 12;
   return {
@@ -150,7 +214,12 @@ export const handler = async (event, context) => {
       }
       const id = randomUUID();
       const isScratcher = body.gameType === "scratcher";
-      const wheel = isScratcher ? emptyScratcherRecord(id, slugCheck.slug) : emptyWheelRecord(id, slugCheck.slug);
+      const isFlipCards = body.gameType === "flip-cards";
+      const wheel = isScratcher
+        ? emptyScratcherRecord(id, slugCheck.slug)
+        : isFlipCards
+          ? emptyFlipCardRecord(id, slugCheck.slug)
+          : emptyWheelRecord(id, slugCheck.slug);
       wheel.title = body.title || wheel.title;
       wheel.clientName = body.clientName || "";
       await setWheelJson(id, wheel);
@@ -192,7 +261,8 @@ export const handler = async (event, context) => {
         existing.slug = slugCheck.slug;
       }
 
-      const isWheel = existing.gameType !== "scratcher";
+      const isWheel = existing.gameType !== "scratcher" && existing.gameType !== "flip-cards";
+      const isFlipCards = existing.gameType === "flip-cards";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -212,7 +282,33 @@ export const handler = async (event, context) => {
 
       const prevReporting = existing.reportingEnabled;
 
-      if (isWheel) {
+      if (isFlipCards) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "selectionHeading",
+          "deckSize",
+          "cardsDealt",
+          "maxColumns",
+          "brandLogoCorner",
+          "sharedFrontImage",
+          "backgroundImage",
+          "backgroundColor",
+          "brandLogoUrl",
+          "sounds",
+          "fonts",
+          "shuffle",
+          "cards",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        syncFlipCards(existing);
+      } else if (isWheel) {
         const assign = [
           "title",
           "clientName",
@@ -265,7 +361,7 @@ export const handler = async (event, context) => {
       existing.updatedAt = new Date().toISOString();
       if (isWheel) syncSegmentArrays(existing);
 
-      if (isWheel && existing.reportingEnabled && !prevReporting && process.env.GOOGLE_SHEET_ID) {
+      if (isWheel && !isFlipCards && existing.reportingEnabled && !prevReporting && process.env.GOOGLE_SHEET_ID) {
         try {
           const tab = sanitizeSheetTabName(existing.slug, existing.id);
           await ensureWheelReportingTab(tab, { prizeLabels: existing.prizes || [] });

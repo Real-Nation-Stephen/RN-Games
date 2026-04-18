@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="flip-cards-root">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flip cards</title>
+    <link rel="stylesheet" href="/src/flip-cards/game.css" />
+  </head>
+  <body data-brand-corner="bl">
+    <div id="app">
+      <header class="selection-header">
+        <h1 class="selection-title">Tap a card</h1>
+      </header>
+
+      <div class="selection-main">
+        <div class="selection-grid-area">
+          <section id="grid-section" class="grid-section" aria-label="Card selection"></section>
+        </div>
+        <div id="shuffle-bar" class="shuffle-bar" hidden>
+          <button type="button" id="shuffle-btn" class="shuffle-btn">Shuffle</button>
+        </div>
+      </div>
+
+      <div id="detail" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="detail-backdrop" aria-hidden="true"></div>
+        <div class="detail-panel">
+          <div class="detail-card-wrap">
+            <div class="detail-flip">
+              <div class="detail-flip-inner">
+                <div class="detail-face detail-face--front">
+                  <img src="" alt="" width="827" height="1417" decoding="async" />
+                </div>
+                <div class="detail-face detail-face--back">
+                  <img src="" alt="" width="827" height="1417" decoding="async" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-copy">
+            <h2 id="detail-title"> </h2>
+            <p id="detail-body"> </p>
+            <button type="button" class="back-btn">Back</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="brand-mark" class="brand-mark" aria-hidden="true"></div>
+
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
+    </a>
+
+    <script type="module" src="/src/flip-cards/game.js"></script>
+  </body>
+</html>

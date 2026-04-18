@@ -15,10 +15,12 @@ export const RESERVED_SLUGS = new Set([
   "quiz",
   /** Scratch ticket experience (prototype route) */
   "scratcher",
+  /** Flip card game public bundle */
+  "flip-cards",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher";
+export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards";
 
 /** Scratch card layout presets (one format per scratcher game in v1). */
 export type ScratcherFormatId = "16x9" | "1x1" | "9x16" | "4x3";
@@ -174,6 +176,114 @@ export function validateSlug(raw: string): { ok: true; slug: string } | { ok: fa
     return { ok: false, error: "This slug is reserved." };
   }
   return { ok: true, slug };
+}
+
+/** One card in the deck (front/back copy, optional per-card sound). */
+export interface FlipCardFace {
+  frontImage: string;
+  backImage: string;
+  header: string;
+  body: string;
+  /** Label for the overlay “back” control on the card detail view */
+  overlayButtonText: string;
+  soundUrl?: string;
+}
+
+export interface FlipCardShuffle {
+  enabled: boolean;
+  label: string;
+  buttonBg: string;
+  textColor: string;
+  textSizePx: number;
+  buttonFontSizePx: number;
+}
+
+export interface FlipCardFonts {
+  heading?: string;
+  body?: string;
+  button?: string;
+}
+
+export interface FlipCardRecord {
+  id: string;
+  gameType: "flip-cards";
+  title: string;
+  clientName: string;
+  slug: string;
+  updatedAt: string;
+  reportingEnabled: boolean;
+  reportingLockedAt?: string | null;
+  thumbnailUrl?: string;
+  faviconUrl?: string;
+  reportingSheetTab?: string;
+  showPoweredBy?: boolean;
+  /** Main heading above the card grid */
+  selectionHeading: string;
+  /** Cards in the full deck (1–15) */
+  deckSize: number;
+  /** How many cards to deal at random per session (≤ deckSize) */
+  cardsDealt: number;
+  /** Max columns at full width (responsive caps apply) */
+  maxColumns: number;
+  /** Client logo corner: tl | tr | bl | br */
+  brandLogoCorner: "tl" | "tr" | "bl" | "br";
+  /** If set, used when a card’s frontImage is empty */
+  sharedFrontImage: string;
+  backgroundImage: string;
+  backgroundColor: string;
+  brandLogoUrl: string;
+  sounds: {
+    music?: string | null;
+    musicVolume?: number;
+  };
+  fonts: FlipCardFonts;
+  shuffle: FlipCardShuffle;
+  cards: FlipCardFace[];
+}
+
+export function emptyFlipCard(partial: { id: string; slug: string }): FlipCardRecord {
+  const n = 7;
+  return {
+    id: partial.id,
+    gameType: "flip-cards",
+    title: "Untitled flip cards",
+    clientName: "",
+    slug: partial.slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    selectionHeading: "Tap a card to learn more",
+    deckSize: n,
+    cardsDealt: 2,
+    maxColumns: 4,
+    brandLogoCorner: "bl",
+    sharedFrontImage: "",
+    backgroundImage: "",
+    backgroundColor: "#9f2527",
+    brandLogoUrl: "",
+    sounds: { music: null, musicVolume: 0.35 },
+    fonts: { heading: "", body: "", button: "" },
+    shuffle: {
+      enabled: true,
+      label: "Shuffle",
+      buttonBg: "rgba(255,255,255,0.15)",
+      textColor: "#ffffff",
+      textSizePx: 16,
+      buttonFontSizePx: 15,
+    },
+    cards: Array.from({ length: n }, (_, i) => ({
+      frontImage: "",
+      backImage: "",
+      header: `Card ${i + 1}`,
+      body: "Placeholder copy for this card.",
+      overlayButtonText: "Back",
+      soundUrl: "",
+    })),
+  };
 }
 
 export function emptyWheel(partial: { id: string; slug: string }): WheelRecord {

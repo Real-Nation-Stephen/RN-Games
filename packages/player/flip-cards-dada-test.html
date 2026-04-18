@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DADÁ Wines — Flip cards (test)</title>
+    <!-- Full game: @font-face / uploaded fonts for headers, body, buttons -->
+    <!-- Grid preview: ?cards=1-15&cols=1-6 e.g. ?cards=12&cols=4 -->
+    <link rel="stylesheet" href="/src/flip-cards/dada-test.css" />
+  </head>
+  <body data-brand-corner="bl">
+    <div id="app">
+      <header class="selection-header">
+        <h1 class="selection-title">Tap a card to learn your wine future</h1>
+      </header>
+
+      <div class="selection-main">
+        <section id="grid-section" class="grid-section" aria-label="Card selection"></section>
+      </div>
+
+      <div id="detail" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="detail-backdrop" aria-hidden="true"></div>
+        <div class="detail-panel">
+          <div class="detail-card-wrap">
+            <div class="detail-flip">
+              <div class="detail-flip-inner">
+                <div class="detail-face detail-face--front">
+                  <img src="" alt="" width="827" height="1417" decoding="async" />
+                </div>
+                <div class="detail-face detail-face--back">
+                  <img src="" alt="" width="827" height="1417" decoding="async" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-copy">
+            <!-- Full game: header + body per card from editor; custom fonts for heading, body, button -->
+            <h2 id="detail-title">Placeholder header</h2>
+            <p id="detail-body">Placeholder copy.</p>
+            <button type="button" class="back-btn">Back</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full game: editor toggle for corner — tl | tr | bl | br -->
+    <div class="brand-mark" aria-hidden="true">DADÁ</div>
+
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
+    </a>
+
+    <script type="module" src="/src/flip-cards/dada-test.js"></script>
+  </body>
+</html>
