@@ -65,10 +65,19 @@ const brandMarkEl = document.getElementById("brand-mark");
 const poweredByEl = document.getElementById("powered-by-rn");
 const shuffleBar = document.getElementById("shuffle-bar");
 const shuffleBtn = document.getElementById("shuffle-btn");
+const muteBtn = document.getElementById("flip-mute-btn");
 
 let closing = false;
 let musicEl = null;
 let musicStarted = false;
+/** Configured music volume (0–1); applied unless user mutes */
+let targetMusicVolume = 0.35;
+/** Mutes background music, card SFX, and shuffle swoosh */
+let audioMuted = false;
+
+/** Speaker icons — subtle, matches button text colour */
+const ICON_SOUND_ON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+const ICON_SOUND_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
 
 /** Current card overlay SFX only — not background music */
 let cardSoundAudio = null;
@@ -97,8 +106,22 @@ function stopCardSound() {
   cardSoundAudio = null;
 }
 
+function applyMusicVolumeFromState() {
+  if (!musicEl) return;
+  musicEl.volume = audioMuted ? 0 : Math.min(1, Math.max(0, targetMusicVolume));
+}
+
+function updateMuteButtonUi() {
+  if (!muteBtn) return;
+  const wrap = muteBtn.querySelector(".flip-mute-btn__icon");
+  muteBtn.setAttribute("aria-pressed", audioMuted ? "true" : "false");
+  muteBtn.setAttribute("aria-label", audioMuted ? "Sound off — tap to turn on" : "Sound on — tap to mute");
+  if (wrap) wrap.innerHTML = audioMuted ? ICON_SOUND_OFF : ICON_SOUND_ON;
+}
+
 /** Short bandpass noise sweep — feels like a deck shuffle / swoosh */
 function playShuffleSwoosh() {
+  if (audioMuted) return;
   const ctx = getSfxAudioContext();
   if (!ctx) return;
   const t0 = ctx.currentTime;
@@ -233,15 +256,29 @@ function applyTheme(cfg) {
   }
 
   const sh = cfg.shuffle || {};
+  const showShuffle = sh.enabled !== false;
+  const showMute = sh.showMuteButton !== false;
   if (shuffleBar && shuffleBtn) {
-    const show = sh.enabled !== false;
-    shuffleBar.hidden = !show;
-    if (show) {
+    shuffleBar.hidden = !showShuffle && !showMute;
+    shuffleBtn.hidden = !showShuffle;
+    if (showShuffle) {
       shuffleBtn.textContent = sh.label || "Shuffle";
       shuffleBtn.style.background = sh.buttonBg || "rgba(255,255,255,0.15)";
       shuffleBtn.style.color = sh.textColor || "#ffffff";
       shuffleBtn.style.fontSize = `${Number(sh.textSizePx) || Number(sh.buttonFontSizePx) || 16}px`;
-      shuffleBtn.style.padding = `${Math.max(6, (Number(sh.buttonFontSizePx) || 15) * 0.4)}px ${Math.max(12, (Number(sh.buttonFontSizePx) || 15) * 0.9)}px`;
+      shuffleBtn.style.padding = "";
+    }
+    if (muteBtn) {
+      muteBtn.hidden = !showMute;
+      if (showMute) {
+        const bg = sh.buttonBg || "rgba(255,255,255,0.15)";
+        const col = sh.textColor || "#ffffff";
+        const bfs = Number(sh.buttonFontSizePx) || 15;
+        muteBtn.style.background = bg;
+        muteBtn.style.color = col;
+        muteBtn.style.fontSize = `${Math.max(12, Math.round(bfs * 0.72))}px`;
+      }
+      updateMuteButtonUi();
     }
   }
 
@@ -260,7 +297,8 @@ function maybeStartMusic(cfg) {
     musicEl.loop = true;
   }
   musicEl.src = url;
-  musicEl.volume = Math.min(1, Math.max(0, typeof cfg.sounds?.musicVolume === "number" ? cfg.sounds.musicVolume : 0.35));
+  targetMusicVolume = Math.min(1, Math.max(0, typeof cfg.sounds?.musicVolume === "number" ? cfg.sounds.musicVolume : 0.35));
+  applyMusicVolumeFromState();
 }
 
 function unlockMusic() {
@@ -311,6 +349,7 @@ function buildGrid() {
 
 function playCardSound(deckIndex) {
   stopCardSound();
+  if (audioMuted) return;
   const url = (liveConfig?.cards?.[deckIndex]?.soundUrl || "").trim();
   if (!url) return;
   try {
@@ -450,6 +489,14 @@ document.addEventListener("keydown", (e) => {
 });
 
 const SHUFFLE_ANIM_MS = 480;
+
+muteBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  audioMuted = !audioMuted;
+  if (audioMuted) stopCardSound();
+  applyMusicVolumeFromState();
+  updateMuteButtonUi();
+});
 
 shuffleBtn?.addEventListener("click", () => {
   unlockMusic();

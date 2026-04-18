@@ -191,6 +191,8 @@ export interface FlipCardFace {
 
 export interface FlipCardShuffle {
   enabled: boolean;
+  /** Small mute control beside shuffle; uses same colours / button font as shuffle */
+  showMuteButton: boolean;
   label: string;
   buttonBg: string;
   textColor: string;
@@ -269,6 +271,7 @@ export function emptyFlipCard(partial: { id: string; slug: string }): FlipCardRe
     fonts: { heading: "", body: "", button: "" },
     shuffle: {
       enabled: true,
+      showMuteButton: true,
       label: "Shuffle",
       buttonBg: "rgba(255,255,255,0.15)",
       textColor: "#ffffff",

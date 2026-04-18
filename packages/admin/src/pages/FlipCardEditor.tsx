@@ -15,6 +15,7 @@ type FlipCardFace = {
 
 type FlipShuffle = {
   enabled: boolean;
+  showMuteButton: boolean;
   label: string;
   buttonBg: string;
   textColor: string;
@@ -95,6 +96,7 @@ function publicFlipPayload(g: FlipCardGame) {
     },
     shuffle: {
       enabled: g.shuffle?.enabled !== false,
+      showMuteButton: g.shuffle?.showMuteButton !== false,
       label: g.shuffle?.label || "Shuffle",
       buttonBg: g.shuffle?.buttonBg || "rgba(255,255,255,0.15)",
       textColor: g.shuffle?.textColor || "#ffffff",
@@ -415,6 +417,19 @@ export default function FlipCardEditor() {
             }
           />
           Show shuffle button (re-deals random cards)
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={game.shuffle?.showMuteButton !== false}
+            onChange={(e) =>
+              setGame({
+                ...game,
+                shuffle: { ...game.shuffle, showMuteButton: e.target.checked },
+              })
+            }
+          />
+          Show mute button (next to shuffle — uses shuffle colours & button font)
         </label>
 
         <label className="field" style={{ marginTop: 16 }}>

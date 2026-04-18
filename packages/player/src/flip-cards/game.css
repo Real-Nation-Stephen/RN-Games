@@ -41,20 +41,67 @@ body.flip-cards-game::before {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: 4px 0 0;
+  align-items: center;
   width: 100%;
+  padding: 2px 8px 0;
+}
+
+.shuffle-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: min(100%, 440px);
 }
 
 .shuffle-btn {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
-  padding: 10px 22px;
+  padding: 0.4em 0.85em;
+  line-height: 1.25;
   cursor: pointer;
   font-family: var(--flip-font-button, inherit);
   transition:
     background 0.2s,
     transform 0.15s ease;
+}
+
+.flip-mute-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.35em;
+  height: 2.35em;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--flip-font-button, inherit);
+  transition:
+    background 0.2s,
+    transform 0.15s ease,
+    opacity 0.2s ease;
+  opacity: 0.92;
+}
+
+.flip-mute-btn:hover {
+  opacity: 1;
+  filter: brightness(1.06);
+}
+
+.flip-mute-btn:active {
+  transform: scale(0.96);
+}
+
+.flip-mute-btn__icon svg {
+  display: block;
+  width: 1em;
+  height: 1em;
 }
 
 .shuffle-btn:hover {
@@ -115,5 +162,32 @@ body.flip-cards-game::before {
 @media (prefers-reduced-motion: reduce) {
   .card-grid.is-shuffling .card-tile {
     animation: none;
+  }
+}
+
+/* Narrow screens: lift controls above fixed logo / safe areas; balanced padding */
+@media (max-width: 640px) {
+  body.flip-cards-game #app {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 104px));
+  }
+
+  body.flip-cards-game .selection-header {
+    padding-bottom: clamp(12px, 3vh, 36px);
+  }
+
+  body.flip-cards-game .selection-main {
+    gap: clamp(2px, 1vh, 10px);
+  }
+
+  body.flip-cards-game .shuffle-bar {
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+
+  body.flip-cards-game .shuffle-bar-row {
+    gap: 8px;
   }
 }

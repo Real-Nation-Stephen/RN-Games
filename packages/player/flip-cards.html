@@ -17,7 +17,19 @@
           <section id="grid-section" class="grid-section" aria-label="Card selection"></section>
         </div>
         <div id="shuffle-bar" class="shuffle-bar" hidden>
-          <button type="button" id="shuffle-btn" class="shuffle-btn">Shuffle</button>
+          <div class="shuffle-bar-row">
+            <button type="button" id="shuffle-btn" class="shuffle-btn">Shuffle</button>
+            <button
+              type="button"
+              id="flip-mute-btn"
+              class="flip-mute-btn"
+              hidden
+              aria-pressed="false"
+              aria-label="Mute sound"
+            >
+              <span class="flip-mute-btn__icon" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
 
