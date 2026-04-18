@@ -65,6 +65,11 @@ body::before {
   background-repeat: no-repeat;
 }
 
+/* Must override display:flex — otherwise [hidden] on #app does not hide the wheel before config loads. */
+#app[hidden] {
+  display: none !important;
+}
+
 #app {
   min-height: 100%;
   display: flex;

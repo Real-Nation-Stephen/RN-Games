@@ -42,6 +42,14 @@ const FORMAT_LABELS: { id: ScratcherFormatId; label: string }[] = [
   { id: "4x3", label: "4∶3 Landscape 1920×1440" },
 ];
 
+/** CSS aspect-ratio for embed iframe (matches design canvas). */
+const EMBED_ASPECT: Record<ScratcherFormatId, string> = {
+  "1x1": "1 / 1",
+  "9x16": "9 / 16",
+  "16x9": "16 / 9",
+  "4x3": "4 / 3",
+};
+
 function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
   const idoc = iframe.contentDocument;
   const idwin = iframe.contentWindow;
@@ -220,7 +228,7 @@ export default function ScratcherEditor() {
     return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
   }
 
-  const embedCode = `<iframe src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${game.title || "Scratcher"}" style="border:0;width:100%;max-width:min(1080px,100vw);aspect-ratio:9/16;" loading="lazy"></iframe>`;
+  const embedCode = `<iframe src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Scratcher").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:auto;aspect-ratio:${EMBED_ASPECT[game.scratcherFormat]};display:block;" loading="lazy"></iframe>`;
 
   return (
     <div>
@@ -405,9 +413,18 @@ export default function ScratcherEditor() {
         <iframe
           ref={iframeRef}
           title="Scratcher preview"
-          src="/play/scratcher.html?preview=1"
+          src="/play/scratcher-embed.html?preview=1"
           onLoad={() => pushPreview()}
-          style={{ width: "100%", height: 480, border: "1px solid var(--rn-border)", borderRadius: 8, background: "#000" }}
+          style={{
+            width: "100%",
+            aspectRatio: EMBED_ASPECT[game.scratcherFormat],
+            height: "auto",
+            minHeight: 200,
+            border: "1px solid var(--rn-border)",
+            borderRadius: 8,
+            background: "#0a1628",
+            display: "block",
+          }}
         />
         <label className="field" style={{ marginTop: 16 }}>
           Embed code (stage-only iframe)
@@ -420,7 +437,8 @@ export default function ScratcherEditor() {
           onFocus={(e) => e.target.select()}
         />
         <p className="muted" style={{ marginTop: 8, fontSize: "0.85rem" }}>
-          Adjust width/height to match your format; use CSS aspect-ratio on the iframe wrapper if helpful.
+          Preview matches the embed: stage only (no full-page background). Set the iframe width in your CMS; height follows
+          the format aspect ratio.
         </p>
       </div>
 

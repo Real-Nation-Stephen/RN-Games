@@ -87,6 +87,11 @@ function applyGateCopy() {
 }
 
 function applyPageBackground() {
+  if (isEmbed) {
+    document.documentElement.style.setProperty("--page-bg-image", "none");
+    document.documentElement.style.removeProperty("--page-bg-solid");
+    return;
+  }
   const bg = liveConfig?.assets?.backgroundImage?.trim();
   const hex = liveConfig?.backgroundColor || "#0a1628";
   document.documentElement.style.setProperty("--page-bg-solid", hex);
@@ -149,13 +154,24 @@ function wireFullscreen() {
   });
 }
 
+/**
+ * Prefer CORS for canvas sampling; retry without crossOrigin if the CDN omits ACAO (display still works).
+ * @param {string} src
+ */
 function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load ${src}`));
-    img.src = src;
+  const s = typeof src === "string" ? src.trim() : "";
+  if (!s) return Promise.reject(new Error("Missing image URL"));
+  const attempt = (useCors) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      if (useCors) img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(useCors ? "cors-retry" : `Failed to load image`));
+      img.src = s;
+    });
+  return attempt(true).catch((e) => {
+    if (e instanceof Error && e.message === "cors-retry") return attempt(false);
+    throw e;
   });
 }
 
@@ -382,12 +398,29 @@ function setupPreviewMode() {
 
 let resizeWired = false;
 let ctaWired = false;
+/** @type {number} */
+let runLiveGeneration = 0;
+
+function clearScratcherLiveError() {
+  document.getElementById("scratcher-live-error")?.remove();
+}
+
+function showScratcherLiveError() {
+  clearScratcherLiveError();
+  document.body.insertAdjacentHTML(
+    "afterbegin",
+    `<div id="scratcher-live-error" class="player-error scratcher-asset-error" role="alert"><p>Could not load scratcher assets. Check the top (scratch) image URL and CORS.</p></div>`,
+  );
+}
 
 async function runLive(cfg) {
+  const gen = ++runLiveGeneration;
+  clearScratcherLiveError();
   try {
     resetRound();
     applyLiveConfig(cfg);
     const topImg = await loadImage(cfg.assets.top);
+    if (gen !== runLiveGeneration) return;
     initCanvas(topImg);
     layoutScale();
     updateOrientationGate();
@@ -408,11 +441,9 @@ async function runLive(cfg) {
       });
     }
   } catch (e) {
+    if (gen !== runLiveGeneration) return;
     console.error(e);
-    document.body.insertAdjacentHTML(
-      "afterbegin",
-      `<div class="player-error" role="alert"><p>Could not load scratcher assets.</p></div>`,
-    );
+    showScratcherLiveError();
   }
 }
 

@@ -56,15 +56,47 @@
   box-shadow: none;
 }
 
+/* Iframe embed: stage only — no full-page background, padding, or body::before from styles.css */
+html.scratcher-embed-root {
+  height: 100%;
+  background: transparent;
+}
+
 body.scratcher-embed {
   margin: 0;
   min-height: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body.scratcher-embed::before {
+  display: none !important;
 }
 
 body.scratcher-embed #app {
   padding: 0;
-  min-height: 100vh;
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
   min-height: 100dvh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Compact error in small iframe embeds */
+body.scratcher-embed .scratcher-asset-error {
+  min-height: 0;
+  padding: 12px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  background: rgba(12, 14, 22, 0.92);
 }
 
 .scratcher-bottom {
