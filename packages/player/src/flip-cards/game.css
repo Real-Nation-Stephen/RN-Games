@@ -80,3 +80,40 @@ body.flip-cards-game::before {
 .back-btn {
   font-family: var(--flip-font-button, inherit);
 }
+
+/* Shuffle: brief “deck in motion” before new deal */
+@keyframes flipShuffleWiggle {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  18% {
+    transform: translate(-7px, 5px) rotate(-6deg) scale(1.03);
+  }
+  38% {
+    transform: translate(9px, -6px) rotate(5deg) scale(0.97);
+  }
+  58% {
+    transform: translate(-6px, -7px) rotate(-4deg) scale(1.02);
+  }
+  78% {
+    transform: translate(7px, 4px) rotate(6deg) scale(0.98);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+.card-grid.is-shuffling {
+  pointer-events: none;
+}
+
+.card-grid.is-shuffling .card-tile {
+  animation: flipShuffleWiggle 0.48s cubic-bezier(0.36, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-grid.is-shuffling .card-tile {
+    animation: none;
+  }
+}

@@ -70,6 +70,64 @@ let closing = false;
 let musicEl = null;
 let musicStarted = false;
 
+/** Current card overlay SFX only — not background music */
+let cardSoundAudio = null;
+
+/** Reused for shuffle swoosh (user gesture resumes if suspended) */
+let sfxAudioContext = null;
+
+function getSfxAudioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!sfxAudioContext) sfxAudioContext = new AC();
+  if (sfxAudioContext.state === "suspended") {
+    void sfxAudioContext.resume();
+  }
+  return sfxAudioContext;
+}
+
+function stopCardSound() {
+  if (!cardSoundAudio) return;
+  try {
+    cardSoundAudio.pause();
+    cardSoundAudio.currentTime = 0;
+  } catch {
+    /* ignore */
+  }
+  cardSoundAudio = null;
+}
+
+/** Short bandpass noise sweep — feels like a deck shuffle / swoosh */
+function playShuffleSwoosh() {
+  const ctx = getSfxAudioContext();
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  const dur = 0.32;
+  const bufferSize = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize) ** 0.5;
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.Q.value = 0.7;
+  filter.frequency.setValueAtTime(300, t0);
+  filter.frequency.exponentialRampToValueAtTime(2800, t0 + dur * 0.55);
+  filter.frequency.exponentialRampToValueAtTime(400, t0 + dur);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(0.14, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  noise.start(t0);
+  noise.stop(t0 + dur);
+}
+
 let gridState = { cardCount: 0, maxColumnsFull: 4 };
 
 function fitCardGrid() {
@@ -252,13 +310,22 @@ function buildGrid() {
 }
 
 function playCardSound(deckIndex) {
+  stopCardSound();
   const url = (liveConfig?.cards?.[deckIndex]?.soundUrl || "").trim();
   if (!url) return;
   try {
     const a = new Audio(url);
+    cardSoundAudio = a;
     void a.play();
+    a.addEventListener(
+      "ended",
+      () => {
+        if (cardSoundAudio === a) cardSoundAudio = null;
+      },
+      { once: true },
+    );
   } catch {
-    /* ignore */
+    cardSoundAudio = null;
   }
 }
 
@@ -298,6 +365,7 @@ function openDetail(slotIndex) {
 function closeDetail() {
   if (!detail?.classList.contains("is-open") || closing) return;
   closing = true;
+  stopCardSound();
 
   detailFlip.classList.remove("is-anim-in");
   detailFlipInner.style.transform = "rotateY(0deg) scale(1)";
@@ -381,9 +449,35 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+const SHUFFLE_ANIM_MS = 480;
+
 shuffleBtn?.addEventListener("click", () => {
   unlockMusic();
-  dealAndRender();
+  void getSfxAudioContext();
+
+  const prefersReduced =
+    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReduced) {
+    dealAndRender();
+    requestAnimationFrame(() => fitCardGrid());
+    return;
+  }
+
+  const grid = gridSection?.querySelector(".card-grid");
+  playShuffleSwoosh();
+  if (grid) {
+    grid.classList.remove("is-shuffling");
+    void grid.offsetWidth;
+    grid.classList.add("is-shuffling");
+  }
+  shuffleBtn.disabled = true;
+
+  window.setTimeout(() => {
+    dealAndRender();
+    requestAnimationFrame(() => fitCardGrid());
+    shuffleBtn.disabled = false;
+  }, SHUFFLE_ANIM_MS);
 });
 
 document.body.addEventListener(
