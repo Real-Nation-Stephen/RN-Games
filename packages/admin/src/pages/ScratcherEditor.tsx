@@ -228,7 +228,8 @@ export default function ScratcherEditor() {
     return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
   }
 
-  const embedCode = `<iframe src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Scratcher").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:auto;aspect-ratio:${EMBED_ASPECT[game.scratcherFormat]};display:block;" loading="lazy"></iframe>`;
+  const iframeId = `rngames-scratcher-${game.slug.replace(/[^a-z0-9-]/gi, "x")}`;
+  const embedCode = `<iframe id="${iframeId}" src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Scratcher").replace(/"/g, "&quot;")}" style="border:0;width:100%;max-width:100%;aspect-ratio:${EMBED_ASPECT[game.scratcherFormat]};height:auto;display:block;" loading="lazy"></iframe><script>(function(){var id="${iframeId}";function onMsg(e){try{if(!e.data||e.data.type!=="rngames-scratcher-embed-size")return;var f=document.getElementById(id);if(!f||e.source!==f.contentWindow)return;f.style.height=e.data.height+"px";f.style.aspectRatio="unset"}catch(_){}}window.addEventListener("message",onMsg)})();<\/script>`;
 
   return (
     <div>

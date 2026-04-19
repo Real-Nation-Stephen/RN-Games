@@ -182,6 +182,10 @@ function updatePhoneShuffleChrome() {
   const shakeHint = document.getElementById("flip-shake-hint");
   document.body.classList.toggle("flip-phone-shake", phoneShake);
 
+  if (!phoneShake) {
+    hideShakePermissionBanner();
+  }
+
   if (!shuffleBar) return;
 
   if (phoneShake) {
@@ -389,8 +393,14 @@ function setupGridFit() {
 
   window.addEventListener("resize", scheduleFit);
   window.addEventListener("orientationchange", scheduleFit);
-  window.addEventListener("resize", () => updatePhoneShuffleChrome());
-  window.addEventListener("orientationchange", () => updatePhoneShuffleChrome());
+  window.addEventListener("resize", () => {
+    updatePhoneShuffleChrome();
+    tryWireShakeInitial();
+  });
+  window.addEventListener("orientationchange", () => {
+    updatePhoneShuffleChrome();
+    tryWireShakeInitial();
+  });
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", scheduleFit);
     window.visualViewport.addEventListener("scroll", scheduleFit);
@@ -663,6 +673,7 @@ function setupPreviewMode() {
     applyTheme(cfg);
     void dealAndRender();
     setupGridFit();
+    tryWireShakeInitial();
   });
 }
 
@@ -695,6 +706,7 @@ async function bootstrap() {
   applyTheme(data);
   await dealAndRender();
   setupGridFit();
+  tryWireShakeInitial();
 }
 
 detailBackdrop?.addEventListener("click", closeDetail);
@@ -779,13 +791,70 @@ function onDeviceMotionForShuffle(ev) {
   }, 420);
 }
 
-async function tryWireShakeMotion() {
-  if (shakeMotionWired) return;
-  if (!isPhoneShakeLayout() || !liveConfig || liveConfig.shuffle?.enabled === false) return;
+function needsExplicitMotionUserGesture() {
+  return (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  );
+}
+
+function hideShakePermissionBanner() {
+  document.getElementById("flip-shake-permission")?.remove();
+}
+
+function showShakePermissionBanner() {
+  if (document.getElementById("flip-shake-permission")) return;
+  const el = document.createElement("div");
+  el.id = "flip-shake-permission";
+  el.className = "flip-shake-permission";
+  el.setAttribute("role", "button");
+  el.tabIndex = 0;
+  el.innerHTML =
+    '<span class="flip-shake-permission__title">Tap to enable shake-to-shuffle</span><span class="flip-shake-permission__sub">Motion access is required on iPhone</span>';
+  const go = () => void tryWireShakeMotion({ userGesture: true });
+  el.addEventListener("click", (e) => {
+    e.preventDefault();
+    go();
+  });
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      go();
+    }
+  });
+  document.body.appendChild(el);
+}
+
+/**
+ * @param {{ userGesture?: boolean }} [opts]
+ */
+async function tryWireShakeMotion(opts = {}) {
+  const userGesture = opts.userGesture === true;
+  if (shakeMotionWired) return true;
+  if (!isPhoneShakeLayout() || !liveConfig || liveConfig.shuffle?.enabled === false) {
+    hideShakePermissionBanner();
+    return false;
+  }
+
+  if (needsExplicitMotionUserGesture() && !userGesture) {
+    showShakePermissionBanner();
+    return false;
+  }
+
   const ok = await requestDeviceMotionAccess();
-  if (!ok) return;
+  if (!ok) {
+    if (needsExplicitMotionUserGesture()) showShakePermissionBanner();
+    return false;
+  }
+
   shakeMotionWired = true;
+  hideShakePermissionBanner();
   window.addEventListener("devicemotion", onDeviceMotionForShuffle, true);
+  return true;
+}
+
+function tryWireShakeInitial() {
+  void tryWireShakeMotion({ userGesture: false });
 }
 
 async function runShuffleWithOptionalAnimation() {
@@ -863,8 +932,5 @@ document.body.addEventListener(
   },
   { once: true },
 );
-
-document.body.addEventListener("click", () => void tryWireShakeMotion(), true);
-document.body.addEventListener("touchend", () => void tryWireShakeMotion(), true);
 
 void bootstrap();

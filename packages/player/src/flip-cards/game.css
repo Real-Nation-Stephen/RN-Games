@@ -116,6 +116,41 @@ body.flip-phone-shake .flip-shake-hint {
   margin-bottom: 4px;
 }
 
+/* iOS: tap once here so shake works before opening a card */
+.flip-shake-permission {
+  position: fixed;
+  bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 960;
+  max-width: min(92vw, 400px);
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-family: var(--flip-font-body, inherit);
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.flip-shake-permission__title {
+  display: block;
+  font-size: clamp(0.95rem, 4vw, 1.05rem);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.flip-shake-permission__sub {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(0.75rem, 3.2vw, 0.85rem);
+  opacity: 0.82;
+  line-height: 1.3;
+}
+
 .shuffle-bar-row {
   display: flex;
   align-items: center;
@@ -256,6 +291,14 @@ body.flip-phone-shake .flip-shake-hint {
   body.flip-cards-game .shuffle-bar {
     padding-top: clamp(8px, 1.8vh, 16px);
     padding-bottom: calc(1.15 * clamp(14px, 3.5vw, 22px));
+  }
+
+  body.flip-cards-game.flip-phone-shake .shuffle-bar {
+    padding-bottom: max(32px, calc(env(safe-area-inset-bottom) + 28px));
+  }
+
+  body.flip-cards-game.flip-phone-shake .flip-shake-hint {
+    margin-bottom: clamp(16px, 4.5vh, 28px);
   }
 
   body.flip-cards-game .shuffle-bar-row {

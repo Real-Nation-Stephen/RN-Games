@@ -109,17 +109,43 @@ function isCompactScratcherViewport() {
 
 function layoutScale() {
   const f = fmtOverride || fmt;
+  if (!els.stage || !els.fit) return;
+
+  /** Iframe embed: fill container width; height follows design aspect (parent can match via aspect-ratio or postMessage) */
+  if (isEmbed) {
+    const vw = window.innerWidth;
+    const scale = vw / f.designW;
+    const scaledH = f.designH * scale;
+    els.stage.style.transform = `scale(${scale})`;
+    els.fit.style.width = `${f.designW * scale}px`;
+    els.fit.style.height = `${scaledH}px`;
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "rngames-scratcher-embed-size",
+            height: Math.ceil(scaledH),
+            width: Math.ceil(vw),
+          },
+          "*",
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
   const compact = isCompactScratcherViewport();
-  const pad = isEmbed ? 0 : compact ? 8 : 24;
+  const pad = compact ? 4 : 10;
   const vw = window.innerWidth - pad * 2;
   const vh = window.innerHeight - pad * 2;
   const scale = Math.min(vw / f.designW, vh / f.designH);
-  if (!els.stage || !els.fit) return;
   els.stage.style.transform = `scale(${scale})`;
   els.fit.style.width = `${f.designW * scale}px`;
   els.fit.style.height = `${f.designH * scale}px`;
 
-  if (!isEmbed && els.sizeHint) {
+  if (els.sizeHint) {
     const tooSmall = window.innerWidth < 420 || window.innerHeight < 340;
     els.sizeHint.hidden = compact || !tooSmall;
   }
