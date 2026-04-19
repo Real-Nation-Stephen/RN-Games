@@ -316,8 +316,14 @@ function fitCardGrid() {
   const rows = Math.ceil(cardCount / maxCols);
   const gap = gapPx(iw);
 
-  const availW = gridArea?.clientWidth ?? main.clientWidth;
-  const availH = gridArea?.clientHeight ?? main.clientHeight;
+  /** Prefer #grid-section box — matches visible area after fullscreen / flex layout */
+  const secRect = gridSection?.getBoundingClientRect();
+  let availW = gridArea?.clientWidth ?? main.clientWidth;
+  let availH = gridArea?.clientHeight ?? main.clientHeight;
+  if (secRect && secRect.width > 30 && secRect.height > 30) {
+    availW = secRect.width;
+    availH = secRect.height;
+  }
 
   if (availW < 40 || availH < 40) return;
 
@@ -345,6 +351,10 @@ function setupGridFit() {
 
   window.addEventListener("resize", scheduleFit);
   window.addEventListener("orientationchange", scheduleFit);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleFit);
+    window.visualViewport.addEventListener("scroll", scheduleFit);
+  }
 
   const observeEl = document.querySelector(".selection-grid-area") || main;
   if (observeEl && typeof ResizeObserver !== "undefined") {
@@ -681,8 +691,15 @@ fsBtn?.addEventListener("click", (e) => {
   toggleFullscreen();
 });
 
-document.addEventListener("fullscreenchange", () => updateFullscreenButtonUi());
-document.addEventListener("webkitfullscreenchange", () => updateFullscreenButtonUi());
+function onFullscreenLayoutChange() {
+  updateFullscreenButtonUi();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => fitCardGrid());
+  });
+}
+
+document.addEventListener("fullscreenchange", onFullscreenLayoutChange);
+document.addEventListener("webkitfullscreenchange", onFullscreenLayoutChange);
 
 shuffleBtn?.addEventListener("click", () => {
   unlockMusic();
