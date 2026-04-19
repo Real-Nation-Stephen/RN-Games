@@ -74,6 +74,7 @@ function toPublicFlipCard(f) {
     shuffle: {
       enabled: f.shuffle?.enabled !== false,
       showMuteButton: f.shuffle?.showMuteButton !== false,
+      showFullscreenButton: f.shuffle?.showFullscreenButton !== false,
       label: f.shuffle?.label || "Shuffle",
       buttonBg: f.shuffle?.buttonBg || "rgba(255,255,255,0.15)",
       textColor: f.shuffle?.textColor || "#ffffff",

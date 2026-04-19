@@ -16,6 +16,7 @@ type FlipCardFace = {
 type FlipShuffle = {
   enabled: boolean;
   showMuteButton: boolean;
+  showFullscreenButton: boolean;
   label: string;
   buttonBg: string;
   textColor: string;
@@ -97,6 +98,7 @@ function publicFlipPayload(g: FlipCardGame) {
     shuffle: {
       enabled: g.shuffle?.enabled !== false,
       showMuteButton: g.shuffle?.showMuteButton !== false,
+      showFullscreenButton: g.shuffle?.showFullscreenButton !== false,
       label: g.shuffle?.label || "Shuffle",
       buttonBg: g.shuffle?.buttonBg || "rgba(255,255,255,0.15)",
       textColor: g.shuffle?.textColor || "#ffffff",
@@ -430,6 +432,19 @@ export default function FlipCardEditor() {
             }
           />
           Show mute button (next to shuffle — uses shuffle colours & button font)
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={game.shuffle?.showFullscreenButton !== false}
+            onChange={(e) =>
+              setGame({
+                ...game,
+                shuffle: { ...game.shuffle, showFullscreenButton: e.target.checked },
+              })
+            }
+          />
+          Show fullscreen button (icon only — same style as mute)
         </label>
 
         <label className="field" style={{ marginTop: 16 }}>

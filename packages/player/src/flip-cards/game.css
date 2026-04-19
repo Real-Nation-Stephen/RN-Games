@@ -29,6 +29,8 @@ body.flip-cards-game::before {
   align-items: center;
   justify-content: center;
   width: 100%;
+  /* Slightly smaller grid zone so control row can breathe */
+  max-height: 96%;
 }
 
 .selection-main {
@@ -43,7 +45,7 @@ body.flip-cards-game::before {
   justify-content: center;
   align-items: center;
   width: 100%;
-  padding: 2px 8px 0;
+  padding: clamp(10px, 2vh, 20px) 8px calc(1.15 * clamp(14px, 2.4vh, 22px));
 }
 
 .shuffle-bar-row {
@@ -53,14 +55,14 @@ body.flip-cards-game::before {
   gap: 10px;
   flex-wrap: wrap;
   width: 100%;
-  max-width: min(100%, 440px);
+  max-width: min(100%, 520px);
 }
 
 .shuffle-btn {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
-  padding: 0.4em 0.85em;
+  padding: 0.45em 0.9em;
   line-height: 1.25;
   cursor: pointer;
   font-family: var(--flip-font-button, inherit);
@@ -69,14 +71,14 @@ body.flip-cards-game::before {
     transform 0.15s ease;
 }
 
-.flip-mute-btn {
+.flip-icon-btn {
   appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.35em;
-  height: 2.35em;
+  width: 2.45em;
+  height: 2.45em;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
@@ -89,16 +91,17 @@ body.flip-cards-game::before {
   opacity: 0.92;
 }
 
-.flip-mute-btn:hover {
+.flip-icon-btn:hover {
   opacity: 1;
   filter: brightness(1.06);
 }
 
-.flip-mute-btn:active {
+.flip-icon-btn:active {
   transform: scale(0.96);
 }
 
-.flip-mute-btn__icon svg {
+.flip-mute-btn__icon svg,
+.flip-fs-btn__icon svg {
   display: block;
   width: 1em;
   height: 1em;
@@ -183,11 +186,11 @@ body.flip-cards-game::before {
   }
 
   body.flip-cards-game .shuffle-bar {
-    padding-top: 0;
-    padding-bottom: 4px;
+    padding-top: clamp(8px, 1.8vh, 16px);
+    padding-bottom: calc(1.15 * clamp(14px, 3.5vw, 22px));
   }
 
   body.flip-cards-game .shuffle-bar-row {
-    gap: 8px;
+    gap: 10px;
   }
 }

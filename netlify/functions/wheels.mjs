@@ -76,6 +76,7 @@ function emptyFlipCardRecord(id, slug) {
     shuffle: {
       enabled: true,
       showMuteButton: true,
+      showFullscreenButton: true,
       label: "Shuffle",
       buttonBg: "rgba(255,255,255,0.15)",
       textColor: "#ffffff",

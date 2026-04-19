@@ -66,6 +66,10 @@ const poweredByEl = document.getElementById("powered-by-rn");
 const shuffleBar = document.getElementById("shuffle-bar");
 const shuffleBtn = document.getElementById("shuffle-btn");
 const muteBtn = document.getElementById("flip-mute-btn");
+const fsBtn = document.getElementById("flip-fs-btn");
+
+/** Primary + icon controls scale (studio sizes × this in applyTheme) */
+const CONTROL_SIZE_SCALE = 1.25;
 
 let closing = false;
 let musicEl = null;
@@ -78,6 +82,9 @@ let audioMuted = false;
 /** Speaker icons — subtle, matches button text colour */
 const ICON_SOUND_ON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
 const ICON_SOUND_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+
+const ICON_FS_ENTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+const ICON_FS_EXIT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"/><path d="M20 8V4h-4"/><path d="M4 16v4h4"/><path d="M20 16v4h-4"/></svg>`;
 
 /** Current card overlay SFX only — not background music */
 let cardSoundAudio = null;
@@ -117,6 +124,149 @@ function updateMuteButtonUi() {
   muteBtn.setAttribute("aria-pressed", audioMuted ? "true" : "false");
   muteBtn.setAttribute("aria-label", audioMuted ? "Sound off — tap to turn on" : "Sound on — tap to mute");
   if (wrap) wrap.innerHTML = audioMuted ? ICON_SOUND_OFF : ICON_SOUND_ON;
+}
+
+function getFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function fullscreenSupported() {
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+}
+
+function updateFullscreenButtonUi() {
+  if (!fsBtn) return;
+  const active = !!getFullscreenElement();
+  const wrap = fsBtn.querySelector(".flip-fs-btn__icon");
+  fsBtn.setAttribute("aria-pressed", active ? "true" : "false");
+  fsBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  if (wrap) wrap.innerHTML = active ? ICON_FS_EXIT : ICON_FS_ENTER;
+}
+
+function toggleFullscreen() {
+  const cur = getFullscreenElement();
+  const docEl = document.documentElement;
+  try {
+    if (cur) {
+      if (document.exitFullscreen) void document.exitFullscreen();
+      else if (document.webkitExitFullscreen) void document.webkitExitFullscreen();
+    } else if (docEl.requestFullscreen) {
+      void docEl.requestFullscreen();
+    } else if (docEl.webkitRequestFullscreen) {
+      void docEl.webkitRequestFullscreen();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Subtle “card turning” tick — Web Audio, respects mute
+ */
+function playCardFlipSound() {
+  if (audioMuted) return;
+  const ctx = getSfxAudioContext();
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  const dur = 0.1;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(220, t0);
+  osc.frequency.exponentialRampToValueAtTime(520, t0 + dur * 0.85);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(0.038, t0 + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur);
+}
+
+function preloadImageUrl(url) {
+  if (!url || !String(url).trim()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
+/** Preload front/back images for dealt indices; warm card audio cache */
+async function preloadDealAssets(cfg, deckIndices) {
+  const urls = [];
+  for (const idx of deckIndices) {
+    urls.push(resolveFront(cfg, idx), resolveBack(cfg, idx));
+  }
+  const unique = [...new Set(urls.filter(Boolean))];
+  await Promise.all(unique.map(preloadImageUrl));
+  for (const idx of deckIndices) {
+    const u = (cfg.cards[idx]?.soundUrl || "").trim();
+    if (u) {
+      try {
+        const a = new Audio();
+        a.preload = "auto";
+        a.src = u;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+function idlePreloadRestOfDeck(cfg) {
+  const dealt = new Set(dealtDeckIndices);
+  const urls = [];
+  const n = cfg.deckSize;
+  for (let i = 0; i < n; i++) {
+    if (dealt.has(i)) continue;
+    urls.push(resolveFront(cfg, i), resolveBack(cfg, i));
+  }
+  const unique = [...new Set(urls.filter(Boolean))];
+  const run = () => {
+    void Promise.all(unique.map(preloadImageUrl));
+  };
+  if (typeof requestIdleCallback !== "undefined") {
+    requestIdleCallback(run, { timeout: 5000 });
+  } else {
+    window.setTimeout(run, 400);
+  }
+}
+
+/**
+ * Wait for detail overlay images so flip animation runs with pixels ready
+ */
+async function waitDetailImagesReady(frontImg, backImg, timeoutMs = 800) {
+  const waitOne = (img) => {
+    if (!img?.src) return Promise.resolve();
+    if (img.complete && img.naturalWidth > 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const done = () => resolve();
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    });
+  };
+
+  const decode = (img) => {
+    if (!img?.src) return Promise.resolve();
+    if (typeof img.decode === "function") {
+      return img.decode().catch(() => {});
+    }
+    return Promise.resolve();
+  };
+
+  const race = Promise.race([
+    Promise.all([waitOne(frontImg), waitOne(backImg)]).then(() => Promise.all([decode(frontImg), decode(backImg)])),
+    new Promise((resolve) => {
+      window.setTimeout(resolve, timeoutMs);
+    }),
+  ]);
+
+  await race;
 }
 
 /** Short bandpass noise sweep — feels like a deck shuffle / swoosh */
@@ -258,14 +408,17 @@ function applyTheme(cfg) {
   const sh = cfg.shuffle || {};
   const showShuffle = sh.enabled !== false;
   const showMute = sh.showMuteButton !== false;
+  const showFs = sh.showFullscreenButton !== false && fullscreenSupported();
   if (shuffleBar && shuffleBtn) {
-    shuffleBar.hidden = !showShuffle && !showMute;
+    shuffleBar.hidden = !showShuffle && !showMute && !showFs;
     shuffleBtn.hidden = !showShuffle;
+    const labelPx = (Number(sh.textSizePx) || Number(sh.buttonFontSizePx) || 16) * CONTROL_SIZE_SCALE;
+    const bfs = (Number(sh.buttonFontSizePx) || 15) * CONTROL_SIZE_SCALE;
     if (showShuffle) {
       shuffleBtn.textContent = sh.label || "Shuffle";
       shuffleBtn.style.background = sh.buttonBg || "rgba(255,255,255,0.15)";
       shuffleBtn.style.color = sh.textColor || "#ffffff";
-      shuffleBtn.style.fontSize = `${Number(sh.textSizePx) || Number(sh.buttonFontSizePx) || 16}px`;
+      shuffleBtn.style.fontSize = `${labelPx}px`;
       shuffleBtn.style.padding = "";
     }
     if (muteBtn) {
@@ -273,12 +426,22 @@ function applyTheme(cfg) {
       if (showMute) {
         const bg = sh.buttonBg || "rgba(255,255,255,0.15)";
         const col = sh.textColor || "#ffffff";
-        const bfs = Number(sh.buttonFontSizePx) || 15;
         muteBtn.style.background = bg;
         muteBtn.style.color = col;
-        muteBtn.style.fontSize = `${Math.max(12, Math.round(bfs * 0.72))}px`;
+        muteBtn.style.fontSize = `${Math.max(14, Math.round(bfs * 0.72))}px`;
       }
       updateMuteButtonUi();
+    }
+    if (fsBtn) {
+      fsBtn.hidden = !showFs;
+      if (showFs) {
+        const bg = sh.buttonBg || "rgba(255,255,255,0.15)";
+        const col = sh.textColor || "#ffffff";
+        fsBtn.style.background = bg;
+        fsBtn.style.color = col;
+        fsBtn.style.fontSize = `${Math.max(14, Math.round(bfs * 0.72))}px`;
+      }
+      updateFullscreenButtonUi();
     }
   }
 
@@ -331,15 +494,24 @@ function buildGrid() {
     slot.style.setProperty("--i", String(slotIdx));
     slot.setAttribute("aria-label", `Open card ${slotIdx + 1}`);
 
-    slot.innerHTML = `
-      <div class="card-tile">
-        <img src="${front || ""}" alt="" width="827" height="1417" decoding="async" />
-      </div>
-    `;
+    const img = document.createElement("img");
+    img.src = front || "";
+    img.alt = "";
+    img.width = 827;
+    img.height = 1417;
+    img.decoding = "async";
+    img.loading = "eager";
+    if (slotIdx === 0) img.setAttribute("fetchpriority", "high");
+
+    const tile = document.createElement("div");
+    tile.className = "card-tile";
+    tile.appendChild(img);
+    slot.appendChild(tile);
 
     slot.addEventListener("click", () => {
       unlockMusic();
-      openDetail(slotIdx);
+      void getSfxAudioContext();
+      void openDetail(slotIdx);
     });
     grid.appendChild(slot);
   });
@@ -368,7 +540,7 @@ function playCardSound(deckIndex) {
   }
 }
 
-function openDetail(slotIndex) {
+async function openDetail(slotIndex) {
   if (closing || !liveConfig) return;
   const deckIdx = dealtDeckIndices[slotIndex];
   if (deckIdx === undefined) return;
@@ -383,6 +555,8 @@ function openDetail(slotIndex) {
   detailBody.textContent = card.body || "";
   backBtn.textContent = card.overlayButtonText || "Back";
 
+  await waitDetailImagesReady(detailFrontImg, detailBackImg);
+
   gridSection.classList.add("is-behind");
   detail.classList.add("is-open");
   detail.setAttribute("aria-hidden", "false");
@@ -395,6 +569,8 @@ function openDetail(slotIndex) {
     typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (prefersReduced) {
     detailFlipInner.style.transform = "rotateY(180deg) scale(1)";
+  } else {
+    playCardFlipSound();
   }
 
   playCardSound(deckIdx);
@@ -418,12 +594,14 @@ function closeDetail() {
   }, 450);
 }
 
-function dealAndRender() {
+async function dealAndRender() {
   if (!liveConfig) return;
   const n = liveConfig.deckSize;
   const k = liveConfig.cardsDealt;
   dealtDeckIndices = randomDeal(n, k);
+  await preloadDealAssets(liveConfig, dealtDeckIndices);
   buildGrid();
+  idlePreloadRestOfDeck(liveConfig);
   requestAnimationFrame(() => fitCardGrid());
 }
 
@@ -436,7 +614,7 @@ function setupPreviewMode() {
     if (!cfg || cfg.gameType !== "flip-cards") return;
     liveConfig = cfg;
     applyTheme(cfg);
-    dealAndRender();
+    void dealAndRender();
     setupGridFit();
   });
 }
@@ -468,7 +646,7 @@ async function bootstrap() {
 
   liveConfig = data;
   applyTheme(data);
-  dealAndRender();
+  await dealAndRender();
   setupGridFit();
 }
 
@@ -498,6 +676,14 @@ muteBtn?.addEventListener("click", (e) => {
   updateMuteButtonUi();
 });
 
+fsBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleFullscreen();
+});
+
+document.addEventListener("fullscreenchange", () => updateFullscreenButtonUi());
+document.addEventListener("webkitfullscreenchange", () => updateFullscreenButtonUi());
+
 shuffleBtn?.addEventListener("click", () => {
   unlockMusic();
   void getSfxAudioContext();
@@ -506,8 +692,10 @@ shuffleBtn?.addEventListener("click", () => {
     typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (prefersReduced) {
-    dealAndRender();
-    requestAnimationFrame(() => fitCardGrid());
+    void (async () => {
+      await dealAndRender();
+      requestAnimationFrame(() => fitCardGrid());
+    })();
     return;
   }
 
@@ -521,9 +709,11 @@ shuffleBtn?.addEventListener("click", () => {
   shuffleBtn.disabled = true;
 
   window.setTimeout(() => {
-    dealAndRender();
-    requestAnimationFrame(() => fitCardGrid());
-    shuffleBtn.disabled = false;
+    void (async () => {
+      await dealAndRender();
+      requestAnimationFrame(() => fitCardGrid());
+      shuffleBtn.disabled = false;
+    })();
   }, SHUFFLE_ANIM_MS);
 });
 
