@@ -93,6 +93,29 @@ body.flip-cards-game .selection-main {
   padding: clamp(10px, 2vh, 20px) 8px calc(1.15 * clamp(14px, 2.4vh, 22px));
 }
 
+.flip-shake-hint {
+  margin: 0 0 10px;
+  padding: 0 12px;
+  width: 100%;
+  max-width: min(100%, 520px);
+  text-align: center;
+  font-family: var(--flip-font-body, inherit);
+  font-size: clamp(0.9rem, 3.8vw, 1.05rem);
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Smartphones only: shake replaces control buttons (see game.js) */
+body.flip-phone-shake .shuffle-bar-row {
+  display: none !important;
+}
+
+body.flip-phone-shake .flip-shake-hint {
+  display: block;
+  margin-bottom: 4px;
+}
+
 .shuffle-bar-row {
   display: flex;
   align-items: center;

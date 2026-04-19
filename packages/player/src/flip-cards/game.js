@@ -161,6 +161,44 @@ function toggleFullscreen() {
   }
 }
 
+/** Smartphones (not tablets): narrow width + touch UI — shuffle uses shake, not buttons */
+function isPhoneShakeLayout() {
+  if (typeof window.matchMedia !== "function") return false;
+  if (!window.matchMedia("(max-width: 480px)").matches) return false;
+  if (!window.matchMedia("(hover: none)").matches) return false;
+  if (!window.matchMedia("(pointer: coarse)").matches) return false;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  return true;
+}
+
+function updatePhoneShuffleChrome() {
+  const cfg = liveConfig;
+  const sh = cfg?.shuffle || {};
+  const showShuffle = sh.enabled !== false;
+  const showMute = sh.showMuteButton !== false;
+  const showFs = sh.showFullscreenButton !== false && fullscreenSupported();
+  const phoneShake = isPhoneShakeLayout() && showShuffle;
+
+  const shakeHint = document.getElementById("flip-shake-hint");
+  document.body.classList.toggle("flip-phone-shake", phoneShake);
+
+  if (!shuffleBar) return;
+
+  if (phoneShake) {
+    if (shakeHint) shakeHint.hidden = false;
+    shuffleBar.hidden = false;
+    if (shuffleBtn) shuffleBtn.hidden = true;
+    if (muteBtn) muteBtn.hidden = true;
+    if (fsBtn) fsBtn.hidden = true;
+  } else {
+    if (shakeHint) shakeHint.hidden = true;
+    if (shuffleBtn) shuffleBtn.hidden = !showShuffle;
+    if (muteBtn) muteBtn.hidden = !showMute;
+    if (fsBtn) fsBtn.hidden = !showFs;
+    shuffleBar.hidden = !showShuffle && !showMute && !showFs;
+  }
+}
+
 /**
  * Subtle “card turning” tick — Web Audio, respects mute
  */
@@ -351,6 +389,8 @@ function setupGridFit() {
 
   window.addEventListener("resize", scheduleFit);
   window.addEventListener("orientationchange", scheduleFit);
+  window.addEventListener("resize", () => updatePhoneShuffleChrome());
+  window.addEventListener("orientationchange", () => updatePhoneShuffleChrome());
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", scheduleFit);
     window.visualViewport.addEventListener("scroll", scheduleFit);
@@ -415,13 +455,13 @@ function applyTheme(cfg) {
     poweredByEl.hidden = cfg.showPoweredBy === false;
   }
 
+  injectFonts(cfg);
+
   const sh = cfg.shuffle || {};
   const showShuffle = sh.enabled !== false;
   const showMute = sh.showMuteButton !== false;
   const showFs = sh.showFullscreenButton !== false && fullscreenSupported();
   if (shuffleBar && shuffleBtn) {
-    shuffleBar.hidden = !showShuffle && !showMute && !showFs;
-    shuffleBtn.hidden = !showShuffle;
     const labelPx = (Number(sh.textSizePx) || Number(sh.buttonFontSizePx) || 16) * CONTROL_SIZE_SCALE;
     const bfs = (Number(sh.buttonFontSizePx) || 15) * CONTROL_SIZE_SCALE;
     if (showShuffle) {
@@ -432,7 +472,6 @@ function applyTheme(cfg) {
       shuffleBtn.style.padding = "";
     }
     if (muteBtn) {
-      muteBtn.hidden = !showMute;
       if (showMute) {
         const bg = sh.buttonBg || "rgba(255,255,255,0.15)";
         const col = sh.textColor || "#ffffff";
@@ -443,7 +482,6 @@ function applyTheme(cfg) {
       updateMuteButtonUi();
     }
     if (fsBtn) {
-      fsBtn.hidden = !showFs;
       if (showFs) {
         const bg = sh.buttonBg || "rgba(255,255,255,0.15)";
         const col = sh.textColor || "#ffffff";
@@ -453,9 +491,8 @@ function applyTheme(cfg) {
       }
       updateFullscreenButtonUi();
     }
+    updatePhoneShuffleChrome();
   }
-
-  injectFonts(cfg);
 
   if (cfg.title) document.title = cfg.title;
 
@@ -678,6 +715,120 @@ document.addEventListener("keydown", (e) => {
 
 const SHUFFLE_ANIM_MS = 480;
 
+let shuffleBusy = false;
+/** @type {number} */
+let shakeSettleTimer = 0;
+let shakePeakArmed = false;
+/** @type {number} */
+let shakeCooldownUntil = 0;
+let shakeMotionWired = false;
+
+async function requestDeviceMotionAccess() {
+  const DO = window.DeviceOrientationEvent;
+  if (DO && typeof DO.requestPermission === "function") {
+    try {
+      const r = await DO.requestPermission();
+      return r === "granted";
+    } catch {
+      return false;
+    }
+  }
+  const DM = window.DeviceMotionEvent;
+  if (DM && typeof DM.requestPermission === "function") {
+    try {
+      const r = await DM.requestPermission();
+      return r === "granted";
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+function onDeviceMotionForShuffle(ev) {
+  if (!liveConfig || liveConfig.shuffle?.enabled === false) return;
+  if (!isPhoneShakeLayout()) return;
+  if (shuffleBusy) return;
+  if (performance.now() < shakeCooldownUntil) return;
+  if (detail?.classList.contains("is-open")) return;
+
+  const acc = ev.accelerationIncludingGravity;
+  if (!acc) return;
+  const x = acc.x ?? 0;
+  const y = acc.y ?? 0;
+  const z = acc.z ?? 0;
+  const mag = Math.sqrt(x * x + y * y + z * z);
+  const jerk = Math.abs(mag - 9.81);
+  const strong = jerk > 4.5 || Math.abs(x) > 13 || Math.abs(y) > 13 || Math.abs(z) > 13;
+  if (!strong) return;
+
+  if (!shakePeakArmed) {
+    shakePeakArmed = true;
+    try {
+      if (navigator.vibrate) navigator.vibrate(12);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  window.clearTimeout(shakeSettleTimer);
+  shakeSettleTimer = window.setTimeout(() => {
+    shakePeakArmed = false;
+    shakeCooldownUntil = performance.now() + 900;
+    void runShuffleWithOptionalAnimation();
+  }, 420);
+}
+
+async function tryWireShakeMotion() {
+  if (shakeMotionWired) return;
+  if (!isPhoneShakeLayout() || !liveConfig || liveConfig.shuffle?.enabled === false) return;
+  const ok = await requestDeviceMotionAccess();
+  if (!ok) return;
+  shakeMotionWired = true;
+  window.addEventListener("devicemotion", onDeviceMotionForShuffle, true);
+}
+
+async function runShuffleWithOptionalAnimation() {
+  if (shuffleBusy) return;
+  shuffleBusy = true;
+  unlockMusic();
+  void getSfxAudioContext();
+
+  const prefersReduced =
+    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReduced) {
+    try {
+      await dealAndRender();
+      requestAnimationFrame(() => fitCardGrid());
+    } finally {
+      shuffleBusy = false;
+    }
+    return;
+  }
+
+  const grid = gridSection?.querySelector(".card-grid");
+  playShuffleSwoosh();
+  if (grid) {
+    grid.classList.remove("is-shuffling");
+    void grid.offsetWidth;
+    grid.classList.add("is-shuffling");
+  }
+  if (shuffleBtn && !shuffleBtn.hidden) shuffleBtn.disabled = true;
+
+  window.setTimeout(() => {
+    void (async () => {
+      try {
+        await dealAndRender();
+        requestAnimationFrame(() => fitCardGrid());
+      } finally {
+        shuffleBusy = false;
+        if (shuffleBtn && !shuffleBtn.hidden) shuffleBtn.disabled = false;
+      }
+    })();
+  }, SHUFFLE_ANIM_MS);
+}
+
 muteBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   audioMuted = !audioMuted;
@@ -702,36 +853,7 @@ document.addEventListener("fullscreenchange", onFullscreenLayoutChange);
 document.addEventListener("webkitfullscreenchange", onFullscreenLayoutChange);
 
 shuffleBtn?.addEventListener("click", () => {
-  unlockMusic();
-  void getSfxAudioContext();
-
-  const prefersReduced =
-    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  if (prefersReduced) {
-    void (async () => {
-      await dealAndRender();
-      requestAnimationFrame(() => fitCardGrid());
-    })();
-    return;
-  }
-
-  const grid = gridSection?.querySelector(".card-grid");
-  playShuffleSwoosh();
-  if (grid) {
-    grid.classList.remove("is-shuffling");
-    void grid.offsetWidth;
-    grid.classList.add("is-shuffling");
-  }
-  shuffleBtn.disabled = true;
-
-  window.setTimeout(() => {
-    void (async () => {
-      await dealAndRender();
-      requestAnimationFrame(() => fitCardGrid());
-      shuffleBtn.disabled = false;
-    })();
-  }, SHUFFLE_ANIM_MS);
+  void runShuffleWithOptionalAnimation();
 });
 
 document.body.addEventListener(
@@ -741,5 +863,8 @@ document.body.addEventListener(
   },
   { once: true },
 );
+
+document.body.addEventListener("click", () => void tryWireShakeMotion(), true);
+document.body.addEventListener("touchend", () => void tryWireShakeMotion(), true);
 
 void bootstrap();

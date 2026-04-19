@@ -102,9 +102,15 @@ function applyPageBackground() {
   }
 }
 
+/** Phones / small tablets: scale stage to fit; skip orientation gate & “small window” hint */
+function isCompactScratcherViewport() {
+  return Math.min(window.innerWidth, window.innerHeight) <= 820;
+}
+
 function layoutScale() {
   const f = fmtOverride || fmt;
-  const pad = isEmbed ? 0 : 24;
+  const compact = isCompactScratcherViewport();
+  const pad = isEmbed ? 0 : compact ? 8 : 24;
   const vw = window.innerWidth - pad * 2;
   const vh = window.innerHeight - pad * 2;
   const scale = Math.min(vw / f.designW, vh / f.designH);
@@ -115,12 +121,17 @@ function layoutScale() {
 
   if (!isEmbed && els.sizeHint) {
     const tooSmall = window.innerWidth < 420 || window.innerHeight < 340;
-    els.sizeHint.hidden = !tooSmall;
+    els.sizeHint.hidden = compact || !tooSmall;
   }
 }
 
 function updateOrientationGate() {
   if (isEmbed || !els.gate) return;
+  if (isCompactScratcherViewport()) {
+    els.gate.classList.remove("is-visible");
+    document.body.style.overflow = "";
+    return;
+  }
   const f = fmtOverride || fmt;
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -428,10 +439,14 @@ async function runLive(cfg) {
     wireScratch();
     if (!resizeWired) {
       resizeWired = true;
-      window.addEventListener("resize", () => {
+      const onResize = () => {
         layoutScale();
         updateOrientationGate();
-      });
+      };
+      window.addEventListener("resize", onResize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", onResize);
+      }
     }
     if (!ctaWired) {
       ctaWired = true;
@@ -497,10 +512,14 @@ async function runTestTemplate() {
   if (!isEmbed) wireFullscreen();
   wireScratch();
 
-  window.addEventListener("resize", () => {
+  const onResize = () => {
     layoutScale();
     updateOrientationGate();
-  });
+  };
+  window.addEventListener("resize", onResize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", onResize);
+  }
 
   els.cta?.addEventListener("click", () => {});
 }
