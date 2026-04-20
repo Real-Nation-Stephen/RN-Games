@@ -6,6 +6,8 @@ const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
 };
 
 const BAD_NAMES = ["mike hunt", "ben dover", "dixie normus", "phil mccracken", "ivana tinkle"];

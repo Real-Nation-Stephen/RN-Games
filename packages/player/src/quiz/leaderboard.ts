@@ -6,19 +6,25 @@ import { applyQuizSurface } from "./quiz-theme";
 function getSlugAndCode() {
   const slug = qs().get("slug");
   const code = qs().get("code");
-  if (slug && code) return { slug, code };
+  if (slug && code) return { slug, code: code.toUpperCase() };
   const seg = window.location.pathname.split("/").filter(Boolean);
   const i = seg.indexOf("quiz");
   const slug2 = i >= 0 ? seg[i + 1] : "";
   const code2 = i >= 0 ? seg[i + 3] : "";
   if (!slug2 || !code2) throw new Error("Missing slug/code");
-  return { slug: slug2, code: code2 };
+  return { slug: slug2, code: code2.toUpperCase() };
 }
 
 async function pollSession(code: string, rev: number) {
-  return fetchJson<{ state: SessionState; changed: boolean }>(
-    `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(rev))}`,
-  );
+  const url = `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(rev))}&cb=${Date.now()}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
+  const t = await res.text();
+  if (!t) throw new Error("Empty session response");
+  return JSON.parse(t) as { state: SessionState; changed: boolean };
 }
 
 function render(list: HTMLOListElement, state: SessionState) {

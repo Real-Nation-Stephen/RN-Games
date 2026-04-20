@@ -128,6 +128,22 @@ async function main() {
     let sessionCode = "";
     let hostKey = "";
     let navBusy = false;
+    /** After POST /quiz-session, GET may briefly 404 (blobs / edge). Retry before treating as dead. */
+    let sessionYoungUntil = 0;
+
+    async function fetchQuizSessionRaw(code: string, revNum: number): Promise<Response> {
+      let last: Response | undefined;
+      const max = 6;
+      for (let attempt = 0; attempt < max; attempt++) {
+        const url = `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(revNum))}&cb=${Date.now()}-${attempt}`;
+        last = await fetch(url, { cache: "no-store" });
+        if (last.status !== 404) return last;
+        const mayRetry = Date.now() < sessionYoungUntil || attempt < 4;
+        if (!mayRetry) return last;
+        await new Promise((r) => setTimeout(r, 100 + attempt * 75));
+      }
+      return last!;
+    }
 
     const setJoin = (code: string, key?: string) => {
       sessionCode = code;
@@ -211,13 +227,13 @@ async function main() {
 
     const pollOnce = async () => {
       if (!sessionCode || preview || pollDead) return;
-      const url = `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=${encodeURIComponent(String(rev))}`;
-      const res = await fetch(url);
+      const res = await fetchQuizSessionRaw(sessionCode, rev);
       if (res.status === 404 || res.status === 410) {
         handleSessionMissing();
         return;
       }
       if (!res.ok) return;
+      sessionYoungUntil = 0;
       const r = (await res.json()) as { changed: boolean; state: SessionState | null };
       if (r.changed && r.state) applyServerState(r.state);
     };
@@ -227,6 +243,7 @@ async function main() {
 
     const handleSessionMissing = () => {
       pollDead = true;
+      sessionYoungUntil = 0;
       clearHostSession();
       sessionCode = "";
       hostKey = "";
@@ -356,8 +373,7 @@ async function main() {
         sessionCode = stored.code;
         hostKey = stored.hostKey;
         setJoin(stored.code);
-        const bootUrl = `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=0`;
-        const bootRes = await fetch(bootUrl);
+        const bootRes = await fetchQuizSessionRaw(sessionCode, 0);
         if (bootRes.status === 404 || bootRes.status === 410) {
           handleSessionMissing();
         } else if (bootRes.ok) {
@@ -383,6 +399,7 @@ async function main() {
 
       el.createSession.addEventListener("click", async () => {
         pollDead = false;
+        sessionYoungUntil = Date.now() + 20000;
         const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(`/api/quiz-session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

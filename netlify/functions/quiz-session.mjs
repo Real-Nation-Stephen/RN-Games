@@ -3,10 +3,13 @@ import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { getSession, makeSessionCode, nowIso, setSession } from "./lib/quiz-store.mjs";
 import { minimalCurrent, sessionPublicState } from "./lib/quiz-minimal.mjs";
 
+/** Prevent CDN/browser caching GET by path only — query varies per room/rev. */
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
 };
 
 export const handler = async (event) => {
