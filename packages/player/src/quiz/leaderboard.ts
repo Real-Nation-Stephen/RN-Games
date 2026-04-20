@@ -1,6 +1,7 @@
 import type { SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
+import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
 
 function getSlugAndCode() {
@@ -16,7 +17,7 @@ function getSlugAndCode() {
 }
 
 async function pollSession(code: string, rev: number) {
-  const url = `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(rev))}&cb=${Date.now()}`;
+  const url = quizSessionGetUrl({ code, rev: String(rev), cb: String(Date.now()) });
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const t = await res.text();

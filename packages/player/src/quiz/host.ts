@@ -2,6 +2,7 @@ import type { QuizConfig, SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
 import { applyQuizSurface } from "./quiz-theme";
+import { quizSessionEndpoint, quizSessionGetUrl } from "./api-path";
 import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
 
 const HOST_STORAGE_KEY = "rngames-quiz-host";
@@ -107,6 +108,10 @@ async function main() {
     }
     if (!quiz) throw new Error("Missing quiz config");
 
+    const debugQuiz =
+      qs().get("debugQuiz") === "1" ||
+      (typeof window !== "undefined" && window.localStorage?.getItem("rngames-debug-quiz") === "1");
+
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     const el = getEls();
     const appRoot = byId("app");
@@ -135,8 +140,16 @@ async function main() {
       let last: Response | undefined;
       const max = 6;
       for (let attempt = 0; attempt < max; attempt++) {
-        const url = `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(revNum))}&cb=${Date.now()}-${attempt}`;
+        const url = quizSessionGetUrl({
+          code,
+          rev: String(revNum),
+          cb: `${Date.now()}-${attempt}`,
+        });
         last = await fetch(url, { cache: "no-store" });
+        if (debugQuiz) {
+          const peek = await last.clone().text();
+          console.info("[rngames quiz-host] session poll", { url, status: last.status, bodyPreview: peek.slice(0, 200) });
+        }
         if (last.status !== 404) return last;
         const mayRetry = Date.now() < sessionYoungUntil || attempt < 4;
         if (!mayRetry) return last;
@@ -400,11 +413,14 @@ async function main() {
       el.createSession.addEventListener("click", async () => {
         pollDead = false;
         sessionYoungUntil = Date.now() + 20000;
-        const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(`/api/quiz-session`, {
+        const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(quizSessionEndpoint(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug: quiz.slug }),
         });
+        if (debugQuiz) {
+          console.info("[rngames quiz-host] POST start session OK", { endpoint: quizSessionEndpoint(), code: res.code });
+        }
         saveHostSession(quiz.slug, res.code, res.hostKey);
         setJoin(res.code, res.hostKey);
         if (res.state) applyServerState(res.state);

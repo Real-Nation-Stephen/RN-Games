@@ -1,7 +1,8 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
+import { getQueryParam } from "./lib/query.mjs";
 import { getSession, makeSessionCode, nowIso, setSession } from "./lib/quiz-store.mjs";
-import { minimalCurrent, sessionPublicState } from "./lib/quiz-minimal.mjs";
+import { sessionPublicState } from "./lib/quiz-minimal.mjs";
 
 /** Prevent CDN/browser caching GET by path only — query varies per room/rev. */
 const headers = {
@@ -67,6 +68,17 @@ export const handler = async (event) => {
         events: [],
       };
       await setSession(code, session);
+      const verify = await getSession(code);
+      if (!verify || String(verify.code || "").toUpperCase() !== String(code).toUpperCase()) {
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({
+            error: "Session could not be written to storage. Check Netlify Blobs / site configuration.",
+            code: "session_persist_failed",
+          }),
+        };
+      }
 
       return {
         statusCode: 200,
@@ -75,14 +87,14 @@ export const handler = async (event) => {
           code,
           hostKey,
           maxParticipants,
-          state: sessionPublicState(session, quiz),
+          state: sessionPublicState(verify, quiz),
         }),
       };
     }
 
     if (event.httpMethod === "GET") {
-      const code = String(event.queryStringParameters?.code || "").trim().toUpperCase();
-      const rev = Number(event.queryStringParameters?.rev || 0);
+      const code = String(getQueryParam(event, "code") || "").trim().toUpperCase();
+      const rev = Number(getQueryParam(event, "rev") || 0);
       if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: "code required" }) };
       const session = await getSession(code);
       if (!session) return { statusCode: 404, headers, body: JSON.stringify({ error: "Session not found" }) };

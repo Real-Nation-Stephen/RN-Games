@@ -1,6 +1,7 @@
 import type { QuizConfig, SessionState } from "./types";
 import { byId, fetchQuiz, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
+import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
 import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
 
@@ -59,7 +60,7 @@ async function main() {
     };
 
     async function getSessionJson(revNum: number) {
-      const url = `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(revNum))}&cb=${Date.now()}`;
+      const url = quizSessionGetUrl({ code, rev: String(revNum), cb: String(Date.now()) });
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`Session ${res.status}`);
       return res.json() as Promise<{ changed: boolean; state: SessionState | null }>;
