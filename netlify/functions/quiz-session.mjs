@@ -1,7 +1,7 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { getQueryParam } from "./lib/query.mjs";
-import { getSession, makeSessionCode, nowIso, setSession } from "./lib/quiz-store.mjs";
+import { getSession, getSessionWithBriefRetry, makeSessionCode, nowIso, setSession } from "./lib/quiz-store.mjs";
 import { sessionPublicState } from "./lib/quiz-minimal.mjs";
 
 /** Prevent CDN/browser caching GET by path only — query varies per room/rev. */
@@ -85,7 +85,7 @@ export const handler = async (event) => {
       const code = String(getQueryParam(event, "code") || "").trim().toUpperCase();
       const rev = Number(getQueryParam(event, "rev") || 0);
       if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: "code required" }) };
-      const session = await getSession(code);
+      const session = await getSessionWithBriefRetry(code);
       if (!session) return { statusCode: 404, headers, body: JSON.stringify({ error: "Session not found" }) };
       if (Date.now() > Date.parse(session.expiresAt || "1970-01-01")) {
         return { statusCode: 410, headers, body: JSON.stringify({ error: "Session expired" }) };
