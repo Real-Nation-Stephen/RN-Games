@@ -68,18 +68,7 @@ export const handler = async (event) => {
         events: [],
       };
       await setSession(code, session);
-      const verify = await getSession(code);
-      if (!verify || String(verify.code || "").toUpperCase() !== String(code).toUpperCase()) {
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({
-            error: "Session could not be written to storage. Check Netlify Blobs / site configuration.",
-            code: "session_persist_failed",
-          }),
-        };
-      }
-
+      /** Do not require an immediate read-after-write: Netlify Blobs can be eventually consistent, so getSession right after setJSON may still return null even when the write succeeded (setJSON throws on failure). */
       return {
         statusCode: 200,
         headers,
@@ -87,7 +76,7 @@ export const handler = async (event) => {
           code,
           hostKey,
           maxParticipants,
-          state: sessionPublicState(verify, quiz),
+          state: sessionPublicState(session, quiz),
         }),
       };
     }
