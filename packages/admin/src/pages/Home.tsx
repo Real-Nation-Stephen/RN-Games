@@ -60,9 +60,9 @@ function GamesTable({
           <tr key={w.id}>
             <td>
               {w.thumbnailUrl ? (
-                <img className="thumb" src={w.thumbnailUrl} alt="" />
+                <img className={`thumb ${isScratcher(w) ? "thumb--contain" : ""}`} src={w.thumbnailUrl} alt="" />
               ) : (
-                <div className="thumb" />
+                <div className={`thumb ${isScratcher(w) ? "thumb--contain" : ""}`} />
               )}
             </td>
             <td>

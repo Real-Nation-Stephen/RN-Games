@@ -42,12 +42,15 @@ const FORMAT_LABELS: { id: ScratcherFormatId; label: string }[] = [
   { id: "4x3", label: "4∶3 Landscape 1920×1440" },
 ];
 
-/** CSS aspect-ratio for embed iframe (matches design canvas). */
-const EMBED_ASPECT: Record<ScratcherFormatId, string> = {
-  "1x1": "1 / 1",
-  "9x16": "9 / 16",
-  "16x9": "16 / 9",
-  "4x3": "4 / 3",
+/**
+ * CSS aspect-ratio for embed / live preview iframe — scratch **active** region
+ * (matches crop-to-active layout in scratcher-embed; 9∶16 is full-bleed).
+ */
+const EMBED_VIEW_ASPECT: Record<ScratcherFormatId, string> = {
+  "16x9": "1300 / 700",
+  "1x1": "1300 / 1300",
+  "9x16": "1080 / 1920",
+  "4x3": "1300 / 975",
 };
 
 function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
@@ -144,6 +147,21 @@ export default function ScratcherEditor() {
     return () => window.clearTimeout(t);
   }, [game, pushPreview]);
 
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type !== "rngames-scratcher-embed-size") return;
+      const iframe = iframeRef.current;
+      if (!iframe || e.source !== iframe.contentWindow) return;
+      const h = typeof e.data.height === "number" ? e.data.height : 0;
+      if (h > 0) {
+        iframe.style.height = `${h}px`;
+        iframe.style.aspectRatio = "unset";
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   async function save() {
     if (!game) return;
     setSaving(true);
@@ -229,7 +247,7 @@ export default function ScratcherEditor() {
   }
 
   const iframeId = `rngames-scratcher-${game.slug.replace(/[^a-z0-9-]/gi, "x")}`;
-  const embedCode = `<iframe id="${iframeId}" src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Scratcher").replace(/"/g, "&quot;")}" style="border:0;width:100%;max-width:100%;aspect-ratio:${EMBED_ASPECT[game.scratcherFormat]};height:auto;display:block;" loading="lazy"></iframe><script>(function(){var id="${iframeId}";function onMsg(e){try{if(!e.data||e.data.type!=="rngames-scratcher-embed-size")return;var f=document.getElementById(id);if(!f||e.source!==f.contentWindow)return;f.style.height=e.data.height+"px";f.style.aspectRatio="unset"}catch(_){}}window.addEventListener("message",onMsg)})();<\/script>`;
+  const embedCode = `<iframe id="${iframeId}" src="${siteUrl}/play/scratcher-embed.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Scratcher").replace(/"/g, "&quot;")}" style="border:0;width:100%;max-width:100%;aspect-ratio:${EMBED_VIEW_ASPECT[game.scratcherFormat]};height:auto;display:block;" loading="lazy"></iframe><script>(function(){var id="${iframeId}";function onMsg(e){try{if(!e.data||e.data.type!=="rngames-scratcher-embed-size")return;var f=document.getElementById(id);if(!f||e.source!==f.contentWindow)return;f.style.height=e.data.height+"px";f.style.aspectRatio="unset"}catch(_){}}window.addEventListener("message",onMsg)})();<\/script>`;
 
   return (
     <div>
@@ -412,13 +430,14 @@ export default function ScratcherEditor() {
           </button>
         </div>
         <iframe
+          key={game.scratcherFormat}
           ref={iframeRef}
           title="Scratcher preview"
           src="/play/scratcher-embed.html?preview=1"
           onLoad={() => pushPreview()}
           style={{
             width: "100%",
-            aspectRatio: EMBED_ASPECT[game.scratcherFormat],
+            aspectRatio: EMBED_VIEW_ASPECT[game.scratcherFormat],
             height: "auto",
             minHeight: 200,
             border: "1px solid var(--rn-border)",
@@ -438,8 +457,8 @@ export default function ScratcherEditor() {
           onFocus={(e) => e.target.select()}
         />
         <p className="muted" style={{ marginTop: 8, fontSize: "0.85rem" }}>
-          Preview matches the embed: stage only (no full-page background). Set the iframe width in your CMS; height follows
-          the format aspect ratio.
+          Preview matches the embed: the scratch card fills the iframe width (design margins are cropped). Height is set via
+          postMessage from the player; the embed snippet uses the active-region aspect ratio until that runs.
         </p>
       </div>
 

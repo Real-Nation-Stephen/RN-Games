@@ -180,6 +180,11 @@ textarea {
   background: #000;
 }
 
+.thumb--contain {
+  object-fit: contain;
+  background: #0a1628;
+}
+
 .muted {
   color: var(--rn-muted);
   font-size: 0.85rem;

@@ -111,14 +111,20 @@ function layoutScale() {
   const f = fmtOverride || fmt;
   if (!els.stage || !els.fit) return;
 
-  /** Iframe embed: fill container width; height follows design aspect (parent can match via aspect-ratio or postMessage) */
+  /**
+   * Iframe embed: scale so the scratch **active** rect fills the iframe width, then crop
+   * (removes empty design margins that looked like side padding). 9∶16 full-bleed is unchanged.
+   */
   if (isEmbed) {
     const vw = window.innerWidth;
-    const scale = vw / f.designW;
-    const scaledH = f.designH * scale;
-    els.stage.style.transform = `scale(${scale})`;
-    els.fit.style.width = `${f.designW * scale}px`;
+    const { left: aL, top: aT, width: aW, height: aH } = f.active;
+    const scale = vw / aW;
+    const scaledH = aH * scale;
+    els.fit.style.overflow = "hidden";
+    els.fit.style.width = `${vw}px`;
     els.fit.style.height = `${scaledH}px`;
+    els.stage.style.transformOrigin = "0 0";
+    els.stage.style.transform = `translate(${-aL * scale}px, ${-aT * scale}px) scale(${scale})`;
     try {
       if (window.parent !== window) {
         window.parent.postMessage(
@@ -137,10 +143,14 @@ function layoutScale() {
   }
 
   const compact = isCompactScratcherViewport();
-  const pad = compact ? 4 : 10;
+  const isNineSixteen = f.designW === 1080 && f.designH === 1920 && f.active.left === 0 && f.active.top === 0;
+  // On the 9×16 public page, add a bit more gutter so scratching near edges is easier on touch.
+  const pad = isNineSixteen ? (compact ? 16 : 12) : compact ? 4 : 10;
   const vw = window.innerWidth - pad * 2;
   const vh = window.innerHeight - pad * 2;
   const scale = Math.min(vw / f.designW, vh / f.designH);
+  els.fit.style.overflow = "";
+  els.stage.style.transformOrigin = "";
   els.stage.style.transform = `scale(${scale})`;
   els.fit.style.width = `${f.designW * scale}px`;
   els.fit.style.height = `${f.designH * scale}px`;
@@ -172,6 +182,11 @@ function updateOrientationGate() {
 
 function wireFullscreen() {
   if (!els.fsBtn) return;
+  const isCoarse = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  if (isCoarse || !document.fullscreenEnabled) {
+    els.fsBtn.hidden = true;
+    return;
+  }
   els.fsBtn.hidden = false;
   els.fsBtn.addEventListener("click", async () => {
     try {
