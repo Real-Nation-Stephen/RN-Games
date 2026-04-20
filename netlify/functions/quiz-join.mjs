@@ -52,7 +52,7 @@ export const handler = async (event) => {
     }
 
     const list = await readIndex();
-    const item = list.find((x) => x.slug === slug);
+    const item = list.find((x) => String(x.slug || "").toLowerCase() === slug);
     const quiz = item ? await getWheelJson(item.id) : null;
     const maxParticipants = Math.min(500, Math.max(10, Number(quiz?.playAlong?.maxParticipants) || 150));
 

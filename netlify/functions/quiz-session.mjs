@@ -25,14 +25,18 @@ export const handler = async (event) => {
   try {
     if (event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}");
-      const slug = String(body.slug || "").trim().toLowerCase();
+      const slugRaw = String(body.slug || "").trim();
+      const slug = slugRaw.toLowerCase();
       if (!slug) return { statusCode: 400, headers, body: JSON.stringify({ error: "slug required" }) };
       const list = await readIndex();
-      const item = list.find((x) => x.slug === slug);
-      if (!item) return { statusCode: 404, headers, body: JSON.stringify({ error: "Quiz not found" }) };
+      const item = list.find((x) => String(x.slug || "").toLowerCase() === slug);
+      if (!item) {
+        return { statusCode: 404, headers, body: JSON.stringify({ error: "Quiz not found", slug: slugRaw }) };
+      }
       const quiz = await getWheelJson(item.id);
-      if (!quiz || quiz.gameType !== "quiz") {
-        return { statusCode: 404, headers, body: JSON.stringify({ error: "Quiz not found" }) };
+      const isQuiz = quiz?.gameType === "quiz" || item.gameType === "quiz";
+      if (!quiz || !isQuiz) {
+        return { statusCode: 404, headers, body: JSON.stringify({ error: "Quiz not found", slug: slugRaw }) };
       }
 
       const maxParticipants = Math.min(500, Math.max(10, Number(quiz.playAlong?.maxParticipants) || 150));
@@ -53,7 +57,7 @@ export const handler = async (event) => {
         code,
         hostKey,
         quizId: quiz.id,
-        quizSlug: quiz.slug,
+        quizSlug: String(quiz.slug || item.slug || slug),
         createdAt,
         expiresAt,
         currentSequenceIndex: 0,
