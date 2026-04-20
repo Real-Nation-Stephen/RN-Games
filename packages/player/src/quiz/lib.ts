@@ -16,7 +16,18 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
     const t = await res.text();
     throw new Error(t || `HTTP ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  if (res.status === 204) return null as unknown as T;
+  const t = await res.text();
+  if (!t) return null as unknown as T;
+  return JSON.parse(t) as T;
+}
+
+export async function fetchOk(url: string, init?: RequestInit): Promise<void> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
 }
 
 export async function fetchQuiz(slug: string): Promise<QuizConfig> {

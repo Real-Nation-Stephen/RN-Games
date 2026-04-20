@@ -1,5 +1,5 @@
 import type { QuizConfig, QuizSequence } from "./types";
-import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
+import { byId, fetchOk, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
 
 type Els = {
@@ -183,7 +183,7 @@ async function main() {
 
     const control = async (action: string) => {
       if (!sessionCode || !hostKey) return;
-      await fetchJson(`/api/quiz-control`, {
+      await fetchOk(`/api/quiz-control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: sessionCode, hostKey, action }),
