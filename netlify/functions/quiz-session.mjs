@@ -1,20 +1,13 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { getSession, makeSessionCode, nowIso, setSession } from "./lib/quiz-store.mjs";
+import { minimalCurrent, sessionPublicState } from "./lib/quiz-minimal.mjs";
 
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
 };
-
-function minimalCurrent(quiz, seqIdx) {
-  const seq = quiz?.tracks?.[0]?.sequences?.[seqIdx];
-  if (!seq) return null;
-  if (seq.type !== "question") return { type: seq.type };
-  const choices = seq.input?.type === "buttons" ? seq.input.choices || [] : [];
-  return { type: "question", question: { text: seq.prompt?.text || "Question", choices } };
-}
 
 export const handler = async (event) => {
   connectLambda(event);
@@ -64,6 +57,8 @@ export const handler = async (event) => {
         phase: "lobby",
         openedAt: null,
         closesAt: null,
+        /** While true, new participants may join. Host locks when the quiz begins. */
+        lobbyOpen: true,
         participants: [],
         answers: {},
         events: [],
@@ -77,20 +72,7 @@ export const handler = async (event) => {
           code,
           hostKey,
           maxParticipants,
-          state: {
-            revision: session.revision,
-            code,
-            quizId: session.quizId,
-            quizSlug: session.quizSlug,
-            createdAt: session.createdAt,
-            expiresAt: session.expiresAt,
-            currentSequenceIndex: session.currentSequenceIndex,
-            phase: session.phase,
-            openedAt: session.openedAt,
-            closesAt: session.closesAt,
-            participants: session.participants,
-            current: minimalCurrent(quiz, session.currentSequenceIndex),
-          },
+          state: sessionPublicState(session, quiz),
         }),
       };
     }
@@ -109,28 +91,17 @@ export const handler = async (event) => {
       }
 
       const quiz = await getWheelJson(session.quizId);
-      const current = quiz?.gameType === "quiz" ? minimalCurrent(quiz, session.currentSequenceIndex) : null;
+      const list = await readIndex();
+      const idxItem = list.find((x) => x.id === session.quizId);
+      const isQuizDoc = quiz?.gameType === "quiz" || idxItem?.gameType === "quiz";
+      const quizForState = isQuizDoc && quiz ? quiz : null;
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           changed: true,
-          state: {
-            revision: session.revision,
-            code: session.code,
-            quizId: session.quizId,
-            quizSlug: session.quizSlug,
-            createdAt: session.createdAt,
-            expiresAt: session.expiresAt,
-            currentSequenceIndex: session.currentSequenceIndex,
-            phase: session.phase,
-            openedAt: session.openedAt,
-            closesAt: session.closesAt,
-            participants: session.participants || [],
-            current,
-            bonus: session.bonus || null,
-          },
+          state: sessionPublicState(session, quizForState),
         }),
       };
     }

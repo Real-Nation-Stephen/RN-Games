@@ -22,6 +22,7 @@
             </div>
             <div class="quiz-controls">
               <button id="quiz-create-session" class="btn btn-primary" type="button">Start session</button>
+              <button id="quiz-lock-lobby" class="btn" type="button" disabled>Lock lobby (start game)</button>
               <button id="quiz-prev" class="btn" type="button">Prev</button>
               <button id="quiz-next" class="btn" type="button">Next</button>
             </div>
@@ -38,20 +39,30 @@
               </div>
             </div>
             <div class="quiz-right">
-              <div class="quiz-card">
-                <h3 style="margin: 0 0 10px">Join</h3>
-                <div class="muted" style="font-size: 0.9rem; line-height: 1.4">
+              <div class="quiz-card quiz-card--join">
+                <h3 style="margin: 0 0 8px">Join &amp; pop-outs</h3>
+                <div class="muted" style="font-size: 0.9rem; line-height: 1.4; word-break: break-all">
                   Link: <code id="quiz-join-link"></code>
                 </div>
-                <div style="margin-top: 10">
-                  <img id="quiz-qr" alt="" style="max-width: 240px; width: 100%; height: auto; border-radius: 10px" />
+                <div class="quiz-qr-wrap">
+                  <img id="quiz-qr" alt="Scan to join" hidden style="max-width: 280px; width: 100%; height: auto; border-radius: 10px" />
                 </div>
-                <div class="muted" style="margin-top: 10; font-size: 0.85rem">
-                  MVP: this screen drives sequences; play-along hooks in next.
+                <div class="quiz-popout-row">
+                  <button id="quiz-open-present" type="button" class="btn btn-small" disabled>Presentation</button>
+                  <button id="quiz-open-leaderboard" type="button" class="btn btn-small" disabled>Leaderboard</button>
                 </div>
+                <p id="quiz-lobby-hint" class="muted" style="margin: 10px 0 0; font-size: 0.82rem; line-height: 1.35"></p>
               </div>
 
-              <div class="quiz-card" style="margin-top: 12">
+              <div class="quiz-card" style="margin-top: 12px">
+                <div class="quiz-players-head">
+                  <h3 style="margin: 0">Players</h3>
+                  <span class="muted quiz-players-count"><span id="quiz-participant-count">0</span> connected</span>
+                </div>
+                <div id="quiz-participants" class="quiz-participants-strip" aria-label="Connected players"></div>
+              </div>
+
+              <div class="quiz-card" style="margin-top: 12px">
                 <h3 style="margin: 0 0 10px">Sequence list</h3>
                 <ol id="quiz-seq-list" class="quiz-seq-list"></ol>
               </div>
@@ -71,4 +82,3 @@
     <script type="module" src="/src/quiz/host.ts"></script>
   </body>
 </html>
-

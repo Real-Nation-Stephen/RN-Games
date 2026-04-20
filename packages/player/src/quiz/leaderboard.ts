@@ -65,7 +65,7 @@ async function main() {
       } catch {
         // ignore
       } finally {
-        window.setTimeout(loop, 900);
+        window.setTimeout(loop, 380);
       }
     };
     loop();

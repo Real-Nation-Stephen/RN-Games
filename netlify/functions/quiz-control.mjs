@@ -1,6 +1,7 @@
 import { connectLambda } from "@netlify/blobs";
-import { getWheelJson } from "./lib/blobs.mjs";
+import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { getSession, setSession } from "./lib/quiz-store.mjs";
+import { sessionPublicState } from "./lib/quiz-minimal.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -10,6 +11,15 @@ const headers = {
 
 function clamp(n, lo, hi) {
   return Math.min(hi, Math.max(lo, n));
+}
+
+async function loadQuizForSession(session) {
+  const quiz = await getWheelJson(session.quizId);
+  const list = await readIndex();
+  const idxItem = list.find((x) => x.id === session.quizId);
+  const isQuiz = quiz?.gameType === "quiz" || idxItem?.gameType === "quiz";
+  if (!quiz || !isQuiz) return null;
+  return quiz;
 }
 
 export const handler = async (event) => {
@@ -35,14 +45,16 @@ export const handler = async (event) => {
       return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
     }
 
-    const quiz = await getWheelJson(session.quizId);
-    if (!quiz || quiz.gameType !== "quiz") {
+    const quiz = await loadQuizForSession(session);
+    if (!quiz) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Quiz missing" }) };
     }
     const seqs = quiz.tracks?.[0]?.sequences || [];
     const maxIdx = Math.max(0, seqs.length - 1);
 
-    if (action === "prev") {
+    if (action === "lockLobby") {
+      session.lobbyOpen = false;
+    } else if (action === "prev") {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) - 1, 0, maxIdx);
       session.phase = "closed";
       session.openedAt = null;
@@ -88,15 +100,21 @@ export const handler = async (event) => {
       session.openedAt = null;
       session.closesAt = null;
       session.bonus = null;
+      session.lobbyOpen = false;
     } else {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action" }) };
     }
 
     session.revision = Number(session.revision || 0) + 1;
     await setSession(code, session);
-    return { statusCode: 204, headers, body: "" };
+
+    const state = sessionPublicState(session, quiz);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ ok: true, state }),
+    };
   } catch (e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e instanceof Error ? e.message : "Control failed" }) };
   }
 };
-

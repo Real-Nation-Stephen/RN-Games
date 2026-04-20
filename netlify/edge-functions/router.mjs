@@ -27,6 +27,10 @@ export default async (request, context) => {
     if (seg.length >= 3 && seg[0] === "quiz" && seg[2] === "host") {
       return fetch(new URL("/play/quiz-host.html", url));
     }
+    // /quiz/:slug/present/:code (audience / projector — follows session slide index)
+    if (seg.length >= 4 && seg[0] === "quiz" && seg[2] === "present") {
+      return fetch(new URL("/play/quiz-present.html", url));
+    }
     // /quiz/:slug/join/:code
     if (seg.length >= 4 && seg[0] === "quiz" && seg[2] === "join") {
       return fetch(new URL("/play/quiz-join.html", url));

@@ -41,6 +41,7 @@ export const handler = async (event) => {
     const slug = String(body.slug || "").trim().toLowerCase();
     const name = String(body.name || "").trim();
     const icon = String(body.icon || "🙂").trim().slice(0, 4);
+    const existingParticipantId = String(body.participantId || "").trim();
     if (!code || !slug) return { statusCode: 400, headers, body: JSON.stringify({ error: "code and slug required" }) };
     let session = await getSession(code);
     if (!session) return { statusCode: 404, headers, body: JSON.stringify({ error: "Session not found" }) };
@@ -55,6 +56,30 @@ export const handler = async (event) => {
     const item = list.find((x) => String(x.slug || "").toLowerCase() === slug);
     const quiz = item ? await getWheelJson(item.id) : null;
     const maxParticipants = Math.min(500, Math.max(10, Number(quiz?.playAlong?.maxParticipants) || 150));
+
+    /** Reconnect: same participantId already in session */
+    if (existingParticipantId) {
+      const p = (session.participants || []).find((x) => x.id === existingParticipantId);
+      if (p) {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ participantId: p.id, name: p.name, reconnected: true }),
+        };
+      }
+      if (session.lobbyOpen === false) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: "lobby_closed", code: "lobby_closed" }) };
+      }
+    }
+
+    if (session.lobbyOpen === false) {
+      return { statusCode: 403, headers, body: JSON.stringify({ error: "lobby_closed", code: "lobby_closed" }) };
+    }
+
+    /** New registration (including stale participantId while lobby is open) requires a display name. */
+    if (!name.trim()) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "name required", code: "name_required" }) };
+    }
 
     const existingCount = Array.isArray(session.participants) ? session.participants.length : 0;
     if (existingCount >= maxParticipants) {

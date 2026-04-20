@@ -74,6 +74,8 @@ export type SessionState = {
   openedAt?: number | null;
   closesAt?: number | null;
   participants: { id: string; name: string; icon: string; score: number }[];
+  /** False after host locks lobby (game started); new joins rejected. */
+  lobbyOpen?: boolean;
   // Minimal current question snapshot for join UI.
   current?: { type: QuizSequenceType; question?: { text?: string; choices?: { id: string; label: string }[] } };
   bonus?: { kind: string; winnerId?: string; points?: number } | null;

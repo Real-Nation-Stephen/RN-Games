@@ -18,6 +18,7 @@ export default defineConfig({
         "scratcher-test-9x16": resolve(__dirname, "scratcher-test-9x16.html"),
         "scratcher-test-4x3": resolve(__dirname, "scratcher-test-4x3.html"),
         "quiz-host": resolve(__dirname, "quiz-host.html"),
+        "quiz-present": resolve(__dirname, "quiz-present.html"),
         "quiz-join": resolve(__dirname, "quiz-join.html"),
         "quiz-leaderboard": resolve(__dirname, "quiz-leaderboard.html"),
         "flip-cards-dada-test": resolve(__dirname, "flip-cards-dada-test.html"),

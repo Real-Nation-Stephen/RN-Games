@@ -1,24 +1,52 @@
-import type { QuizConfig, SessionState } from "./types";
+import type { SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 
 const ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
 
+function storageKey(slug: string, code: string) {
+  return `rngames-quiz-player:${slug}:${code}`;
+}
+
 function getSlugAndCode() {
   const slug = qs().get("slug");
   const code = qs().get("code");
-  if (slug && code) return { slug, code };
+  if (slug && code) return { slug, code: code.toUpperCase() };
   const seg = window.location.pathname.split("/").filter(Boolean);
   const i = seg.indexOf("quiz");
   const slug2 = i >= 0 ? seg[i + 1] : "";
   const code2 = i >= 0 ? seg[i + 3] : "";
   if (!slug2 || !code2) throw new Error("Missing slug/code");
-  return { slug: slug2, code: code2 };
+  return { slug: slug2, code: code2.toUpperCase() };
 }
 
 async function pollSession(code: string, rev: number) {
   return fetchJson<{ state: SessionState; changed: boolean }>(
     `/api/quiz-session?code=${encodeURIComponent(code)}&rev=${encodeURIComponent(String(rev))}`,
   );
+}
+
+async function postJoin(body: Record<string, unknown>) {
+  const res = await fetch(`/api/quiz-join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const t = await res.text();
+  if (!res.ok) {
+    let msg = t || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(t) as { error?: string; code?: string };
+      if (j.code === "lobby_closed" || /lobby_closed/i.test(String(j.error))) {
+        msg = "This game has already started — new players cannot join.";
+      } else if (j.error) {
+        msg = j.error;
+      }
+    } catch {
+      /* plain text */
+    }
+    throw new Error(msg);
+  }
+  return t ? (JSON.parse(t) as { participantId: string; reconnected?: boolean }) : { participantId: "" };
 }
 
 function renderIcons(root: HTMLElement, active: { value: string }, onPick: () => void) {
@@ -70,6 +98,8 @@ async function main() {
 
     let participantId = "";
     let rev = 0;
+
+    const key = storageKey(slug, code);
 
     const setPlayVisible = () => {
       joinStep.setAttribute("hidden", "true");
@@ -161,12 +191,13 @@ async function main() {
       if (!displayName) return;
       joinBtn.disabled = true;
       try {
-        const res = await fetchJson<{ participantId: string }>(`/api/quiz-join`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, slug, name: displayName, icon: picked.value }),
-        });
+        const res = await postJoin({ code, slug, name: displayName, icon: picked.value });
         participantId = res.participantId;
+        try {
+          localStorage.setItem(key, JSON.stringify({ participantId }));
+        } catch {
+          /* storage full / private mode */
+        }
         setPlayVisible();
       } catch (e) {
         joinBtn.disabled = false;
@@ -174,22 +205,54 @@ async function main() {
       }
     });
 
-    // If already joined, we could store participantId in localStorage. Keep it simple for MVP.
     setJoinVisible();
+
+    const stored = (() => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        return JSON.parse(raw) as { participantId?: string };
+      } catch {
+        return null;
+      }
+    })();
+
+    if (stored?.participantId) {
+      joinBtn.disabled = true;
+      try {
+        const res = await postJoin({ code, slug, participantId: stored.participantId });
+        participantId = res.participantId;
+        setPlayVisible();
+      } catch (e) {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          /* ignore */
+        }
+        const msg = e instanceof Error ? e.message : "Could not rejoin";
+        if (msg.includes("already started")) {
+          showError(msg);
+          return;
+        }
+      } finally {
+        joinBtn.disabled = false;
+      }
+    }
+
     showApp();
 
-    // Poll loop (fast when open; slower otherwise).
     const loop = async () => {
+      let delay = 520;
       try {
         const r = await pollSession(code, rev);
-        if (r.changed) {
+        if (r.changed && r.state) {
           rev = r.state.revision;
           if (participantId) renderQuestion(r.state);
+          delay = r.state.phase === "open" ? 260 : 400;
         }
       } catch {
-        // ignore; keep looping
+        delay = 1200;
       } finally {
-        const delay = 900;
         window.setTimeout(loop, delay);
       }
     };
@@ -200,4 +263,3 @@ async function main() {
 }
 
 void main();
-

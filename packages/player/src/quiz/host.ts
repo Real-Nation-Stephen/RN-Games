@@ -1,26 +1,47 @@
-import type { QuizConfig, QuizSequence } from "./types";
-import { byId, fetchOk, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
+import type { QuizConfig, SessionState } from "./types";
+import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
+import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
 
-type Els = {
-  stage: HTMLElement;
-  fit: HTMLElement;
-  bgVideo: HTMLVideoElement;
+const HOST_STORAGE_KEY = "rngames-quiz-host";
+
+type HostStored = { slug: string; code: string; hostKey: string };
+
+type Els = SequenceStageEls & {
   logo: HTMLImageElement;
   title: HTMLElement;
   sub: HTMLElement;
-  seqKind: HTMLElement;
-  seqTitle: HTMLElement;
-  seqBody: HTMLElement;
-  media: HTMLElement;
-  answers: HTMLElement;
   prev: HTMLButtonElement;
   next: HTMLButtonElement;
   createSession: HTMLButtonElement;
   joinLink: HTMLElement;
   qr: HTMLImageElement;
   list: HTMLOListElement;
+  participantCount: HTMLElement;
+  participants: HTMLElement;
+  lockLobby: HTMLButtonElement;
+  openPresent: HTMLButtonElement;
+  openLeaderboard: HTMLButtonElement;
+  lobbyHint: HTMLElement;
 };
+
+function loadHostSession(): HostStored | null {
+  try {
+    const raw = sessionStorage.getItem(HOST_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as HostStored;
+  } catch {
+    return null;
+  }
+}
+
+function saveHostSession(slug: string, code: string, hostKey: string) {
+  sessionStorage.setItem(HOST_STORAGE_KEY, JSON.stringify({ slug, code, hostKey }));
+}
+
+function clearHostSession() {
+  sessionStorage.removeItem(HOST_STORAGE_KEY);
+}
 
 function getEls(): Els {
   return {
@@ -41,68 +62,22 @@ function getEls(): Els {
     joinLink: byId("quiz-join-link"),
     qr: byId("quiz-qr"),
     list: byId("quiz-seq-list"),
+    participantCount: byId("quiz-participant-count"),
+    participants: byId("quiz-participants"),
+    lockLobby: byId("quiz-lock-lobby"),
+    openPresent: byId("quiz-open-present"),
+    openLeaderboard: byId("quiz-open-leaderboard"),
+    lobbyHint: byId("quiz-lobby-hint"),
   };
 }
 
 function getSlug(): string {
   const p = qs().get("slug");
   if (p) return p;
-  // Fallback: /quiz/<slug>/host routed pages may also have slug in pathname.
   const seg = window.location.pathname.split("/").filter(Boolean);
   const i = seg.indexOf("quiz");
   if (i >= 0 && seg[i + 1]) return seg[i + 1];
   throw new Error("Missing slug");
-}
-
-function firstTrack(q: QuizConfig) {
-  return q.tracks?.[0] || { id: "main", name: "Main", sequences: [] as QuizSequence[] };
-}
-
-function renderSeq(el: Els, q: QuizConfig, seq: QuizSequence, idx: number, total: number) {
-  el.seqKind.textContent = `${idx + 1} / ${total} • ${seq.type.toUpperCase()}`;
-  const title = seq.type === "question" ? seq.prompt.text || "Question" : seq.title || q.title || "Quiz";
-  const body = seq.type === "question" ? seq.prompt.body || "" : seq.body || "";
-  el.seqTitle.textContent = title;
-  el.seqBody.textContent = body;
-
-  el.media.innerHTML = "";
-  const bg = seq.media?.bgColor || q.branding?.backgroundColor || "#0a1628";
-  el.stage.style.background = bg;
-
-  // Video-per-sequence mode: one background video per sequence, no controls.
-  if (q.mode.motion === "videoSequences" && seq.media?.videoUrl) {
-    el.bgVideo.hidden = false;
-    if (el.bgVideo.src !== seq.media.videoUrl) el.bgVideo.src = seq.media.videoUrl;
-    void el.bgVideo.play().catch(() => void 0);
-  } else if (seq.media?.bgImageUrl || q.branding?.backgroundImage) {
-    el.bgVideo.hidden = true;
-    const url = seq.media?.bgImageUrl || q.branding?.backgroundImage || "";
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "";
-    img.style.width = "100%";
-    img.style.borderRadius = "14px";
-    img.style.marginTop = "12px";
-    el.media.appendChild(img);
-  } else {
-    el.bgVideo.hidden = true;
-  }
-
-  if (seq.type === "question" && seq.input?.type === "buttons" && Array.isArray(seq.input.choices)) {
-    el.answers.removeAttribute("hidden");
-    el.answers.innerHTML = "";
-    for (const c of seq.input.choices) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "quiz-answer";
-      b.textContent = c.label;
-      b.disabled = true;
-      el.answers.appendChild(b);
-    }
-  } else {
-    el.answers.setAttribute("hidden", "true");
-    el.answers.innerHTML = "";
-  }
 }
 
 async function main() {
@@ -112,7 +87,6 @@ async function main() {
     let quiz: QuizConfig | null = null;
 
     if (preview) {
-      // Wait for studio postMessage (same-origin only).
       await new Promise<void>((resolve) => {
         const onMsg = (e: MessageEvent) => {
           if (e.origin !== window.location.origin) return;
@@ -144,9 +118,11 @@ async function main() {
     const track = firstTrack(quiz);
     const seqs = track.sequences || [];
     let i = 0;
+    let rev = 0;
 
     let sessionCode = "";
     let hostKey = "";
+    let navBusy = false;
 
     const setJoin = (code: string, key?: string) => {
       sessionCode = code;
@@ -154,12 +130,14 @@ async function main() {
       const u = new URL(window.location.origin);
       u.pathname = `/quiz/${quiz.slug}/join/${code}`;
       el.joinLink.textContent = u.toString();
-      // Ultra-light QR (Google Charts is simplest, but keep offline-friendly by letting the host copy link too).
       const qr = new URL("https://chart.googleapis.com/chart");
       qr.searchParams.set("cht", "qr");
-      qr.searchParams.set("chs", "240x240");
+      qr.searchParams.set("chs", "280x280");
       qr.searchParams.set("chl", u.toString());
       el.qr.src = qr.toString();
+      el.qr.removeAttribute("hidden");
+      el.openPresent.disabled = false;
+      el.openLeaderboard.disabled = false;
     };
 
     const renderList = () => {
@@ -172,56 +150,230 @@ async function main() {
       });
     };
 
+    const renderParticipants = (parts: SessionState["participants"]) => {
+      const list = Array.isArray(parts) ? parts : [];
+      el.participantCount.textContent = String(list.length);
+      el.participants.innerHTML = "";
+      const max = 20;
+      list.slice(0, max).forEach((p) => {
+        const s = document.createElement("span");
+        s.className = "quiz-participant-chip";
+        s.title = `${p.name} (${p.score} pts)`;
+        s.textContent = p.icon || "•";
+        el.participants.appendChild(s);
+      });
+      if (list.length > max) {
+        const more = document.createElement("span");
+        more.className = "quiz-participant-more";
+        more.textContent = `+${list.length - max}`;
+        el.participants.appendChild(more);
+      }
+    };
+
+    const updateLobbyUi = (state: Pick<SessionState, "lobbyOpen">) => {
+      const open = state.lobbyOpen !== false;
+      el.lockLobby.textContent = open ? "Lock lobby (start game)" : "Lobby locked";
+      el.lockLobby.disabled = !open;
+      el.lobbyHint.textContent = open ? "Players can still join." : "No new players can join this room.";
+    };
+
+    const applyServerState = (state: SessionState) => {
+      rev = state.revision;
+      i = Math.max(0, Math.min(seqs.length - 1, Number(state.currentSequenceIndex) || 0));
+      const seq = seqs[i];
+      if (seq) renderSequence(el, quiz!, seq, i, seqs.length);
+      renderList();
+      el.prev.disabled = i <= 0 || navBusy;
+      el.next.disabled = i >= seqs.length - 1 || navBusy;
+      renderParticipants(state.participants);
+      updateLobbyUi(state);
+    };
+
     const render = () => {
       const seq = seqs[i];
       if (!seq) return;
-      renderSeq(el, quiz, seq, i, seqs.length);
+      renderSequence(el, quiz!, seq, i, seqs.length);
       renderList();
-      el.prev.disabled = i <= 0;
-      el.next.disabled = i >= seqs.length - 1;
+      el.prev.disabled = i <= 0 || navBusy;
+      el.next.disabled = i >= seqs.length - 1 || navBusy;
+    };
+
+    const pollOnce = async () => {
+      if (!sessionCode || preview) return;
+      try {
+        const r = await fetchJson<{ changed: boolean; state: SessionState | null }>(
+          `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=${encodeURIComponent(String(rev))}`,
+        );
+        if (r.changed && r.state) applyServerState(r.state);
+      } catch {
+        /* session gone */
+      }
+    };
+
+    let pollStarted = false;
+    const ensurePolling = () => {
+      if (preview || pollStarted) return;
+      pollStarted = true;
+      const tick = async () => {
+        await pollOnce();
+        window.setTimeout(tick, 320);
+      };
+      void tick();
     };
 
     const control = async (action: string) => {
       if (!sessionCode || !hostKey) return;
-      await fetchOk(`/api/quiz-control`, {
+      const data = await fetchJson<{ ok?: boolean; state: SessionState }>(`/api/quiz-control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: sessionCode, hostKey, action }),
       });
+      if (data?.state) applyServerState(data.state);
     };
 
     el.prev.addEventListener("click", async () => {
-      i = Math.max(0, i - 1);
-      render();
-      if (!preview) await control("prev");
-    });
-    el.next.addEventListener("click", async () => {
-      i = Math.min(seqs.length - 1, i + 1);
-      render();
-      if (!preview) await control("next");
+      if (preview) {
+        i = Math.max(0, i - 1);
+        render();
+        return;
+      }
+      if (!sessionCode || !hostKey || navBusy) return;
+      navBusy = true;
+      el.prev.disabled = true;
+      el.next.disabled = true;
+      try {
+        await control("prev");
+      } catch {
+        await pollOnce();
+        render();
+      } finally {
+        navBusy = false;
+        const seq = seqs[i];
+        if (seq) {
+          el.prev.disabled = i <= 0;
+          el.next.disabled = i >= seqs.length - 1;
+        }
+      }
     });
 
-    // Session wiring comes in the play-along todo; for preview mode, hide session controls.
+    el.next.addEventListener("click", async () => {
+      if (preview) {
+        i = Math.min(seqs.length - 1, i + 1);
+        render();
+        return;
+      }
+      if (!sessionCode || !hostKey || navBusy) return;
+      navBusy = true;
+      el.prev.disabled = true;
+      el.next.disabled = true;
+      try {
+        await control("next");
+      } catch {
+        await pollOnce();
+        render();
+      } finally {
+        navBusy = false;
+        const seq = seqs[i];
+        if (seq) {
+          el.prev.disabled = i <= 0;
+          el.next.disabled = i >= seqs.length - 1;
+        }
+      }
+    });
+
+    el.lockLobby.addEventListener("click", async () => {
+      if (!sessionCode || !hostKey) return;
+      el.lockLobby.disabled = true;
+      try {
+        await control("lockLobby");
+      } catch {
+        await pollOnce();
+      } finally {
+        el.lockLobby.disabled = false;
+      }
+    });
+
+    const openWindow = (path: string) => {
+      window.open(path, "quiz-popout", "noopener,noreferrer,width=1280,height=720");
+    };
+
+    el.openPresent.addEventListener("click", () => {
+      if (!sessionCode) return;
+      openWindow(`/quiz/${quiz.slug}/present/${sessionCode}`);
+    });
+
+    el.openLeaderboard.addEventListener("click", () => {
+      if (!sessionCode) return;
+      openWindow(`/quiz/${quiz.slug}/live/${sessionCode}/leaderboard`);
+    });
+
     if (preview) {
       el.createSession.hidden = true;
+      el.lockLobby.hidden = true;
+      el.openPresent.hidden = true;
+      el.openLeaderboard.hidden = true;
+      el.lobbyHint.hidden = true;
       setJoin("PREVIEW");
     } else {
+      el.joinLink.textContent = "Start a session to get a join link.";
+      el.qr.setAttribute("hidden", "true");
+      el.openPresent.disabled = true;
+      el.openLeaderboard.disabled = true;
+
+      const stored = loadHostSession();
+      if (stored && stored.slug === quiz.slug) {
+        sessionCode = stored.code;
+        hostKey = stored.hostKey;
+        setJoin(stored.code);
+        try {
+          const boot = await fetchJson<{ changed: boolean; state: SessionState | null }>(
+            `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=0`,
+          );
+          if (boot.changed && boot.state) {
+            applyServerState(boot.state);
+          } else {
+            render();
+            renderParticipants([]);
+            updateLobbyUi({ lobbyOpen: true });
+          }
+          ensurePolling();
+        } catch {
+          clearHostSession();
+          sessionCode = "";
+          hostKey = "";
+          el.joinLink.textContent = "Start a session to get a join link.";
+          el.qr.setAttribute("hidden", "true");
+          el.openPresent.disabled = true;
+          el.openLeaderboard.disabled = true;
+        }
+      }
+
       el.createSession.addEventListener("click", async () => {
-        const res = await fetchJson<{ code: string; hostKey: string }>(`/api/quiz-session`, {
+        const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(`/api/quiz-session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug: quiz.slug }),
         });
+        saveHostSession(quiz.slug, res.code, res.hostKey);
         setJoin(res.code, res.hostKey);
+        if (res.state) applyServerState(res.state);
+        else render();
+        ensurePolling();
       });
-      el.joinLink.textContent = "Click Start session";
-      el.qr.removeAttribute("src");
     }
 
     layoutStage(el.stage, el.fit, 1920, 1080);
     window.addEventListener("resize", () => layoutStage(el.stage, el.fit, 1920, 1080));
 
-    render();
+    if (!preview && !sessionCode) {
+      render();
+      renderParticipants([]);
+      el.lockLobby.disabled = true;
+      el.lobbyHint.textContent = "Start a session first.";
+    } else if (preview) {
+      render();
+    }
+
     showApp();
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");
@@ -229,4 +381,3 @@ async function main() {
 }
 
 void main();
-
