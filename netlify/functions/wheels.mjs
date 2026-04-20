@@ -94,6 +94,83 @@ function emptyFlipCardRecord(id, slug) {
   };
 }
 
+function emptyQuizRecord(id, slug) {
+  return {
+    id,
+    gameType: "quiz",
+    title: "Untitled quiz",
+    clientName: "",
+    slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    mode: {
+      presentation: "frame16x9",
+      motion: "static",
+    },
+    branding: {
+      logoUrl: "",
+      backgroundColor: "#0a1628",
+      backgroundImage: "",
+      backgroundVideo: "",
+      fonts: { heading: "", body: "", button: "" },
+      layout: { buttonBottomPadPx: 12 },
+    },
+    playAlong: {
+      enabled: false,
+      maxParticipants: 150,
+      retentionHours: 24,
+      profanityBlock: true,
+      bonus: { fastestCorrectSteal: false, stealPoints: 100 },
+    },
+    tracks: [
+      {
+        id: "main",
+        name: "Main",
+        sequences: [
+          {
+            id: "intro-1",
+            type: "intro",
+            advance: { kind: "host" },
+            title: "Welcome",
+            body: "Get ready to play.",
+            media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
+          },
+          {
+            id: "q1",
+            type: "question",
+            advance: { kind: "host" },
+            timerSeconds: 20,
+            prompt: { text: "Question 1", body: "Replace this prompt." },
+            input: {
+              mode: "none",
+              type: "buttons",
+              choices: [
+                { id: "a", label: "Answer A" },
+                { id: "b", label: "Answer B" },
+              ],
+            },
+            correct: { choiceId: "a" },
+            scoring: { pointsCorrect: 100, pointsWrong: 0 },
+          },
+          {
+            id: "outro-1",
+            type: "outro",
+            advance: { kind: "host" },
+            title: "Thanks for playing",
+            body: "",
+            media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function syncFlipCards(f) {
   const n = Math.min(15, Math.max(1, Number(f.deckSize) || 7));
   f.deckSize = n;
@@ -217,10 +294,13 @@ export const handler = async (event, context) => {
       const id = randomUUID();
       const isScratcher = body.gameType === "scratcher";
       const isFlipCards = body.gameType === "flip-cards";
+      const isQuiz = body.gameType === "quiz";
       const wheel = isScratcher
         ? emptyScratcherRecord(id, slugCheck.slug)
         : isFlipCards
           ? emptyFlipCardRecord(id, slugCheck.slug)
+          : isQuiz
+            ? emptyQuizRecord(id, slugCheck.slug)
           : emptyWheelRecord(id, slugCheck.slug);
       wheel.title = body.title || wheel.title;
       wheel.clientName = body.clientName || "";
@@ -263,8 +343,9 @@ export const handler = async (event, context) => {
         existing.slug = slugCheck.slug;
       }
 
-      const isWheel = existing.gameType !== "scratcher" && existing.gameType !== "flip-cards";
+      const isWheel = existing.gameType !== "scratcher" && existing.gameType !== "flip-cards" && existing.gameType !== "quiz";
       const isFlipCards = existing.gameType === "flip-cards";
+      const isQuiz = existing.gameType === "quiz";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -284,7 +365,23 @@ export const handler = async (event, context) => {
 
       const prevReporting = existing.reportingEnabled;
 
-      if (isFlipCards) {
+      if (isQuiz) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "mode",
+          "branding",
+          "playAlong",
+          "tracks",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+      } else if (isFlipCards) {
         const assign = [
           "title",
           "clientName",

@@ -22,6 +22,112 @@ export const RESERVED_SLUGS = new Set([
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
 export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards";
 
+export type QuizPresentation = "frame16x9" | "responsive";
+export type QuizMotion = "static" | "videoSequences";
+export type QuizInputMode = "none" | "local" | "playAlong";
+
+export type QuizSequenceType = "intro" | "holding" | "question" | "reveal" | "leaderboard" | "outro" | "breaker";
+
+export interface QuizMode {
+  presentation: QuizPresentation;
+  motion: QuizMotion;
+}
+
+export interface QuizBranding {
+  logoUrl?: string;
+  backgroundColor?: string;
+  backgroundImage?: string;
+  /** Used for static mode background only (not per-sequence animated mode). */
+  backgroundVideo?: string;
+  fonts?: { heading?: string; body?: string; button?: string };
+  layout?: { buttonBottomPadPx?: number };
+}
+
+export interface QuizChoice {
+  id: string;
+  label: string;
+  imageUrl?: string;
+  audioUrl?: string;
+}
+
+export interface QuizPrompt {
+  text?: string;
+  body?: string;
+  imageUrl?: string;
+  audioUrl?: string;
+}
+
+export type QuizInput =
+  | { mode: QuizInputMode; type: "buttons"; choices: QuizChoice[]; multi?: boolean }
+  | {
+      mode: QuizInputMode;
+      type: "textExact";
+      accepted: string[];
+      normalize?: { caseFold?: boolean; trim?: boolean; collapseWhitespace?: boolean; stripDiacritics?: boolean };
+    }
+  | {
+      mode: QuizInputMode;
+      type: "slider";
+      kind: "continuous" | "discrete";
+      continuous?: { min: number; max: number; correctValue: number; tolerance?: number; scoring?: "exact" | "distance" };
+      discrete?: { stops: { id: string; label: string; value: number }[]; correctStopId: string; snap?: boolean };
+    };
+
+export interface QuizSequenceBase {
+  id: string;
+  type: QuizSequenceType;
+  advance?: { kind: "host" | "timer" | "waitAll" | "autoAfterMedia" };
+  timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
+  media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
+}
+
+export interface QuizQuestionSequence extends QuizSequenceBase {
+  type: "question";
+  prompt: QuizPrompt;
+  input: QuizInput;
+  timerSeconds?: number;
+  correct?: { choiceId?: string; text?: string; value?: number; stopId?: string };
+  scoring?: { pointsCorrect?: number; pointsWrong?: number };
+  lives?: { enabled?: boolean; maxLives?: number; iconUrl?: string };
+}
+
+export type QuizSequence =
+  | (QuizSequenceBase & { type: Exclude<QuizSequenceType, "question">; title?: string; body?: string })
+  | QuizQuestionSequence;
+
+export interface QuizTrack {
+  id: string;
+  name: string;
+  sequences: QuizSequence[];
+}
+
+export interface QuizPlayAlongSettings {
+  enabled: boolean;
+  maxParticipants: number;
+  retentionHours?: number;
+  profanityBlock?: boolean;
+  bonus?: { fastestCorrectSteal?: boolean; stealPoints?: number };
+}
+
+export interface QuizRecord {
+  id: string;
+  gameType: "quiz";
+  title: string;
+  clientName: string;
+  slug: string;
+  updatedAt: string;
+  reportingEnabled: boolean;
+  reportingLockedAt?: string | null;
+  thumbnailUrl?: string;
+  faviconUrl?: string;
+  reportingSheetTab?: string;
+  showPoweredBy?: boolean;
+  mode: QuizMode;
+  branding: QuizBranding;
+  playAlong: QuizPlayAlongSettings;
+  tracks: QuizTrack[];
+}
+
 /** Scratch card layout presets (one format per scratcher game in v1). */
 export type ScratcherFormatId = "16x9" | "1x1" | "9x16" | "4x3";
 

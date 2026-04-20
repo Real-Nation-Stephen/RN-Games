@@ -117,6 +117,22 @@ function toPublicScratcher(s) {
   };
 }
 
+function toPublicQuiz(q) {
+  return {
+    gameType: "quiz",
+    id: q.id,
+    title: q.title,
+    slug: q.slug,
+    faviconUrl: q.faviconUrl || "",
+    showPoweredBy: q.showPoweredBy !== false,
+    mode: q.mode || { presentation: "frame16x9", motion: "static" },
+    branding: q.branding || {},
+    playAlong: q.playAlong || { enabled: false },
+    tracks: Array.isArray(q.tracks) ? q.tracks : [],
+    reportingEnabled: q.reportingEnabled,
+  };
+}
+
 export const handler = async (event) => {
   connectLambda(event);
   if (event.httpMethod === "OPTIONS") {
@@ -139,7 +155,9 @@ export const handler = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
   }
   const payload =
-    doc.gameType === "scratcher"
+    doc.gameType === "quiz"
+      ? toPublicQuiz(doc)
+      : doc.gameType === "scratcher"
       ? toPublicScratcher(doc)
       : doc.gameType === "flip-cards"
         ? toPublicFlipCard(doc)

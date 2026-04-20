@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz leaderboard</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/quiz.css" />
+  </head>
+  <body class="quiz-page quiz-leaderboard">
+    <div id="app" hidden>
+      <div id="fit">
+        <div id="stage" class="quiz-stage quiz-stage--leaderboard">
+          <div class="quiz-topbar">
+            <div class="quiz-brand">
+              <img id="quiz-logo" alt="" />
+              <div>
+                <div id="quiz-title" class="quiz-title">Leaderboard</div>
+                <div id="quiz-sub" class="quiz-sub muted"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="quiz-main quiz-main--leaderboard">
+            <div class="quiz-card" style="width: min(860px, 96vw)">
+              <h1 class="quiz-h1" style="margin: 0 0 14px">Leaderboard</h1>
+              <ol id="lb-list" class="quiz-lb"></ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load leaderboard</h2>
+        <p class="muted" id="quiz-error-msg"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/quiz/leaderboard.ts"></script>
+  </body>
+</html>
+

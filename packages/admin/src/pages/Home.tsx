@@ -222,6 +222,25 @@ export default function Home() {
     }
   }
 
+  async function createQuiz() {
+    setErr(null);
+    try {
+      const slug = `quiz-${Math.random().toString(16).slice(2, 8)}`;
+      const res = await apiSend("/api/wheels", "POST", {
+        gameType: "quiz",
+        slug,
+        title: "New quiz",
+        clientName: "",
+      });
+      await load();
+      if (res?.wheel?.id) {
+        window.location.href = `/admin/quizzes/${res.wheel.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Create failed");
+    }
+  }
+
   const spinningWheels = wheels.filter(isSpinningWheel);
   const scratchers = wheels.filter(isScratcher);
   const quizGames = wheels.filter(isQuiz);
@@ -252,6 +271,9 @@ export default function Home() {
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void createFlipCards()}>
             New flip cards
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createQuiz()}>
+            New quiz
           </button>
         </div>
       </section>
@@ -314,22 +336,17 @@ export default function Home() {
           <section>
             <SectionHeader
               title="Your quizzes"
-              newLabel="New quiz (soon)"
-              onNew={() => undefined}
-              newDisabled
+              newLabel="New quiz"
+              onNew={createQuiz}
               resourceHref={placeholderZip}
               resourceLabel="Download quiz templates (ZIP)"
             />
             {quizGames.length === 0 ? (
               <div className="card">
-                <p style={{ margin: "0 0 12px" }}>No quizzes yet.</p>
-                <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-                  Placeholder:{" "}
-                  <Link to="/quiz">Open quiz shell</Link>.
-                </p>
+                <p style={{ margin: 0 }}>No quizzes yet.</p>
               </div>
             ) : (
-              <GamesTable items={quizGames} editPath={() => "/quiz"} copyLabel="Copy public URL" />
+              <GamesTable items={quizGames} editPath={(w) => `/quizzes/${w.id}`} copyLabel="Copy host URL" />
             )}
           </section>
         </>

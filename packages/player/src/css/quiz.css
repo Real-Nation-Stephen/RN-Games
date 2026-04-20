@@ -1,0 +1,236 @@
+/* Quiz MVP UI (host/join/leaderboard). Uses styles.css tokens and #app/#fit/#stage conventions. */
+
+.quiz-page #app {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pad);
+}
+
+.quiz-stage {
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  position: relative;
+  background: #0a1628;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.quiz-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.quiz-stage--leaderboard {
+  border-radius: 0;
+}
+
+.quiz-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+  z-index: 2;
+}
+
+.quiz-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.quiz-brand img {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.08);
+  display: none;
+}
+
+.quiz-brand--join img {
+  width: 44px;
+  height: 44px;
+}
+
+.quiz-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.quiz-sub {
+  font-size: 0.85rem;
+}
+
+.quiz-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.quiz-main {
+  position: absolute;
+  inset: 92px 0 0 0;
+  padding: 22px;
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 16px;
+  z-index: 2;
+}
+
+.quiz-main--leaderboard {
+  inset: 92px 0 0 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.quiz-card {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.quiz-h1 {
+  font-size: 44px;
+  line-height: 1.02;
+  margin: 10px 0 10px;
+}
+
+.quiz-body {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  max-width: 62ch;
+}
+
+.quiz-answers {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quiz-answer {
+  border-radius: 14px;
+  padding: 14px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quiz-answer[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.quiz-seq-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.quiz-seq-list li {
+  margin: 6px 0;
+}
+
+.quiz-join-wrap {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+}
+
+.quiz-join-card {
+  width: min(560px, 94vw);
+}
+
+.quiz-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quiz-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.quiz-icon.is-active {
+  outline: 2px solid rgba(255, 210, 90, 0.6);
+}
+
+.quiz-lb {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.quiz-lb li {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.quiz-rank {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.quiz-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+@media (max-width: 980px) {
+  .quiz-answers {
+    grid-template-columns: 1fr;
+  }
+}
+

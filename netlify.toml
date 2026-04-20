@@ -42,6 +42,31 @@
   status = 200
 
 [[redirects]]
+  from = "/api/quiz-session"
+  to = "/.netlify/functions/quiz-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz-join"
+  to = "/.netlify/functions/quiz-join"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz-answer"
+  to = "/.netlify/functions/quiz-answer"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz-control"
+  to = "/.netlify/functions/quiz-control"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz-bonus"
+  to = "/.netlify/functions/quiz-bonus"
+  status = 200
+
+[[redirects]]
   from = "/api/log-spin"
   to = "/.netlify/functions/log-spin"
   status = 200

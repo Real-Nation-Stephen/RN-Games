@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Join quiz</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/quiz.css" />
+  </head>
+  <body class="quiz-page quiz-join">
+    <div id="app" hidden>
+      <div class="quiz-join-wrap">
+        <div class="quiz-card quiz-join-card">
+          <div class="quiz-brand quiz-brand--join">
+            <img id="quiz-logo" alt="" />
+            <div>
+              <div id="quiz-title" class="quiz-title">Quiz</div>
+              <div id="quiz-sub" class="quiz-sub muted"></div>
+            </div>
+          </div>
+
+          <div id="join-step" class="quiz-join-step">
+            <h2 style="margin: 0 0 8px">Join</h2>
+            <label class="field">Your name (player / team)</label>
+            <input id="join-name" type="text" placeholder="Type a name…" />
+            <label class="field" style="margin-top: 10px">Icon</label>
+            <div id="join-icons" class="quiz-icons"></div>
+            <button id="join-btn" type="button" class="btn btn-primary" style="margin-top: 14px; width: 100%">
+              Join session
+            </button>
+            <p class="muted" style="margin: 10px 0 0; font-size: 0.85rem">
+              You’ll be locked to the host screen — no skipping ahead.
+            </p>
+          </div>
+
+          <div id="play-step" class="quiz-play-step" hidden>
+            <div class="muted" id="play-status" style="margin-bottom: 10px"></div>
+            <h2 id="play-question" style="margin: 0 0 10px"></h2>
+            <div id="play-answers" class="quiz-answers"></div>
+            <div class="muted" id="play-wait" style="margin-top: 12px; font-size: 0.9rem"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-error" class="player-error" hidden>
+      <div>
+        <h2>Could not join</h2>
+        <p class="muted" id="quiz-error-msg"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/quiz/join.ts"></script>
+  </body>
+</html>
+

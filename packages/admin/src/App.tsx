@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate } from "react-router-dom";
 import netlifyIdentity from "netlify-identity-widget";
 import Home from "./pages/Home";
-import QuizPlaceholder from "./pages/QuizPlaceholder";
+import QuizEditor from "./pages/QuizEditor";
 import ScratcherEditor from "./pages/ScratcherEditor";
 import FlipCardEditor from "./pages/FlipCardEditor";
 import WheelEditor from "./pages/WheelEditor";
@@ -74,7 +74,7 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/quiz" element={<QuizPlaceholder />} />
+          <Route path="/quizzes/:id" element={<QuizEditor />} />
           <Route path="/wheels/:id" element={<WheelEditor />} />
           <Route path="/scratchers/:id" element={<ScratcherEditor />} />
           <Route path="/flip-cards/:id" element={<FlipCardEditor />} />
