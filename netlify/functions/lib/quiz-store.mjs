@@ -12,7 +12,8 @@ export function nowIso() {
 
 export async function getSession(code) {
   const st = await blobStore();
-  return st.get(`${PREFIX}${code}`, { type: "json" });
+  /** Default blob reads are eventually consistent; POST then GET can 404 until edge caches catch up. Session polling needs a coherent view. */
+  return st.get(`${PREFIX}${code}`, { type: "json", consistency: "strong" });
 }
 
 export async function setSession(code, data) {
