@@ -2,6 +2,12 @@ import { blobStore } from "./store.mjs";
 
 const PREFIX = "quizsession:";
 
+function normCode(code) {
+  return String(code ?? "")
+    .trim()
+    .toUpperCase();
+}
+
 export function makeSessionCode() {
   return Math.random().toString(16).slice(2, 8).toUpperCase();
 }
@@ -12,7 +18,8 @@ export function nowIso() {
 
 export async function getSession(code) {
   const st = await blobStore();
-  return st.get(`${PREFIX}${code}`, { type: "json" });
+  const key = `${PREFIX}${normCode(code)}`;
+  return st.get(key, { type: "json" });
 }
 
 /**
@@ -22,9 +29,9 @@ export async function getSession(code) {
  */
 export async function getSessionWithBriefRetry(code) {
   const st = await blobStore();
-  const key = `${PREFIX}${code}`;
-  const attempts = 6;
-  const pauseMs = 28;
+  const key = `${PREFIX}${normCode(code)}`;
+  const attempts = 12;
+  const pauseMs = 45;
   for (let i = 0; i < attempts; i++) {
     const v = await st.get(key, { type: "json" });
     if (v) return v;
@@ -35,6 +42,6 @@ export async function getSessionWithBriefRetry(code) {
 
 export async function setSession(code, data) {
   const st = await blobStore();
-  await st.setJSON(`${PREFIX}${code}`, data);
+  await st.setJSON(`${PREFIX}${normCode(code)}`, data);
 }
 

@@ -242,6 +242,8 @@ async function main() {
       if (!sessionCode || preview || pollDead) return;
       const res = await fetchQuizSessionRaw(sessionCode, rev);
       if (res.status === 404 || res.status === 410) {
+        /** fetchQuizSessionRaw can still return 404 after inner retries; do not drop a brand-new room while blobs catch up. */
+        if (res.status === 404 && Date.now() < sessionYoungUntil) return;
         handleSessionMissing();
         return;
       }
@@ -412,7 +414,8 @@ async function main() {
 
       el.createSession.addEventListener("click", async () => {
         pollDead = false;
-        sessionYoungUntil = Date.now() + 20000;
+        /** Blob reads can lag writes longer than a single request; keep UI alive until polls succeed or this expires. */
+        sessionYoungUntil = Date.now() + 120000;
         const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(quizSessionEndpoint(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
