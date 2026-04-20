@@ -1,5 +1,6 @@
 import type { SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
+import { applyQuizSurface } from "./quiz-theme";
 
 const ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
 
@@ -69,6 +70,7 @@ async function main() {
     const { slug, code } = getSlugAndCode();
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
+    applyQuizSurface(byId("app"), quiz, "mobile");
 
     const logo = byId<HTMLImageElement>("quiz-logo");
     const title = byId("quiz-title");

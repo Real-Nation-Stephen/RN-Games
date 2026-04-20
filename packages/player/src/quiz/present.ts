@@ -1,6 +1,7 @@
 import type { QuizConfig, SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
+import { applyQuizSurface } from "./quiz-theme";
 import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
 
 function getSlugAndCode(): { slug: string; code: string } {
@@ -21,6 +22,7 @@ async function main() {
     const { slug, code } = getSlugAndCode();
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
+    applyQuizSurface(byId("app"), quiz, "default");
 
     const el: SequenceStageEls & { logo: HTMLImageElement; title: HTMLElement; sub: HTMLElement } = {
       stage: byId("stage"),

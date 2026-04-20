@@ -1,6 +1,7 @@
 import type { QuizConfig, SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { layoutStage } from "./layout";
+import { applyQuizSurface } from "./quiz-theme";
 import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
 
 const HOST_STORAGE_KEY = "rngames-quiz-host";
@@ -23,6 +24,7 @@ type Els = SequenceStageEls & {
   openPresent: HTMLButtonElement;
   openLeaderboard: HTMLButtonElement;
   lobbyHint: HTMLElement;
+  sessionLost: HTMLElement;
 };
 
 function loadHostSession(): HostStored | null {
@@ -68,6 +70,7 @@ function getEls(): Els {
     openPresent: byId("quiz-open-present"),
     openLeaderboard: byId("quiz-open-leaderboard"),
     lobbyHint: byId("quiz-lobby-hint"),
+    sessionLost: byId("quiz-session-lost"),
   };
 }
 
@@ -106,6 +109,8 @@ async function main() {
 
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     const el = getEls();
+    const appRoot = byId("app");
+    applyQuizSurface(appRoot, quiz, "host");
 
     el.title.textContent = quiz.title || "Quiz";
     el.sub.textContent = `/${quiz.slug}`;
@@ -130,14 +135,14 @@ async function main() {
       const u = new URL(window.location.origin);
       u.pathname = `/quiz/${quiz.slug}/join/${code}`;
       el.joinLink.textContent = u.toString();
-      const qr = new URL("https://chart.googleapis.com/chart");
-      qr.searchParams.set("cht", "qr");
-      qr.searchParams.set("chs", "280x280");
-      qr.searchParams.set("chl", u.toString());
-      el.qr.src = qr.toString();
+      const enc = encodeURIComponent(u.toString());
+      /** Primary + fallback CDNs — avoids single-provider failures in the field. */
+      el.qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${enc}`;
+      el.qr.dataset.fallback = `https://chart.googleapis.com/chart?cht=qr&chs=280x280&chl=${enc}`;
       el.qr.removeAttribute("hidden");
       el.openPresent.disabled = false;
       el.openLeaderboard.disabled = false;
+      el.sessionLost.setAttribute("hidden", "true");
     };
 
     const renderList = () => {
@@ -145,7 +150,13 @@ async function main() {
       seqs.forEach((s, idx) => {
         const li = document.createElement("li");
         li.style.opacity = idx === i ? "1" : "0.72";
-        li.innerHTML = `<code>${s.type}</code> ${(s.type === "question" ? s.prompt.text : s.title) || s.id}`;
+        const label =
+          s.type === "question"
+            ? s.prompt.text
+            : s.type === "reveal"
+              ? s.title || s.referencesQuestionId
+              : (s as { headline?: string; title?: string }).headline || s.title || s.id;
+        li.innerHTML = `<code>${s.type}</code> <span style="opacity:0.85">${label || ""}</span>`;
         el.list.appendChild(li);
       });
     };
@@ -199,24 +210,44 @@ async function main() {
     };
 
     const pollOnce = async () => {
-      if (!sessionCode || preview) return;
-      try {
-        const r = await fetchJson<{ changed: boolean; state: SessionState | null }>(
-          `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=${encodeURIComponent(String(rev))}`,
-        );
-        if (r.changed && r.state) applyServerState(r.state);
-      } catch {
-        /* session gone */
+      if (!sessionCode || preview || pollDead) return;
+      const url = `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=${encodeURIComponent(String(rev))}`;
+      const res = await fetch(url);
+      if (res.status === 404 || res.status === 410) {
+        handleSessionMissing();
+        return;
       }
+      if (!res.ok) return;
+      const r = (await res.json()) as { changed: boolean; state: SessionState | null };
+      if (r.changed && r.state) applyServerState(r.state);
     };
 
     let pollStarted = false;
+    let pollDead = false;
+
+    const handleSessionMissing = () => {
+      pollDead = true;
+      clearHostSession();
+      sessionCode = "";
+      hostKey = "";
+      el.joinLink.textContent = "Start a session to get a join link.";
+      el.qr.setAttribute("hidden", "true");
+      el.openPresent.disabled = true;
+      el.openLeaderboard.disabled = true;
+      el.lockLobby.disabled = true;
+      el.lobbyHint.textContent = "Session no longer available.";
+      el.sessionLost.removeAttribute("hidden");
+      rev = 0;
+      render();
+      renderParticipants([]);
+    };
+
     const ensurePolling = () => {
       if (preview || pollStarted) return;
       pollStarted = true;
       const tick = async () => {
-        await pollOnce();
-        window.setTimeout(tick, 320);
+        if (!pollDead) await pollOnce();
+        window.setTimeout(tick, pollDead ? 2000 : 320);
       };
       void tick();
     };
@@ -325,10 +356,12 @@ async function main() {
         sessionCode = stored.code;
         hostKey = stored.hostKey;
         setJoin(stored.code);
-        try {
-          const boot = await fetchJson<{ changed: boolean; state: SessionState | null }>(
-            `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=0`,
-          );
+        const bootUrl = `/api/quiz-session?code=${encodeURIComponent(sessionCode)}&rev=0`;
+        const bootRes = await fetch(bootUrl);
+        if (bootRes.status === 404 || bootRes.status === 410) {
+          handleSessionMissing();
+        } else if (bootRes.ok) {
+          const boot = (await bootRes.json()) as { changed: boolean; state: SessionState | null };
           if (boot.changed && boot.state) {
             applyServerState(boot.state);
           } else {
@@ -337,7 +370,7 @@ async function main() {
             updateLobbyUi({ lobbyOpen: true });
           }
           ensurePolling();
-        } catch {
+        } else {
           clearHostSession();
           sessionCode = "";
           hostKey = "";
@@ -349,6 +382,7 @@ async function main() {
       }
 
       el.createSession.addEventListener("click", async () => {
+        pollDead = false;
         const res = await fetchJson<{ code: string; hostKey: string; state?: SessionState }>(`/api/quiz-session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -358,7 +392,14 @@ async function main() {
         setJoin(res.code, res.hostKey);
         if (res.state) applyServerState(res.state);
         else render();
+        el.lockLobby.disabled = false;
+        el.lobbyHint.textContent = "Players can still join.";
         ensurePolling();
+      });
+
+      el.qr.addEventListener("error", () => {
+        const fb = el.qr.dataset.fallback;
+        if (fb && el.qr.src !== fb) el.qr.src = fb;
       });
     }
 

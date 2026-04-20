@@ -1,10 +1,36 @@
 export type QuizMotion = "static" | "videoSequences";
 export type QuizPresentation = "frame16x9" | "responsive";
 
-export type QuizSequenceType = "intro" | "holding" | "question" | "reveal" | "leaderboard" | "outro" | "breaker";
+export type QuizSequenceType =
+  | "intro"
+  | "holding"
+  | "question"
+  | "reveal"
+  | "leaderboard"
+  | "outro"
+  | "breaker"
+  | /** Play-along only: waiting / how to connect */
+  "connection";
+
 export type QuizAdvanceKind = "host" | "timer" | "waitAll" | "autoAfterMedia";
 
 export type QuizInputMode = "none" | "local" | "playAlong";
+
+/** Text entrance presets (extend without breaking older quizzes). */
+export type QuizTextAnimationId = "none" | "fadeIn" | "floatIn" | "slideUp";
+
+export type QuizSequenceStyle = {
+  /** Overrides stage / slide background when set */
+  bgHex?: string;
+  /** Per-sequence background image (upload URL) */
+  bgImageUrl?: string;
+  textHex?: string;
+  buttonHex?: string;
+  /** Optional short sound when slide is shown */
+  soundUrl?: string;
+  soundLoop?: boolean;
+  textAnimation?: QuizTextAnimationId;
+};
 
 export type QuizInput =
   | { mode: QuizInputMode; type: "buttons"; choices: { id: string; label: string }[]; multi?: boolean }
@@ -20,12 +46,30 @@ export type QuizInput =
 export type QuizSequence =
   | {
       id: string;
-      type: Exclude<QuizSequenceType, "question">;
+      type: Exclude<QuizSequenceType, "question" | "reveal">;
+      title?: string;
+      body?: string;
+      headline?: string;
+      subhead?: string;
+      advance?: { kind: QuizAdvanceKind };
+      timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
+      media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
+      style?: QuizSequenceStyle;
+      /** Leaderboard: show bonus steal moment tied to a prior question */
+      bonusReveal?: boolean;
+    }
+  | {
+      id: string;
+      type: "reveal";
+      /** Which question sequence id this reveals (correct answer / commentary) */
+      referencesQuestionId?: string;
       title?: string;
       body?: string;
       advance?: { kind: QuizAdvanceKind };
       timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
       media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
+      style?: QuizSequenceStyle;
+      textAnimation?: QuizTextAnimationId;
     }
   | {
       id: string;
@@ -38,9 +82,28 @@ export type QuizSequence =
       advance?: { kind: QuizAdvanceKind };
       timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
       media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
+      style?: QuizSequenceStyle;
+      /** Fastest-correct bonus steal eligible for this question */
+      bonusStealEligible?: boolean;
+      textAnimation?: QuizTextAnimationId;
     };
 
 export type QuizTrack = { id: string; name: string; sequences: QuizSequence[] };
+
+/** Optional per-surface kits (URLs from uploads). */
+export type QuizSurfaceTheme = {
+  backgroundHex?: string;
+  backgroundImageUrl?: string;
+  headerImageUrl?: string;
+  textHex?: string;
+  mutedHex?: string;
+  buttonHex?: string;
+  buttonTextHex?: string;
+  overlayHex?: string;
+  /** Comma-separated font stack or Google Font name */
+  fontHeading?: string;
+  fontBody?: string;
+};
 
 export type QuizConfig = {
   gameType: "quiz";
@@ -55,8 +118,30 @@ export type QuizConfig = {
     backgroundColor?: string;
     backgroundImage?: string;
     backgroundVideo?: string;
+    fonts?: {
+      heading?: string;
+      subheading?: string;
+      body?: string;
+      button?: string;
+    };
+    layout?: { buttonBottomPadPx?: number };
+    /** Player phone UI */
+    mobile?: QuizSurfaceTheme & {
+      /** Sprite icons for picker (comma-separated URLs or single sheet — MVP: URL list) */
+      playerIconSetUrl?: string;
+    };
+    /** Host controller (facilitator) */
+    host?: QuizSurfaceTheme;
+    /** Projected leaderboard */
+    leaderboard?: QuizSurfaceTheme;
   };
-  playAlong?: { enabled?: boolean; maxParticipants?: number };
+  playAlong?: {
+    enabled?: boolean;
+    maxParticipants?: number;
+    retentionHours?: number;
+    profanityBlock?: boolean;
+    bonus?: { fastestCorrectSteal?: boolean; stealPoints?: number };
+  };
   tracks: QuizTrack[];
 };
 
@@ -76,8 +161,6 @@ export type SessionState = {
   participants: { id: string; name: string; icon: string; score: number }[];
   /** False after host locks lobby (game started); new joins rejected. */
   lobbyOpen?: boolean;
-  // Minimal current question snapshot for join UI.
   current?: { type: QuizSequenceType; question?: { text?: string; choices?: { id: string; label: string }[] } };
   bonus?: { kind: string; winnerId?: string; points?: number } | null;
 };
-

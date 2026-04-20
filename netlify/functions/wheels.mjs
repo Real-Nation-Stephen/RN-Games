@@ -117,8 +117,11 @@ function emptyQuizRecord(id, slug) {
       backgroundColor: "#0a1628",
       backgroundImage: "",
       backgroundVideo: "",
-      fonts: { heading: "", body: "", button: "" },
+      fonts: { heading: "", subheading: "", body: "", button: "" },
       layout: { buttonBottomPadPx: 12 },
+      mobile: {},
+      host: {},
+      leaderboard: {},
     },
     playAlong: {
       enabled: false,

@@ -77,7 +77,9 @@ export const handler = async (event) => {
       const s = seqs[session.currentSequenceIndex];
       const bonusEnabled = quiz.playAlong?.bonus?.fastestCorrectSteal === true;
       const stealPoints = Math.min(1000, Math.max(10, Number(quiz.playAlong?.bonus?.stealPoints) || 100));
-      if (bonusEnabled && s?.type === "question") {
+      /** `bonusStealEligible === false` opts out; missing/undefined keeps previous global behaviour. */
+      const qEligible = s?.type === "question" && s?.bonusStealEligible !== false;
+      if (bonusEnabled && qEligible) {
         const ans = Array.isArray(session.answers?.[s.id]) ? session.answers[s.id] : [];
         const correct = ans.filter((a) => a && a.correct === true && a.participantId && typeof a.submittedAt === "number");
         correct.sort((a, b) => a.submittedAt - b.submittedAt);

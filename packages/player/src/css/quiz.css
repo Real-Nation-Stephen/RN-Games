@@ -1,11 +1,73 @@
 /* Quiz MVP UI (host/join/leaderboard). Uses styles.css tokens and #app/#fit/#stage conventions. */
 
+.quiz-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  background: rgba(120, 30, 40, 0.92);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .quiz-page #app {
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--pad);
+}
+
+#app {
+  background: var(--quiz-surface-bg, transparent);
+  color: var(--quiz-text, var(--text));
+}
+
+.quiz-text-anim-fadeIn {
+  animation: quizFadeIn 0.55s ease-out both;
+}
+
+.quiz-text-anim-floatIn {
+  animation: quizFloatIn 0.7s ease-out both;
+}
+
+.quiz-text-anim-slideUp {
+  animation: quizSlideUp 0.55s ease-out both;
+}
+
+@keyframes quizFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes quizFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes quizSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .quiz-stage {
@@ -41,7 +103,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--quiz-overlay, rgba(0, 0, 0, 0.22));
   backdrop-filter: blur(10px);
   z-index: 2;
 }

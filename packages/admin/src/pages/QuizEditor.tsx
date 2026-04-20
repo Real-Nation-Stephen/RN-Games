@@ -1,37 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { apiGet, apiSend, apiDelete } from "../api";
+import type { QuizSequence, QuizSequenceStyle, QuizSurfaceTheme, QuizTextAnimationId } from "../../player/src/quiz/types";
+import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 
 type QuizMode = {
   presentation: "frame16x9" | "responsive";
   motion: "static" | "videoSequences";
 };
 
-type QuizSequence =
-  | {
-      id: string;
-      type: "intro" | "outro" | "breaker" | "holding" | "leaderboard";
-      title?: string;
-      body?: string;
-      media?: { videoUrl?: string; bgImageUrl?: string; bgColor?: string };
-      advance?: { kind: "host" | "timer" };
-      durationSeconds?: number;
-    }
-  | {
-      id: string;
-      type: "question";
-      prompt: { text: string; body?: string; imageUrl?: string; audioUrl?: string };
-      timerSeconds?: number;
-      input: { mode: "none" | "local" | "playAlong"; type: "buttons"; choices: { id: string; label: string }[] };
-      correct: { choiceId: string };
-      scoring?: { pointsCorrect: number; pointsWrong: number };
-      media?: { videoUrl?: string; bgImageUrl?: string; bgColor?: string };
-      advance?: { kind: "host" | "timer" };
-    };
-
-type QuizTrack = { id: string; name: string; sequences: QuizSequence[] };
-
-type Quiz = {
+type QuizWheel = {
   id: string;
   gameType: "quiz";
   title: string;
@@ -39,8 +16,10 @@ type Quiz = {
   slug: string;
   updatedAt: string;
   reportingEnabled: boolean;
+  reportingLockedAt: string | null;
   thumbnailUrl?: string;
   faviconUrl?: string;
+  reportingSheetTab?: string;
   showPoweredBy?: boolean;
   mode: QuizMode;
   branding: {
@@ -48,8 +27,11 @@ type Quiz = {
     backgroundColor?: string;
     backgroundImage?: string;
     backgroundVideo?: string;
-    fonts?: { heading?: string; body?: string; button?: string };
+    fonts?: { heading?: string; subheading?: string; body?: string; button?: string };
     layout?: { buttonBottomPadPx?: number };
+    mobile?: QuizSurfaceTheme & { playerIconSetUrl?: string };
+    host?: QuizSurfaceTheme;
+    leaderboard?: QuizSurfaceTheme;
   };
   playAlong: {
     enabled: boolean;
@@ -58,27 +40,152 @@ type Quiz = {
     profanityBlock?: boolean;
     bonus?: { fastestCorrectSteal?: boolean; stealPoints?: number };
   };
-  tracks: QuizTrack[];
+  tracks: { id: string; name: string; sequences: QuizSequence[] }[];
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
+
+const TEXT_ANIMS: { id: QuizTextAnimationId; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "fadeIn", label: "Fade in" },
+  { id: "floatIn", label: "Float in" },
+  { id: "slideUp", label: "Slide up" },
+];
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
-function firstTrack(q: Quiz): QuizTrack {
+function firstTrack(q: QuizWheel) {
   if (Array.isArray(q.tracks) && q.tracks.length > 0) return q.tracks[0];
-  return { id: "main", name: "Main", sequences: [] };
+  return { id: "main", name: "Main", sequences: [] as QuizSequence[] };
+}
+
+function emptyStyle(): QuizSequenceStyle {
+  return {
+    bgHex: "",
+    bgImageUrl: "",
+    textHex: "",
+    buttonHex: "",
+    soundUrl: "",
+    soundLoop: false,
+    textAnimation: "none",
+  };
+}
+
+async function pickUpload(setUrl: (u: string) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const { url } = await uploadFile(f);
+    setUrl(url);
+  };
+  input.click();
+}
+
+async function pickAudio(setUrl: (u: string) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "audio/*";
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const { url } = await uploadFile(f);
+    setUrl(url);
+  };
+  input.click();
+}
+
+function SurfaceFields({
+  title,
+  theme,
+  onChange,
+}: {
+  title: string;
+  theme: QuizSurfaceTheme & { playerIconSetUrl?: string };
+  onChange: (next: QuizSurfaceTheme & { playerIconSetUrl?: string }) => void;
+}) {
+  const t = theme || {};
+  const set = (patch: Partial<typeof t>) => onChange({ ...t, ...patch });
+  return (
+    <details style={{ marginTop: 10 }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600 }}>{title}</summary>
+      <div className="grid2" style={{ marginTop: 10 }}>
+        <div>
+          <label className="field">Background hex</label>
+          <input value={t.backgroundHex || ""} onChange={(e) => set({ backgroundHex: e.target.value })} placeholder="#0a1628" />
+        </div>
+        <div>
+          <label className="field">Text hex</label>
+          <input value={t.textHex || ""} onChange={(e) => set({ textHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Muted text hex</label>
+          <input value={t.mutedHex || ""} onChange={(e) => set({ mutedHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Button bg hex</label>
+          <input value={t.buttonHex || ""} onChange={(e) => set({ buttonHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Button text hex</label>
+          <input value={t.buttonTextHex || ""} onChange={(e) => set({ buttonTextHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Overlay hex</label>
+          <input value={t.overlayHex || ""} onChange={(e) => set({ overlayHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Heading font (CSS)</label>
+          <input value={t.fontHeading || ""} onChange={(e) => set({ fontHeading: e.target.value })} placeholder="Georgia, serif" />
+        </div>
+        <div>
+          <label className="field">Body font (CSS)</label>
+          <input value={t.fontBody || ""} onChange={(e) => set({ fontBody: e.target.value })} />
+        </div>
+      </div>
+      <p className="muted" style={{ marginTop: 10 }}>
+        <button type="button" className="btn" onClick={() => void pickUpload((url) => set({ backgroundImageUrl: url }))}>
+          Upload background image
+        </button>{" "}
+        {t.backgroundImageUrl ? (
+          <span>
+            <code>{t.backgroundImageUrl.slice(0, 48)}…</code>
+          </span>
+        ) : null}
+      </p>
+      <p className="muted">
+        <button type="button" className="btn" onClick={() => void pickUpload((url) => set({ headerImageUrl: url }))}>
+          Upload header image
+        </button>{" "}
+        {t.headerImageUrl ? <code>{t.headerImageUrl.slice(0, 40)}…</code> : null}
+      </p>
+      {title.startsWith("Mobile") && (
+        <p className="muted">
+          <label className="field">Player icon sheet / asset URL (optional)</label>
+          <input
+            style={{ width: "100%", maxWidth: 480 }}
+            value={t.playerIconSetUrl || ""}
+            onChange={(e) => set({ playerIconSetUrl: e.target.value })}
+            placeholder="https://…"
+          />
+        </p>
+      )}
+    </details>
+  );
 }
 
 export default function QuizEditor() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [quiz, setQuiz] = useState<QuizWheel | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [rawTracks, setRawTracks] = useState("");
+  const [sel, setSel] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const load = useCallback(async () => {
@@ -90,9 +197,10 @@ export default function QuizEditor() {
         navigate(`/wheels/${id}`, { replace: true });
         return;
       }
-      const q = data as Quiz;
+      const q = data as QuizWheel;
       setQuiz(q);
       setRawTracks(JSON.stringify(q.tracks || [], null, 2));
+      setSel(0);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
@@ -103,7 +211,7 @@ export default function QuizEditor() {
   }, [load]);
 
   const pushPreview = useCallback(
-    (q?: Quiz | null) => {
+    (q?: QuizWheel | null) => {
       const cfg = q || quiz;
       if (!cfg || !iframeRef.current?.contentWindow) return;
       iframeRef.current.contentWindow.postMessage(
@@ -134,7 +242,7 @@ export default function QuizEditor() {
     return () => window.clearTimeout(t);
   }, [quiz, pushPreview]);
 
-  async function save(next?: Quiz) {
+  async function save(next?: QuizWheel) {
     const q = next || quiz;
     if (!q) return;
     setSaving(true);
@@ -142,9 +250,9 @@ export default function QuizEditor() {
     try {
       const res = await apiSend("/api/wheels", "PUT", q);
       if (res?.wheel) {
-        setQuiz(res.wheel as Quiz);
-        setRawTracks(JSON.stringify((res.wheel as Quiz).tracks || [], null, 2));
-        pushPreview(res.wheel as Quiz);
+        setQuiz(res.wheel as QuizWheel);
+        setRawTracks(JSON.stringify((res.wheel as QuizWheel).tracks || [], null, 2));
+        pushPreview(res.wheel as QuizWheel);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
@@ -179,6 +287,8 @@ export default function QuizEditor() {
 
   const canUseResponsive = quiz?.mode.motion !== "videoSequences";
 
+  const questionIds = useMemo(() => sequences.filter((s) => s.type === "question").map((s) => s.id), [sequences]);
+
   function setTracksFromRaw() {
     if (!quiz) return;
     try {
@@ -191,36 +301,73 @@ export default function QuizEditor() {
     }
   }
 
+  function patchMainTrack(fn: (seqs: QuizSequence[]) => QuizSequence[]) {
+    if (!quiz) return;
+    const base = firstTrack(quiz);
+    const rest = (quiz.tracks || []).slice(1);
+    const nextTrack = { ...base, sequences: fn([...(base.sequences || [])]) };
+    setQuiz({ ...quiz, tracks: [nextTrack, ...rest] });
+  }
+
   function addSequence(kind: QuizSequence["type"]) {
     if (!quiz) return;
-    const baseTrack = firstTrack(quiz);
-    const rest = (quiz.tracks || []).slice(1);
-    const nextSeq: QuizSequence =
-      kind === "question"
-        ? {
-            id: uid("q"),
-            type: "question",
-            prompt: { text: "New question", body: "" },
-            timerSeconds: 20,
-            input: { mode: quiz.playAlong.enabled ? "playAlong" : "none", type: "buttons", choices: [{ id: "a", label: "A" }, { id: "b", label: "B" }] },
-            correct: { choiceId: "a" },
-            scoring: { pointsCorrect: 100, pointsWrong: 0 },
-            media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
-            advance: { kind: "host" },
-          }
-        : {
-            id: uid(kind),
-            type: kind as Exclude<QuizSequence["type"], "question">,
-            title: kind === "leaderboard" ? "Leaderboard" : "Title",
-            body: "",
-            media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
-            advance: { kind: "host" },
-          };
-    const nextTrack: QuizTrack = { ...baseTrack, sequences: [...(baseTrack.sequences || []), nextSeq] };
-    const next: Quiz = { ...quiz, tracks: [nextTrack, ...rest] };
-    setQuiz(next);
-    setRawTracks(JSON.stringify(next.tracks, null, 2));
+    let nextSeq: QuizSequence;
+    if (kind === "question") {
+      nextSeq = {
+        id: uid("q"),
+        type: "question",
+        prompt: { text: "New question", body: "" },
+        timerSeconds: 20,
+        input: { mode: quiz.playAlong.enabled ? "playAlong" : "none", type: "buttons", choices: [{ id: "a", label: "A" }, { id: "b", label: "B" }] },
+        correct: { choiceId: "a" },
+        scoring: { pointsCorrect: 100, pointsWrong: 0 },
+        media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
+        style: emptyStyle(),
+        bonusStealEligible: true,
+        textAnimation: "fadeIn",
+        advance: { kind: "host" },
+      };
+    } else if (kind === "reveal") {
+      const firstQ = questionIds[0] || "";
+      nextSeq = {
+        id: uid("rev"),
+        type: "reveal",
+        referencesQuestionId: firstQ,
+        title: "Answer",
+        body: "",
+        style: emptyStyle(),
+        textAnimation: "fadeIn",
+        advance: { kind: "host" },
+      };
+    } else {
+      nextSeq = {
+        id: uid(kind),
+        type: kind as Exclude<QuizSequence["type"], "question" | "reveal">,
+        title: kind === "leaderboard" ? "Leaderboard" : kind === "connection" ? "Connect your phone" : "Title",
+        headline: kind === "intro" || kind === "connection" ? "Headline" : undefined,
+        subhead: kind === "intro" || kind === "connection" ? "Subhead" : undefined,
+        body: "",
+        bonusReveal: kind === "leaderboard" ? false : undefined,
+        media: { videoUrl: "", bgImageUrl: "", bgColor: "" },
+        style: emptyStyle(),
+        advance: { kind: "host" },
+      };
+    }
+    patchMainTrack((seqs) => [...seqs, nextSeq]);
+    setSel(sequences.length);
   }
+
+  function updateSelected(fn: (s: QuizSequence) => QuizSequence) {
+    patchMainTrack((seqs) => seqs.map((s, i) => (i === sel ? fn(s) : s)));
+  }
+
+  function deleteSelected() {
+    if (!quiz || sequences.length === 0) return;
+    patchMainTrack((seqs) => seqs.filter((_, i) => i !== sel));
+    setSel((s) => Math.max(0, s - 1));
+  }
+
+  const selected = sequences[sel];
 
   if (!quiz) return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
 
@@ -257,6 +404,100 @@ export default function QuizEditor() {
             Open host screen
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Brand & favicon</h3>
+        <p className="muted">Uploaded files use same-origin URLs and apply to host, presentation, join, and leaderboard.</p>
+        <div className="grid2">
+          <div>
+            <label className="field">Favicon</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button type="button" className="btn" onClick={() => void pickUpload((url) => setQuiz({ ...quiz, faviconUrl: url }))}>
+                Upload favicon
+              </button>
+              {quiz.faviconUrl ? <img src={quiz.faviconUrl} alt="" width={28} height={28} style={{ borderRadius: 6 }} /> : null}
+            </div>
+          </div>
+          <div>
+            <label className="field">Logo</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button type="button" className="btn" onClick={() => void pickUpload((url) => setQuiz({ ...quiz, branding: { ...quiz.branding, logoUrl: url } }))}>
+                Upload logo
+              </button>
+              {quiz.branding?.logoUrl ? <img src={quiz.branding.logoUrl} alt="" width={48} height={48} style={{ borderRadius: 8 }} /> : null}
+            </div>
+          </div>
+          <div>
+            <label className="field">Default stage background (hex)</label>
+            <input
+              value={quiz.branding?.backgroundColor || ""}
+              onChange={(e) => setQuiz({ ...quiz, branding: { ...quiz.branding, backgroundColor: e.target.value } })}
+            />
+          </div>
+          <div>
+            <label className="field">Default background image</label>
+            <button type="button" className="btn" onClick={() => void pickUpload((url) => setQuiz({ ...quiz, branding: { ...quiz.branding, backgroundImage: url } }))}>
+              Upload
+            </button>
+            {quiz.branding?.backgroundImage ? <code className="muted"> {quiz.branding.backgroundImage.slice(0, 40)}…</code> : null}
+          </div>
+        </div>
+        <h4 style={{ marginTop: 16 }}>Fonts (CSS stacks or family names)</h4>
+        <div className="grid2">
+          <div>
+            <label className="field">Heading</label>
+            <input
+              value={quiz.branding?.fonts?.heading || ""}
+              onChange={(e) =>
+                setQuiz({ ...quiz, branding: { ...quiz.branding, fonts: { ...quiz.branding?.fonts, heading: e.target.value } } })
+              }
+            />
+          </div>
+          <div>
+            <label className="field">Subheading</label>
+            <input
+              value={quiz.branding?.fonts?.subheading || ""}
+              onChange={(e) =>
+                setQuiz({ ...quiz, branding: { ...quiz.branding, fonts: { ...quiz.branding?.fonts, subheading: e.target.value } } })
+              }
+            />
+          </div>
+          <div>
+            <label className="field">Body</label>
+            <input
+              value={quiz.branding?.fonts?.body || ""}
+              onChange={(e) =>
+                setQuiz({ ...quiz, branding: { ...quiz.branding, fonts: { ...quiz.branding?.fonts, body: e.target.value } } })
+              }
+            />
+          </div>
+          <div>
+            <label className="field">Button</label>
+            <input
+              value={quiz.branding?.fonts?.button || ""}
+              onChange={(e) =>
+                setQuiz({ ...quiz, branding: { ...quiz.branding, fonts: { ...quiz.branding?.fonts, button: e.target.value } } })
+              }
+            />
+          </div>
+        </div>
+
+        <SurfaceFields
+          title="Mobile (join) theme"
+          theme={quiz.branding?.mobile || {}}
+          onChange={(mobile) => setQuiz({ ...quiz, branding: { ...quiz.branding, mobile } })}
+        />
+        <SurfaceFields
+          title="Host controller theme"
+          theme={quiz.branding?.host || {}}
+          onChange={(host) => setQuiz({ ...quiz, branding: { ...quiz.branding, host } })}
+        />
+        <SurfaceFields
+          title="Leaderboard (projector) theme"
+          theme={quiz.branding?.leaderboard || {}}
+          onChange={(leaderboard) => setQuiz({ ...quiz, branding: { ...quiz.branding, leaderboard } })}
+        />
       </div>
 
       <div className="card">
@@ -307,40 +548,98 @@ export default function QuizEditor() {
             onChange={(e) => setQuiz({ ...quiz, playAlong: { ...quiz.playAlong, maxParticipants: Number(e.target.value) } })}
           />
         </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={quiz.playAlong.bonus?.fastestCorrectSteal === true}
+            onChange={(e) =>
+              setQuiz({
+                ...quiz,
+                playAlong: {
+                  ...quiz.playAlong,
+                  bonus: { ...quiz.playAlong.bonus, fastestCorrectSteal: e.target.checked, stealPoints: quiz.playAlong.bonus?.stealPoints ?? 100 },
+                },
+              })
+            }
+          />
+          Fastest correct — point steal bonus (global)
+        </label>
+        <div style={{ marginTop: 8, maxWidth: 200 }}>
+          <label className="field">Steal points</label>
+          <input
+            type="number"
+            min={10}
+            max={1000}
+            value={quiz.playAlong.bonus?.stealPoints ?? 100}
+            onChange={(e) =>
+              setQuiz({
+                ...quiz,
+                playAlong: { ...quiz.playAlong, bonus: { ...quiz.playAlong.bonus, stealPoints: Number(e.target.value) } },
+              })
+            }
+          />
+        </div>
       </div>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Sequences (MVP)</h3>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Quick builder: add basic sequences, then fine-tune via the JSON editor below. Host controls are per-sequence.
-        </p>
+        <h3 style={{ marginTop: 0 }}>Sequences</h3>
+        <p className="muted">Select a step to edit universal styling and type-specific content. Save to persist.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-primary" onClick={() => addSequence("intro")}>
-            Add intro
+            + Intro
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => addSequence("connection")}>
+            + Connection
           </button>
           <button type="button" className="btn btn-primary" onClick={() => addSequence("question")}>
-            Add question
+            + Question
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => addSequence("reveal")}>
+            + Answer reveal
           </button>
           <button type="button" className="btn btn-primary" onClick={() => addSequence("leaderboard")}>
-            Add leaderboard
+            + Leaderboard
           </button>
           <button type="button" className="btn btn-primary" onClick={() => addSequence("outro")}>
-            Add outro
+            + Outro
           </button>
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          {sequences.length === 0 ? (
-            <p className="muted">No sequences yet.</p>
-          ) : (
-            <ol className="muted" style={{ margin: 0, paddingLeft: 18 }}>
-              {sequences.map((s) => (
-                <li key={s.id}>
-                  <code>{s.type}</code> <span style={{ opacity: 0.85 }}>{s.type === "question" ? s.prompt.text : (s.title || s.id)}</span>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 1fr) 2fr", gap: 16, marginTop: 14, alignItems: "start" }}>
+          <div>
+            <label className="field">Order</label>
+            <ol style={{ margin: 0, paddingLeft: 18, maxHeight: 360, overflow: "auto" }}>
+              {sequences.map((s, i) => (
+                <li key={s.id} style={{ margin: "6px 0", fontWeight: i === sel ? 700 : 400 }}>
+                  <button type="button" className="btn" style={{ textAlign: "left", width: "100%" }} onClick={() => setSel(i)}>
+                    <code>{s.type}</code> {s.type === "question" ? (s as { prompt?: { text?: string } }).prompt?.text?.slice(0, 28) : (s as { title?: string }).title}
+                  </button>
                 </li>
               ))}
             </ol>
-          )}
+            {sequences.length > 0 && (
+              <button type="button" className="btn btn-danger" style={{ marginTop: 8 }} onClick={() => deleteSelected()}>
+                Delete selected
+              </button>
+            )}
+          </div>
+          <div>
+            {!selected ? (
+              <p className="muted">Add a sequence.</p>
+            ) : (
+              <SequenceForm
+                seq={selected}
+                questionIds={questionIds}
+                onChange={updateSelected}
+                patchStyle={(patch) => {
+                  updateSelected((s) => {
+                    const prev = ("style" in s && s.style) || emptyStyle();
+                    return { ...s, style: { ...prev, ...patch } } as QuizSequence;
+                  });
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -374,20 +673,24 @@ export default function QuizEditor() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Tracks JSON (advanced)</h3>
-        <p className="muted" style={{ marginTop: 0 }}>
-          For the MVP, this JSON is the source of truth. You can add image/audio prompts, timers, and per-sequence video URLs here.
-        </p>
-        <textarea
-          value={rawTracks}
-          onChange={(e) => setRawTracks(e.target.value)}
-          rows={18}
-          style={{ width: "100%", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
-        />
-        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          <button type="button" className="btn" onClick={() => setTracksFromRaw()}>
-            Apply JSON locally
-          </button>
+        <details>
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Advanced: tracks JSON</summary>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Full document — use for migration or edge cases. Prefer the form above for day-to-day editing.
+          </p>
+          <textarea
+            value={rawTracks}
+            onChange={(e) => setRawTracks(e.target.value)}
+            rows={14}
+            style={{ width: "100%", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <button type="button" className="btn" onClick={() => setTracksFromRaw()}>
+              Apply JSON locally
+            </button>
+          </div>
+        </details>
+        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
@@ -400,3 +703,232 @@ export default function QuizEditor() {
   );
 }
 
+function SequenceForm({
+  seq,
+  questionIds,
+  onChange,
+  patchStyle,
+}: {
+  seq: QuizSequence;
+  questionIds: string[];
+  onChange: (fn: (s: QuizSequence) => QuizSequence) => void;
+  patchStyle: (p: Partial<QuizSequenceStyle>) => void;
+}) {
+  const st = ("style" in seq && seq.style) || emptyStyle();
+
+  return (
+    <div>
+      <h4 style={{ marginTop: 0 }}>
+        Edit <code>{seq.type}</code>
+      </h4>
+
+      <h5>Universal</h5>
+      <div className="grid2">
+        <div>
+          <label className="field">Slide BG hex (overrides default)</label>
+          <input value={st.bgHex || ""} onChange={(e) => patchStyle({ bgHex: e.target.value })} placeholder="#0a1628" />
+        </div>
+        <div>
+          <label className="field">Text hex</label>
+          <input value={st.textHex || ""} onChange={(e) => patchStyle({ textHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Button hex (questions)</label>
+          <input value={st.buttonHex || ""} onChange={(e) => patchStyle({ buttonHex: e.target.value })} />
+        </div>
+        <div>
+          <label className="field">Text animation</label>
+          <select
+            value={st.textAnimation || "none"}
+            onChange={(e) => patchStyle({ textAnimation: e.target.value as QuizTextAnimationId })}
+          >
+            {TEXT_ANIMS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label className="field">Background image</label>
+          <button type="button" className="btn" onClick={() => void pickUpload((url) => patchStyle({ bgImageUrl: url }))}>
+            Upload
+          </button>{" "}
+          {st.bgImageUrl ? <code>{st.bgImageUrl.slice(0, 56)}…</code> : null}
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label className="field">Custom sound</label>
+          <button type="button" className="btn" onClick={() => void pickAudio((url) => patchStyle({ soundUrl: url }))}>
+            Upload audio
+          </button>{" "}
+          <label style={{ marginLeft: 12 }}>
+            <input
+              type="checkbox"
+              checked={st.soundLoop === true}
+              onChange={(e) => patchStyle({ soundLoop: e.target.checked })}
+            />{" "}
+            Loop
+          </label>
+          {st.soundUrl ? <code className="muted"> {st.soundUrl.slice(0, 40)}…</code> : null}
+        </div>
+      </div>
+
+      {seq.type === "intro" || seq.type === "connection" ? (
+        <div style={{ marginTop: 14 }}>
+          <h5>Copy</h5>
+          <label className="field">Headline</label>
+          <input
+            value={(seq as { headline?: string }).headline || (seq as { title?: string }).title || ""}
+            onChange={(e) => onChange((s) => ({ ...s, headline: e.target.value }) as QuizSequence)}
+          />
+          <label className="field">Subhead</label>
+          <textarea
+            rows={3}
+            value={(seq as { subhead?: string }).subhead || (seq as { body?: string }).body || ""}
+            onChange={(e) => onChange((s) => ({ ...s, subhead: e.target.value }) as QuizSequence)}
+          />
+        </div>
+      ) : null}
+      {seq.type === "holding" || seq.type === "outro" || seq.type === "breaker" ? (
+        <div style={{ marginTop: 14 }}>
+          <h5>Copy</h5>
+          <label className="field">Title</label>
+          <input
+            value={(seq as { title?: string }).title || ""}
+            onChange={(e) => onChange((s) => ({ ...s, title: e.target.value }) as QuizSequence)}
+          />
+          <label className="field">Body</label>
+          <textarea
+            rows={3}
+            value={(seq as { body?: string }).body || ""}
+            onChange={(e) => onChange((s) => ({ ...s, body: e.target.value }) as QuizSequence)}
+          />
+        </div>
+      ) : null}
+
+      {seq.type === "question" ? (
+        <div style={{ marginTop: 14 }}>
+          <h5>Question</h5>
+          <label className="field">Prompt</label>
+          <input
+            value={seq.prompt.text || ""}
+            onChange={(e) => onChange({ ...seq, prompt: { ...seq.prompt, text: e.target.value } })}
+          />
+          <label className="field">Subtext</label>
+          <textarea rows={2} value={seq.prompt.body || ""} onChange={(e) => onChange({ ...seq, prompt: { ...seq.prompt, body: e.target.value } })} />
+          <label className="field">Timer (seconds)</label>
+          <input
+            type="number"
+            value={seq.timerSeconds ?? 0}
+            onChange={(e) => onChange({ ...seq, timerSeconds: Number(e.target.value) })}
+          />
+          <label className="field">Input format</label>
+          <select
+            value={seq.input.type}
+            onChange={(e) => {
+              const t = e.target.value;
+              if (t === "buttons") onChange({ ...seq, input: { mode: seq.input.mode, type: "buttons", choices: [{ id: "a", label: "A" }] } });
+            }}
+          >
+            <option value="buttons">Multiple choice (buttons)</option>
+          </select>
+          <p className="muted">More input types (text, slider) can be wired to the same JSON schema later.</p>
+          <label className="field">Choices (one per line: id|label)</label>
+          <textarea
+            rows={4}
+            value={seq.input.type === "buttons" ? seq.input.choices.map((c) => `${c.id}|${c.label}`).join("\n") : ""}
+            onChange={(e) => {
+              const lines = e.target.value.split("\n").filter(Boolean);
+              const choices = lines.map((line) => {
+                const [id, ...rest] = line.split("|");
+                return { id: id.trim(), label: rest.join("|").trim() || id.trim() };
+              });
+              if (seq.input.type === "buttons") onChange({ ...seq, input: { ...seq.input, choices: choices.length ? choices : [{ id: "a", label: "A" }] } });
+            }}
+          />
+          <label className="field">Correct choice id</label>
+          <input
+            value={seq.correct?.choiceId || ""}
+            onChange={(e) => onChange({ ...seq, correct: { ...seq.correct, choiceId: e.target.value } })}
+          />
+          <div className="grid2">
+            <div>
+              <label className="field">Points correct</label>
+              <input
+                type="number"
+                value={seq.scoring?.pointsCorrect ?? 100}
+                onChange={(e) => onChange({ ...seq, scoring: { ...seq.scoring, pointsCorrect: Number(e.target.value) } })}
+              />
+            </div>
+            <div>
+              <label className="field">Points wrong</label>
+              <input
+                type="number"
+                value={seq.scoring?.pointsWrong ?? 0}
+                onChange={(e) => onChange({ ...seq, scoring: { ...seq.scoring, pointsWrong: Number(e.target.value) } })}
+              />
+            </div>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={seq.bonusStealEligible !== false}
+              onChange={(e) => onChange({ ...seq, bonusStealEligible: e.target.checked })}
+            />
+            Eligible for fastest-correct steal (when global bonus is on)
+          </label>
+          <label className="field">Question text animation</label>
+          <select
+            value={seq.textAnimation || "none"}
+            onChange={(e) => onChange({ ...seq, textAnimation: e.target.value as QuizTextAnimationId })}
+          >
+            {TEXT_ANIMS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {seq.type === "reveal" ? (
+        <div style={{ marginTop: 14 }}>
+          <h5>Answer reveal</h5>
+          <label className="field">Which question</label>
+          <select
+            value={seq.referencesQuestionId || ""}
+            onChange={(e) => onChange({ ...seq, referencesQuestionId: e.target.value })}
+          >
+            <option value="">— pick a question —</option>
+            {questionIds.map((qid) => (
+              <option key={qid} value={qid}>
+                {qid}
+              </option>
+            ))}
+          </select>
+          <label className="field">Title override</label>
+          <input value={seq.title || ""} onChange={(e) => onChange({ ...seq, title: e.target.value })} />
+          <label className="field">Body override</label>
+          <textarea rows={2} value={seq.body || ""} onChange={(e) => onChange({ ...seq, body: e.target.value })} />
+        </div>
+      ) : null}
+
+      {seq.type === "leaderboard" ? (
+        <div style={{ marginTop: 14 }}>
+          <h5>Leaderboard</h5>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={(seq as { bonusReveal?: boolean }).bonusReveal === true}
+              onChange={(e) => onChange({ ...seq, bonusReveal: e.target.checked } as QuizSequence)}
+            />
+            Emphasise bonus steal storyline on this slide (copy / future motion)
+          </label>
+          <label className="field">Title</label>
+          <input value={(seq as { title?: string }).title || ""} onChange={(e) => onChange({ ...seq, title: e.target.value } as QuizSequence)} />
+        </div>
+      ) : null}
+
+    </div>
+  );
+}
