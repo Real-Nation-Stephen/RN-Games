@@ -21,6 +21,7 @@ type QuizWheel = {
   faviconUrl?: string;
   reportingSheetTab?: string;
   showPoweredBy?: boolean;
+  playMode?: "facilitated" | "playAlong" | "kiosk";
   mode: QuizMode;
   branding: {
     logoUrl?: string;
@@ -28,6 +29,12 @@ type QuizWheel = {
     backgroundImage?: string;
     backgroundVideo?: string;
     fonts?: { heading?: string; subheading?: string; body?: string; button?: string };
+    fontUploads?: {
+      heading?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      subheading?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      body?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      button?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+    };
     layout?: { buttonBottomPadPx?: number };
     mobile?: QuizSurfaceTheme & { playerIconSetUrl?: string };
     host?: QuizSurfaceTheme;
@@ -82,6 +89,19 @@ async function pickUpload(setUrl: (u: string) => void) {
     if (!f) return;
     const { url } = await uploadFile(f);
     setUrl(url);
+  };
+  input.click();
+}
+
+async function pickFontUpload(onPicked: (u: { url: string; filename?: string }) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".woff2,.woff,.ttf,.otf,font/*,application/font-woff,application/font-woff2";
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const { url, filename } = await uploadFile(f);
+    onPicked({ url, filename });
   };
   input.click();
 }
@@ -224,6 +244,7 @@ export default function QuizEditor() {
             slug: cfg.slug,
             faviconUrl: cfg.faviconUrl || "",
             showPoweredBy: cfg.showPoweredBy !== false,
+            playMode: cfg.playMode || (cfg.playAlong?.enabled ? "playAlong" : "facilitated"),
             mode: cfg.mode,
             branding: cfg.branding,
             playAlong: cfg.playAlong,
@@ -260,6 +281,23 @@ export default function QuizEditor() {
       setSaving(false);
     }
   }
+
+  const setPlayMode = (mode: QuizWheel["playMode"]) => {
+    if (!quiz) return;
+    setQuiz({ ...quiz, playMode: mode || "facilitated" });
+  };
+
+  const setFontUpload = async (slot: "heading" | "subheading" | "body" | "button") => {
+    if (!quiz) return;
+    await pickFontUpload(({ url }) => {
+      const family = window.prompt("Font family name to use (e.g. Acme Sans)", "") || "";
+      const fam = family.trim();
+      if (!fam) return;
+      const fontUploads = { ...(quiz.branding.fontUploads || {}) };
+      fontUploads[slot] = { url, family: fam };
+      setQuiz({ ...quiz, branding: { ...quiz.branding, fontUploads } });
+    });
+  };
 
   async function deleteQuiz() {
     if (!quiz) return;
@@ -483,6 +521,42 @@ export default function QuizEditor() {
           </div>
         </div>
 
+        <h4 style={{ marginTop: 16 }}>Uploaded font files (optional)</h4>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Upload a font file and provide a <b>family name</b>. Player UIs will load it via <code>@font-face</code>.
+        </p>
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", maxWidth: 720 }}>
+          {(["heading", "subheading", "body", "button"] as const).map((slot) => {
+            const u = quiz.branding?.fontUploads?.[slot];
+            return (
+              <div key={slot} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ fontWeight: 700, textTransform: "capitalize" }}>{slot}</div>
+                  <button type="button" className="btn btn-small" onClick={() => void setFontUpload(slot)}>
+                    Upload font
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                  {u?.family ? (
+                    <div>
+                      Family: <code>{u.family}</code>
+                    </div>
+                  ) : (
+                    <div>Family: <span style={{ opacity: 0.65 }}>—</span></div>
+                  )}
+                  {u?.url ? (
+                    <div>
+                      URL: <code>{u.url.slice(0, 44)}…</code>
+                    </div>
+                  ) : (
+                    <div>URL: <span style={{ opacity: 0.65 }}>—</span></div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         <SurfaceFields
           title="Mobile (join) theme"
           theme={quiz.branding?.mobile || {}}
@@ -502,6 +576,14 @@ export default function QuizEditor() {
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Mode</h3>
+        <div style={{ marginBottom: 12, maxWidth: 320 }}>
+          <label className="field">Play mode</label>
+          <select value={quiz.playMode || (quiz.playAlong.enabled ? "playAlong" : "facilitated")} onChange={(e) => setPlayMode(e.target.value as QuizWheel["playMode"])}>
+            <option value="facilitated">Facilitated (no player input)</option>
+            <option value="playAlong">Play-along (phones + leaderboard)</option>
+            <option value="kiosk">Kiosk (single-player)</option>
+          </select>
+        </div>
         <div className="grid2">
           <div>
             <label className="field">Presentation</label>

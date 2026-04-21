@@ -3,6 +3,7 @@ import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "
 import { layoutStage } from "./layout";
 import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
+import { ensureQuizFontFaces } from "./font-loader";
 
 function getSlugAndCode() {
   const slug = qs().get("slug");
@@ -43,6 +44,7 @@ async function main() {
     const { slug, code } = getSlugAndCode();
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
+    ensureQuizFontFaces(quiz);
     applyQuizSurface(byId("app"), quiz, "leaderboard");
 
     const logo = byId<HTMLImageElement>("quiz-logo");

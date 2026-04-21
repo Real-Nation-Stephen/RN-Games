@@ -16,6 +16,9 @@ export type QuizAdvanceKind = "host" | "timer" | "waitAll" | "autoAfterMedia";
 
 export type QuizInputMode = "none" | "local" | "playAlong";
 
+/** High-level runtime mode for the quiz experience. */
+export type QuizPlayMode = "facilitated" | "playAlong" | "kiosk";
+
 /** Text entrance presets (extend without breaking older quizzes). */
 export type QuizTextAnimationId = "none" | "fadeIn" | "floatIn" | "slideUp";
 
@@ -112,6 +115,8 @@ export type QuizConfig = {
   slug: string;
   faviconUrl?: string;
   showPoweredBy?: boolean;
+  /** How this quiz is intended to be run. */
+  playMode?: QuizPlayMode;
   mode: { presentation: QuizPresentation; motion: QuizMotion };
   branding?: {
     logoUrl?: string;
@@ -123,6 +128,16 @@ export type QuizConfig = {
       subheading?: string;
       body?: string;
       button?: string;
+    };
+    /**
+     * Uploaded font files (served from `/api/file?id=...`). If present, the player
+     * UIs will register these via `@font-face` and use the provided `family` names.
+     */
+    fontUploads?: {
+      heading?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      subheading?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      body?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
+      button?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
     };
     layout?: { buttonBottomPadPx?: number };
     /** Player phone UI */

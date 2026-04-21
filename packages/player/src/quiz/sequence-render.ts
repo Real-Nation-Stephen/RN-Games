@@ -12,6 +12,18 @@ export type SequenceStageEls = {
   answers: HTMLElement;
 };
 
+export type RenderSequenceOptions =
+  | undefined
+  | {
+      /** In kiosk mode, inputs become interactive. */
+      interactive?: boolean;
+      /**
+       * Called when the kiosk user picks an answer. Host/present should not pass this.
+       * For play-along, answers are still submitted via the phone UI.
+       */
+      onAnswer?: (answer: { choiceId?: string; value?: number; stopId?: string }) => void;
+    };
+
 let lastSeqSound: HTMLAudioElement | null = null;
 
 function stopSeqSound() {
@@ -57,7 +69,14 @@ function resolveRevealContent(quiz: QuizConfig, seq: Extract<QuizSequence, { typ
 }
 
 /** Renders one sequence into the stage (shared by host + presentation views). */
-export function renderSequence(el: SequenceStageEls, q: QuizConfig, seq: QuizSequence, idx: number, total: number) {
+export function renderSequence(
+  el: SequenceStageEls,
+  q: QuizConfig,
+  seq: QuizSequence,
+  idx: number,
+  total: number,
+  opts?: RenderSequenceOptions,
+) {
   stopSeqSound();
   const st = "style" in seq ? seq.style : undefined;
   const titleAnim =
@@ -136,13 +155,61 @@ export function renderSequence(el: SequenceStageEls, q: QuizConfig, seq: QuizSeq
       b.type = "button";
       b.className = "quiz-answer";
       b.textContent = c.label;
-      b.disabled = true;
+      const interactive = opts?.interactive === true;
+      b.disabled = !interactive;
+      if (interactive && opts?.onAnswer) {
+        b.addEventListener("click", () => opts.onAnswer?.({ choiceId: c.id }));
+      }
       if (btnHex) {
         b.style.background = btnHex;
         b.style.borderColor = "rgba(255,255,255,0.25)";
       }
       el.answers.appendChild(b);
     }
+  } else if (seq.type === "question" && seq.input?.type === "slider") {
+    const interactive = opts?.interactive === true;
+    el.answers.removeAttribute("hidden");
+    el.answers.innerHTML = "";
+
+    const wrap = document.createElement("div");
+    wrap.style.display = "grid";
+    wrap.style.gap = "10px";
+    wrap.style.gridColumn = "1 / -1";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.className = "quiz-slider";
+    range.disabled = !interactive;
+
+    if (seq.input.kind === "continuous" && seq.input.continuous) {
+      range.min = String(seq.input.continuous.min);
+      range.max = String(seq.input.continuous.max);
+      const mid = (Number(seq.input.continuous.min) + Number(seq.input.continuous.max)) / 2;
+      range.value = String(mid);
+    } else if (seq.input.kind === "discrete" && seq.input.discrete) {
+      const stops = seq.input.discrete.stops || [];
+      range.min = "0";
+      range.max = String(Math.max(0, stops.length - 1));
+      range.step = "1";
+      range.value = String(Math.floor(stops.length / 2));
+    }
+
+    if (interactive && opts?.onAnswer) {
+      const submit = () => {
+        if (seq.input.kind === "continuous" && seq.input.continuous) {
+          opts.onAnswer?.({ value: Number(range.value) });
+        } else if (seq.input.kind === "discrete" && seq.input.discrete) {
+          const stops = seq.input.discrete.stops || [];
+          const idx = Math.max(0, Math.min(stops.length - 1, Number(range.value) || 0));
+          const stop = stops[idx];
+          opts.onAnswer?.({ stopId: stop?.id, value: stop?.value });
+        }
+      };
+      range.addEventListener("change", submit);
+    }
+
+    wrap.appendChild(range);
+    el.answers.appendChild(wrap);
   } else {
     el.answers.setAttribute("hidden", "true");
     el.answers.innerHTML = "";

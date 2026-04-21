@@ -30,8 +30,9 @@ export function applyQuizSurface(
   if (kit?.overlayHex) root.style.setProperty("--quiz-overlay", kit.overlayHex);
   else root.style.removeProperty("--quiz-overlay");
 
-  const fh = kit?.fontHeading || b?.fonts?.heading;
-  const fb = kit?.fontBody || b?.fonts?.body;
+  const uploads = b?.fontUploads;
+  const fh = kit?.fontHeading || uploads?.heading?.family || b?.fonts?.heading;
+  const fb = kit?.fontBody || uploads?.body?.family || b?.fonts?.body;
   if (fh) root.style.setProperty("--quiz-font-heading", fh);
   else root.style.removeProperty("--quiz-font-heading");
   if (fb) root.style.setProperty("--quiz-font-body", fb);
@@ -39,9 +40,11 @@ export function applyQuizSurface(
 }
 
 export function applySequenceFonts(el: { seqTitle: HTMLElement; seqBody: HTMLElement }, quiz: QuizConfig) {
-  const h = quiz.branding?.fonts?.heading;
-  const sub = quiz.branding?.fonts?.subheading;
-  const body = quiz.branding?.fonts?.body;
+  const b = quiz.branding;
+  const u = b?.fontUploads;
+  const h = u?.heading?.family || b?.fonts?.heading;
+  const sub = u?.subheading?.family || b?.fonts?.subheading;
+  const body = u?.body?.family || b?.fonts?.body;
   if (h) el.seqTitle.style.fontFamily = h;
   else el.seqTitle.style.removeProperty("font-family");
   if (sub && el.seqBody) {

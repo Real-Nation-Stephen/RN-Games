@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz kiosk</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/quiz.css" />
+  </head>
+  <body class="quiz-page quiz-host" data-quiz-surface="default">
+    <div id="app" hidden>
+      <div id="fit">
+        <div id="stage" class="quiz-stage">
+          <video id="quiz-bg-video" class="quiz-bg-video" muted playsinline autoplay loop hidden></video>
+          <div class="quiz-topbar">
+            <div class="quiz-brand">
+              <img id="quiz-logo" alt="" />
+              <div>
+                <div id="quiz-title" class="quiz-title">Quiz</div>
+                <div id="quiz-sub" class="quiz-sub muted"></div>
+              </div>
+            </div>
+            <div class="quiz-controls">
+              <button id="kiosk-restart" class="btn" type="button">Restart</button>
+            </div>
+          </div>
+          <div class="quiz-main quiz-main--present">
+            <div class="quiz-left" style="grid-column: 1 / -1">
+              <div class="quiz-card">
+                <div id="quiz-seq-kind" class="muted" style="font-size: 0.85rem"></div>
+                <h1 id="quiz-seq-title" class="quiz-h1"></h1>
+                <p id="quiz-seq-body" class="quiz-body"></p>
+                <div id="quiz-media"></div>
+                <div id="quiz-answers" class="quiz-answers" hidden></div>
+                <div id="kiosk-footer" class="muted" style="margin-top: 10px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load</h2>
+        <p class="muted" id="quiz-error-msg"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/quiz/kiosk.ts"></script>
+  </body>
+</html>
+

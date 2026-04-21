@@ -4,6 +4,7 @@ import { layoutStage } from "./layout";
 import { applyQuizSurface } from "./quiz-theme";
 import { quizSessionEndpoint, quizSessionGetUrl } from "./api-path";
 import { firstTrack, renderSequence, type SequenceStageEls } from "./sequence-render";
+import { ensureQuizFontFaces } from "./font-loader";
 
 const HOST_STORAGE_KEY = "rngames-quiz-host";
 
@@ -107,6 +108,7 @@ async function main() {
       quiz = await fetchQuiz(slug);
     }
     if (!quiz) throw new Error("Missing quiz config");
+    ensureQuizFontFaces(quiz);
 
     const debugQuiz =
       qs().get("debugQuiz") === "1" ||
@@ -129,6 +131,11 @@ async function main() {
     const seqs = track.sequences || [];
     let i = 0;
     let rev = 0;
+
+    const playMode = preview ? "facilitated" : (quiz.playMode || (quiz.playAlong?.enabled ? "playAlong" : "facilitated"));
+    const facilitatedKey = `rngames-quiz-facilitated:${quiz.slug}:idx`;
+    const facilitatedChan = `rngames-quiz-facilitated:${quiz.slug}`;
+    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(facilitatedChan) : null;
 
     let sessionCode = "";
     let hostKey = "";
@@ -236,6 +243,16 @@ async function main() {
       renderList();
       el.prev.disabled = i <= 0 || navBusy;
       el.next.disabled = i >= seqs.length - 1 || navBusy;
+    };
+
+    const broadcastFacilitatedIdx = () => {
+      if (playMode !== "facilitated") return;
+      try {
+        localStorage.setItem(facilitatedKey, String(i));
+      } catch {
+        /* ignore */
+      }
+      bc?.postMessage({ type: "idx", idx: i });
     };
 
     const pollOnce = async () => {
@@ -361,11 +378,16 @@ async function main() {
     };
 
     el.openPresent.addEventListener("click", () => {
-      if (!sessionCode) return;
-      openWindow(`/quiz/${quiz.slug}/present/${sessionCode}`);
+      if (playMode === "playAlong") {
+        if (!sessionCode) return;
+        openWindow(`/quiz/${quiz.slug}/present/${sessionCode}`);
+      } else {
+        openWindow(`/quiz/${quiz.slug}/present`);
+      }
     });
 
     el.openLeaderboard.addEventListener("click", () => {
+      if (playMode !== "playAlong") return;
       if (!sessionCode) return;
       openWindow(`/quiz/${quiz.slug}/live/${sessionCode}/leaderboard`);
     });
@@ -378,6 +400,71 @@ async function main() {
       el.lobbyHint.hidden = true;
       setJoin("PREVIEW");
     } else {
+      if (playMode === "kiosk") {
+        // Kiosk has no host controller; use this screen as a launcher.
+        el.createSession.textContent = "Open kiosk";
+        el.openPresent.textContent = "Kiosk";
+        el.openPresent.disabled = false;
+        el.openLeaderboard.hidden = true;
+        el.lockLobby.hidden = true;
+        el.lobbyHint.textContent = "Kiosk mode runs on the presentation device.";
+        // Hide join panel + players list.
+        const right = document.querySelector(".quiz-right") as HTMLElement | null;
+        if (right) right.style.display = "none";
+        el.createSession.addEventListener("click", () => {
+          window.location.href = `/quiz/${quiz.slug}/kiosk`;
+        });
+        layoutStage(el.stage, el.fit, 1920, 1080);
+        window.addEventListener("resize", () => layoutStage(el.stage, el.fit, 1920, 1080));
+        showApp();
+        return;
+      } else if (playMode === "facilitated") {
+        // Facilitated: no session storage, no join links; host drives locally + broadcasts to present.
+        el.createSession.textContent = "Start (facilitated)";
+        el.openPresent.disabled = false;
+        el.openLeaderboard.hidden = true;
+        el.lockLobby.hidden = true;
+        el.lobbyHint.textContent = "Facilitated mode: no player join. Use Prev/Next to run the room.";
+        const right = document.querySelector(".quiz-right") as HTMLElement | null;
+        if (right) right.style.display = "none";
+
+        // Restore last local index if available.
+        try {
+          const raw = localStorage.getItem(facilitatedKey);
+          const n = raw ? Number(raw) : 0;
+          if (Number.isFinite(n)) i = Math.max(0, Math.min(seqs.length - 1, n));
+        } catch {
+          /* ignore */
+        }
+        render();
+        broadcastFacilitatedIdx();
+
+        el.createSession.addEventListener("click", () => {
+          i = 0;
+          render();
+          broadcastFacilitatedIdx();
+        });
+
+        el.prev.addEventListener("click", () => {
+          if (navBusy) return;
+          i = Math.max(0, i - 1);
+          render();
+          broadcastFacilitatedIdx();
+        });
+        el.next.addEventListener("click", () => {
+          if (navBusy) return;
+          i = Math.min(seqs.length - 1, i + 1);
+          render();
+          broadcastFacilitatedIdx();
+        });
+
+        // Disable play-along handlers below by short-circuiting.
+        layoutStage(el.stage, el.fit, 1920, 1080);
+        window.addEventListener("resize", () => layoutStage(el.stage, el.fit, 1920, 1080));
+        showApp();
+        return;
+      }
+
       el.joinLink.textContent = "Start a session to get a join link.";
       el.qr.setAttribute("hidden", "true");
       el.openPresent.disabled = true;

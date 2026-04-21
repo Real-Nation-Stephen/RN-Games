@@ -2,6 +2,7 @@ import type { SessionState } from "./types";
 import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "./lib";
 import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
+import { ensureQuizFontFaces } from "./font-loader";
 
 const ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
 
@@ -77,6 +78,7 @@ async function main() {
     const { slug, code } = getSlugAndCode();
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
+    ensureQuizFontFaces(quiz);
     applyQuizSurface(byId("app"), quiz, "mobile");
 
     const logo = byId<HTMLImageElement>("quiz-logo");

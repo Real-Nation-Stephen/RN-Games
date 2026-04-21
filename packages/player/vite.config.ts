@@ -21,6 +21,7 @@ export default defineConfig({
         "quiz-present": resolve(__dirname, "quiz-present.html"),
         "quiz-join": resolve(__dirname, "quiz-join.html"),
         "quiz-leaderboard": resolve(__dirname, "quiz-leaderboard.html"),
+        "quiz-kiosk": resolve(__dirname, "quiz-kiosk.html"),
         "flip-cards-dada-test": resolve(__dirname, "flip-cards-dada-test.html"),
         "flip-cards": resolve(__dirname, "flip-cards.html"),
       },

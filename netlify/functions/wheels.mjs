@@ -108,6 +108,7 @@ function emptyQuizRecord(id, slug) {
     faviconUrl: "",
     reportingSheetTab: "",
     showPoweredBy: true,
+    playMode: "facilitated",
     mode: {
       presentation: "frame16x9",
       motion: "static",
@@ -118,6 +119,7 @@ function emptyQuizRecord(id, slug) {
       backgroundImage: "",
       backgroundVideo: "",
       fonts: { heading: "", subheading: "", body: "", button: "" },
+      fontUploads: {},
       layout: { buttonBottomPadPx: 12 },
       mobile: {},
       host: {},
