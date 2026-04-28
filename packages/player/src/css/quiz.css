@@ -87,6 +87,16 @@
   background-position: center;
 }
 
+/* `styles.css` sets `#stage { background: transparent; }` with higher specificity.
+   Ensure Present background images always win. */
+#stage.quiz-stage--present,
+#stage.quiz-stage--present-lab {
+  background-image: var(--quiz-present-bg-image-override, var(--quiz-present-bg-image, none));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .quiz-bg-video {
   position: absolute;
   inset: 0;
