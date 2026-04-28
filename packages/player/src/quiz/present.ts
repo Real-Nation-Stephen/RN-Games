@@ -24,8 +24,28 @@ function getSlugAndCode(): { slug: string; code: string | null } {
 
 async function main() {
   try {
+    const qsp = new URLSearchParams(window.location.search);
+    const preview = qsp.get("preview") === "1";
     const { slug, code } = getSlugAndCode();
-    const quiz = await fetchQuiz(slug);
+    let quiz: QuizConfig | null = null;
+
+    if (preview) {
+      await new Promise<void>((resolve) => {
+        const onMsg = (e: MessageEvent) => {
+          if (e.origin !== window.location.origin) return;
+          if (e.data?.type !== "rngames-quiz-config") return;
+          const cfg = e.data.config as QuizConfig;
+          if (!cfg || cfg.gameType !== "quiz") return;
+          quiz = cfg;
+          window.removeEventListener("message", onMsg);
+          resolve();
+        };
+        window.addEventListener("message", onMsg);
+      });
+    } else {
+      quiz = await fetchQuiz(slug);
+    }
+    if (!quiz) throw new Error("Missing quiz config");
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     ensureQuizFontFaces(quiz);
     // Presentation should respect the same hex/theme tuning you set for the host surface.

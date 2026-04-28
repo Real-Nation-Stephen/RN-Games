@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import html2canvas from "html2canvas";
 import type { QuizSequence, QuizSequenceStyle, QuizSurfaceTheme, QuizTextAnimationId } from "../../player/src/quiz/types";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 
@@ -58,6 +59,33 @@ const TEXT_ANIMS: { id: QuizTextAnimationId; label: string }[] = [
   { id: "floatIn", label: "Float in" },
   { id: "slideUp", label: "Slide up" },
 ];
+
+/** html2canvas cannot see `body::before`; apply the same page BG on the cloned `#fit` only (thumbnails). */
+function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  const bgImage =
+    idoc && idwin ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--page-bg-image").trim() : "";
+  const bgSolid =
+    idoc && idwin ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--page-bg-solid").trim() : "";
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid || "#0c1410",
+    onclone: (doc: Document) => {
+      const f = doc.getElementById("fit");
+      if (!f) return;
+      if (bgSolid) f.style.backgroundColor = bgSolid;
+      if (bgImage && bgImage !== "none") {
+        f.style.backgroundImage = bgImage;
+        f.style.backgroundSize = "cover";
+        f.style.backgroundPosition = "center";
+        f.style.backgroundRepeat = "no-repeat";
+      }
+    },
+  };
+}
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(16).slice(2, 10)}`;
@@ -207,6 +235,7 @@ export default function QuizEditor() {
   const [rawTracks, setRawTracks] = useState("");
   const [sel, setSel] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const thumbIframeRef = useRef<HTMLIFrameElement>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -279,6 +308,54 @@ export default function QuizEditor() {
       setErr(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveWithThumbnail() {
+    if (!quiz) return;
+    await save();
+    // Render first Present slide in a dedicated preview iframe and capture it.
+    const iframe = thumbIframeRef.current;
+    if (!iframe) return;
+    const src = `/play/quiz-present.html?preview=1&slug=${encodeURIComponent(quiz.slug)}&cb=${Date.now()}`;
+    iframe.src = src;
+    await new Promise<void>((resolve) => {
+      const onLoad = () => resolve();
+      iframe.addEventListener("load", onLoad, { once: true });
+    });
+    // Push preview config (same payload as the host preview uses).
+    iframe.contentWindow?.postMessage(
+      {
+        type: "rngames-quiz-config",
+        config: {
+          gameType: "quiz",
+          id: quiz.id,
+          title: quiz.title,
+          slug: quiz.slug,
+          faviconUrl: quiz.faviconUrl || "",
+          showPoweredBy: quiz.showPoweredBy !== false,
+          playMode: quiz.playMode || (quiz.playAlong?.enabled ? "playAlong" : "facilitated"),
+          mode: quiz.mode,
+          branding: quiz.branding,
+          playAlong: quiz.playAlong,
+          tracks: quiz.tracks,
+        },
+      },
+      window.location.origin,
+    );
+    await new Promise((r) => setTimeout(r, 220));
+    const fit = iframe.contentDocument?.getElementById("fit");
+    if (!fit) return;
+    try {
+      const canvas = await html2canvas(fit as HTMLElement, { scale: 0.42, ...getFitHtml2CanvasOptions(iframe) });
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
+      if (!blob) return;
+      const file = new File([blob], `thumb-${quiz.id}.jpg`, { type: "image/jpeg" });
+      const { url } = await uploadFile(file);
+      const res = await apiSend("/api/wheels", "PUT", { ...quiz, thumbnailUrl: url });
+      if (res?.wheel) setQuiz(res.wheel as QuizWheel);
+    } catch {
+      /* optional */
     }
   }
 
@@ -393,6 +470,20 @@ export default function QuizEditor() {
     }
     patchMainTrack((seqs) => [...seqs, nextSeq]);
     setSel(sequences.length);
+  }
+
+  function duplicateSequence(at: number) {
+    if (!quiz) return;
+    const track = quiz.tracks?.[0];
+    const seqs = track?.sequences || [];
+    const src = seqs[at];
+    if (!src) return;
+    const copy = JSON.parse(JSON.stringify(src)) as QuizSequence;
+    copy.id = makeId(copy.type);
+    const nextSeqs = [...seqs.slice(0, at + 1), copy, ...seqs.slice(at + 1)];
+    const nextTrack = { ...track, sequences: nextSeqs };
+    setQuiz({ ...quiz, tracks: [nextTrack, ...(quiz.tracks || []).slice(1)] });
+    setSel(at + 1);
   }
 
   function updateSelected(fn: (s: QuizSequence) => QuizSequence) {
@@ -717,6 +808,14 @@ export default function QuizEditor() {
                       <button
                         type="button"
                         className="btn btn-small"
+                        title="Duplicate"
+                        onClick={() => duplicateSequence(i)}
+                      >
+                        ⧉
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-small"
                         title="Move up"
                         disabled={i === 0}
                         onClick={() => moveSequence(i, i - 1)}
@@ -738,9 +837,14 @@ export default function QuizEditor() {
               ))}
             </ol>
             {sequences.length > 0 && (
-              <button type="button" className="btn btn-danger" style={{ marginTop: 8 }} onClick={() => deleteSelected()}>
-                Delete selected
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <button type="button" className="btn" onClick={() => duplicateSequence(sel)}>
+                  Duplicate selected
+                </button>
+                <button type="button" className="btn btn-danger" onClick={() => deleteSelected()}>
+                  Delete selected
+                </button>
+              </div>
             )}
           </div>
           <div>
@@ -814,10 +918,19 @@ export default function QuizEditor() {
           <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
+          <button type="button" className="btn" disabled={saving} onClick={() => void saveWithThumbnail()}>
+            Save + thumbnail
+          </button>
           <button type="button" className="btn btn-danger" disabled={saving} onClick={() => void deleteQuiz()}>
             Delete quiz
           </button>
         </div>
+
+        <iframe
+          ref={thumbIframeRef}
+          title="Quiz thumbnail renderer"
+          style={{ width: 0, height: 0, border: 0, position: "absolute", left: -9999, top: -9999 }}
+        />
       </div>
     </div>
   );
