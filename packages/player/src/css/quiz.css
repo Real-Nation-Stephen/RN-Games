@@ -122,6 +122,15 @@
   background-position: center;
 }
 
+.quiz-present-banner img {
+  display: none;
+}
+
+.quiz-present-banner__title,
+.quiz-present-banner__sub {
+  display: none;
+}
+
 .quiz-present-banner__title {
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -233,7 +242,7 @@
 .quiz-present-kind {
   font-size: 20px;
   font-weight: 800;
-  color: rgba(0, 0, 0, 0.78);
+  color: var(--quiz-text, rgba(255, 255, 255, 0.92));
 }
 
 .quiz-present-question {
@@ -241,15 +250,23 @@
   font-size: 56px;
   line-height: 1.05;
   letter-spacing: -0.01em;
-  color: rgba(0, 0, 0, 0.88);
+  color: var(--quiz-text, rgba(255, 255, 255, 0.92));
 }
 
 .quiz-present-body {
   margin: 0;
   font-size: 18px;
   line-height: 1.35;
-  color: rgba(0, 0, 0, 0.78);
+  color: var(--quiz-muted, rgba(255, 255, 255, 0.78));
   max-width: 70ch;
+}
+
+.quiz-present-right__content {
+  background: color-mix(in srgb, var(--quiz-overlay, rgba(0,0,0,0.45)) 82%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 22px 24px;
+  backdrop-filter: blur(10px);
 }
 
 .quiz-present-input {

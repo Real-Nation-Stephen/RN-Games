@@ -180,9 +180,9 @@ export function renderSequence(
     el.bgVideo.hidden = false;
     if (el.bgVideo.src !== seq.media.videoUrl) el.bgVideo.src = seq.media.videoUrl;
     void el.bgVideo.play().catch(() => void 0);
-  } else if (styleBg || q.branding?.backgroundImage) {
+  } else if (styleBg) {
     el.bgVideo.hidden = true;
-    const url = styleBg || q.branding?.backgroundImage || "";
+    const url = styleBg || "";
     const img = document.createElement("img");
     img.src = url;
     img.alt = "";

@@ -28,7 +28,8 @@ async function main() {
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     ensureQuizFontFaces(quiz);
-    applyQuizSurface(byId("app"), quiz, "default");
+    // Presentation should respect the same hex/theme tuning you set for the host surface.
+    applyQuizSurface(byId("app"), quiz, "host");
 
     // Presentation branding: background + banner image (use host theme headerImageUrl if provided).
     const rs = document.documentElement.style;
@@ -61,11 +62,8 @@ async function main() {
 
     el.title.textContent = quiz.title || "Quiz";
     el.sub.textContent = code ? `Room ${code} • audience view` : "Facilitated • audience view";
-    const logoUrl = (quiz.branding?.logoUrl || "").trim();
-    if (logoUrl) {
-      el.logo.src = logoUrl;
-      el.logo.style.display = "block";
-    }
+    // The banner is typically a full-width image; do not scale a logo inside it.
+    el.logo.style.display = "none";
 
     const track = firstTrack(quiz);
     const seqs = track.sequences || [];
