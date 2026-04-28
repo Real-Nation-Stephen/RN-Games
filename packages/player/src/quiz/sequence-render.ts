@@ -175,7 +175,11 @@ export function renderSequence(
   if (!isPresent) el.stage.style.background = bgHex;
   else {
     // Per-slide bgHex should override Present stage bg, but absence should keep the global stage bg.
-    if (st?.bgHex) el.stage.style.setProperty("--quiz-stage-bg", st.bgHex);
+    if (st?.bgHex) {
+      el.stage.style.setProperty("--quiz-stage-bg", st.bgHex);
+      // Match the outer trim to the slide when a per-slide override is set.
+      document.documentElement.style.setProperty("--page-bg-solid", st.bgHex);
+    }
   }
 
   if (isPresent) {

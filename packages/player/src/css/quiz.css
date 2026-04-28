@@ -27,6 +27,12 @@
   color: var(--quiz-text, var(--text));
 }
 
+/* Present should never paint a solid app surface behind the stage.
+   The trim/background is controlled by `--page-bg-*` + stage bg vars. */
+body.quiz-present #app {
+  background: transparent;
+}
+
 .quiz-text-anim-fadeIn {
   animation: quizFadeIn 0.9s ease-out both;
 }

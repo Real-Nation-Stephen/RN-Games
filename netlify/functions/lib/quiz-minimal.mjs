@@ -4,11 +4,22 @@ export function minimalCurrent(quiz, seqIdx) {
   if (!seq) return null;
   if (seq.type !== "question") return { type: seq.type };
   const choices = seq.input?.type === "buttons" ? seq.input.choices || [] : [];
-  return { type: "question", question: { text: seq.prompt?.text || "Question", choices } };
+  return { type: "question", question: { id: seq.id, text: seq.prompt?.text || "Question", choices } };
 }
 
 export function sessionPublicState(session, quiz) {
   const current = quiz?.gameType === "quiz" ? minimalCurrent(quiz, session.currentSequenceIndex) : null;
+  let answeredCount = 0;
+  if (current?.type === "question" && current?.question?.id) {
+    const qid = current.question.id;
+    const ans = Array.isArray(session?.answers?.[qid]) ? session.answers[qid] : [];
+    const uniq = new Set();
+    for (const a of ans) {
+      const pid = a?.participantId;
+      if (pid) uniq.add(pid);
+    }
+    answeredCount = uniq.size;
+  }
   return {
     revision: session.revision,
     code: session.code,
@@ -22,6 +33,7 @@ export function sessionPublicState(session, quiz) {
     closesAt: session.closesAt,
     participants: session.participants || [],
     current,
+    answeredCount,
     bonus: session.bonus || null,
     lobbyOpen: session.lobbyOpen !== false,
   };

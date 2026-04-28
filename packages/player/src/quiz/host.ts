@@ -20,10 +20,14 @@ type Els = SequenceStageEls & {
   joinLink: HTMLElement;
   qr: HTMLImageElement;
   presentPreview: HTMLIFrameElement;
+  presentPreviewRefresh: HTMLButtonElement;
   list: HTMLOListElement;
   participantCount: HTMLElement;
   participants: HTMLElement;
   lockLobby: HTMLButtonElement;
+  startTimer: HTMLButtonElement;
+  answered: HTMLElement;
+  timer: HTMLElement;
   openPresent: HTMLButtonElement;
   openLeaderboard: HTMLButtonElement;
   lobbyHint: HTMLElement;
@@ -67,10 +71,14 @@ function getEls(): Els {
     joinLink: byId("quiz-join-link"),
     qr: byId("quiz-qr"),
     presentPreview: byId("quiz-present-preview"),
+    presentPreviewRefresh: byId("quiz-present-preview-refresh"),
     list: byId("quiz-seq-list"),
     participantCount: byId("quiz-participant-count"),
     participants: byId("quiz-participants"),
     lockLobby: byId("quiz-lock-lobby"),
+    startTimer: byId("quiz-start-timer"),
+    answered: byId("quiz-answered"),
+    timer: byId("quiz-timer"),
     openPresent: byId("quiz-open-present"),
     openLeaderboard: byId("quiz-open-leaderboard"),
     lobbyHint: byId("quiz-lobby-hint"),
@@ -187,8 +195,30 @@ async function main() {
         playMode === "playAlong"
           ? `${window.location.origin}/quiz/${quiz.slug}/present/${code}?embed=1`
           : `${window.location.origin}/quiz/${quiz.slug}/present?embed=1`;
-      el.presentPreview.src = presentUrl;
+
+      // Blob/session consistency can cause Present to 404 briefly. Use cachebusted retries.
+      const setPreviewSrc = () => {
+        const cb = Date.now();
+        const glue = presentUrl.includes("?") ? "&" : "?";
+        el.presentPreview.src = `${presentUrl}${glue}cb=${cb}`;
+      };
+      setPreviewSrc();
+      window.setTimeout(setPreviewSrc, 900);
+      window.setTimeout(setPreviewSrc, 2200);
     };
+
+    el.presentPreviewRefresh.addEventListener("click", () => {
+      try {
+        const src = el.presentPreview.src;
+        if (!src) return;
+        // cachebust refresh
+        const u = new URL(src);
+        u.searchParams.set("cb", String(Date.now()));
+        el.presentPreview.src = u.toString();
+      } catch {
+        /* ignore */
+      }
+    });
 
     const renderList = () => {
       el.list.innerHTML = "";
@@ -234,6 +264,9 @@ async function main() {
     };
 
     const applyServerState = (state: SessionState) => {
+      // Expose latest state for the lightweight timer tick.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__rngamesHostState = state;
       rev = state.revision;
       i = Math.max(0, Math.min(seqs.length - 1, Number(state.currentSequenceIndex) || 0));
       const seq = seqs[i];
@@ -243,7 +276,52 @@ async function main() {
       el.next.disabled = i >= seqs.length - 1 || navBusy;
       renderParticipants(state.participants);
       updateLobbyUi(state);
+
+      const isQuestion = state.current?.type === "question";
+      const canStart = isQuestion && state.phase !== "open" && !navBusy;
+      el.startTimer.disabled = !canStart;
+      if (isQuestion && playMode === "playAlong") {
+        const a = Number(state.answeredCount || 0);
+        const n = (state.participants || []).length;
+        el.answered.textContent = `${a} / ${n} answered`;
+        el.answered.hidden = false;
+      } else {
+        el.answered.hidden = true;
+      }
     };
+
+    el.startTimer.addEventListener("click", async () => {
+      if (!sessionCode || !hostKey) return;
+      el.startTimer.disabled = true;
+      try {
+        await control("open");
+      } catch {
+        await pollOnce();
+      }
+    });
+
+    // Timer countdown UI (host).
+    const tickTimer = () => {
+      try {
+        // rev/phase are updated via polling; we only render remaining time here.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const stAny = (window as any).__rngamesHostState as SessionState | undefined;
+        const st = stAny;
+        if (st?.phase === "open" && typeof st.closesAt === "number") {
+          const ms = Math.max(0, st.closesAt - Date.now());
+          const s = Math.ceil(ms / 1000);
+          el.timer.textContent = `⏱ ${s}s`;
+          el.timer.hidden = false;
+        } else {
+          el.timer.hidden = true;
+        }
+      } catch {
+        el.timer.hidden = true;
+      } finally {
+        window.setTimeout(tickTimer, 200);
+      }
+    };
+    tickTimer();
 
     const render = () => {
       const seq = seqs[i];

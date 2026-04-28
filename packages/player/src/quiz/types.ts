@@ -204,6 +204,8 @@ export type SessionState = {
   participants: { id: string; name: string; icon: string; score: number }[];
   /** False after host locks lobby (game started); new joins rejected. */
   lobbyOpen?: boolean;
-  current?: { type: QuizSequenceType; question?: { text?: string; choices?: { id: string; label: string }[] } };
+  current?: { type: QuizSequenceType; question?: { id?: string; text?: string; choices?: { id: string; label: string }[] } };
+  /** For play-along: how many unique participants have answered the current question. */
+  answeredCount?: number;
   bonus?: { kind: string; winnerId?: string; points?: number } | null;
 };

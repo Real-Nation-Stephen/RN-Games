@@ -26,6 +26,9 @@
             <div class="quiz-controls">
               <button id="quiz-create-session" class="btn btn-primary" type="button">Start session</button>
               <button id="quiz-lock-lobby" class="btn" type="button" disabled>Lock lobby (start game)</button>
+              <button id="quiz-start-timer" class="btn" type="button" disabled>Start timer</button>
+              <span class="muted" id="quiz-answered" style="font-size:0.85rem; margin: 0 6px" hidden></span>
+              <span class="muted" id="quiz-timer" style="font-size:0.85rem" hidden></span>
               <button id="quiz-prev" class="btn" type="button">Prev</button>
               <button id="quiz-next" class="btn" type="button">Next</button>
             </div>
@@ -34,11 +37,22 @@
           <div class="quiz-main">
             <div class="quiz-left">
               <div class="quiz-card">
-                <iframe
-                  id="quiz-present-preview"
-                  title="Presentation preview"
-                  style="width:100%; aspect-ratio: 16 / 9; border: 0; border-radius: 14px; background: rgba(0,0,0,0.18);"
-                ></iframe>
+                <div style="position: relative">
+                  <iframe
+                    id="quiz-present-preview"
+                    title="Presentation preview"
+                    style="width:100%; aspect-ratio: 16 / 9; border: 0; border-radius: 14px; background: rgba(0,0,0,0.18);"
+                  ></iframe>
+                  <button
+                    id="quiz-present-preview-refresh"
+                    type="button"
+                    class="btn btn-small"
+                    title="Refresh preview"
+                    style="position:absolute; top:10px; right:10px; padding:6px 10px; opacity:0.92"
+                  >
+                    ↻
+                  </button>
+                </div>
                 <div class="muted" style="margin-top: 10px; font-size: 0.85rem">
                   Preview mirrors the Presentation view.
                 </div>

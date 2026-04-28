@@ -52,6 +52,8 @@ async function main() {
     // Present stage base color (global). This is the "Default stage background (hex)" users expect to control.
     const stageBg = (quiz.branding?.backgroundColor || "").trim() || "#0a1628";
     el.stage.style.setProperty("--quiz-stage-bg", stageBg);
+    // Also paint the full-page trim behind the stage.
+    document.documentElement.style.setProperty("--page-bg-solid", stageBg);
 
     // Presentation branding:
     // - Apply directly to the stage (used by `.quiz-stage--present` background)
