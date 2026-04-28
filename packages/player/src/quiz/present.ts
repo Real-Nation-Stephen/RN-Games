@@ -49,10 +49,30 @@ async function main() {
       slideLogo: byId("quiz-slide-logo"),
     };
 
-    // Presentation branding: apply directly to the stage so it cannot be lost to inheritance/cascades.
+    // Presentation branding:
+    // - Apply directly to the stage (used by `.quiz-stage--present` background)
+    // - Also apply to the page background layer (`body::before`) as a reliable fallback
+    //   in case other layers (e.g. `#app` surface background) visually dominate.
     const bg = (quiz.branding?.backgroundImage || "").trim();
-    if (bg) el.stage.style.setProperty("--quiz-present-bg-image", `url('${bg}')`);
-    else el.stage.style.removeProperty("--quiz-present-bg-image");
+    if (bg) {
+      const bgCss = `url('${bg}')`;
+      el.stage.style.setProperty("--quiz-present-bg-image", bgCss);
+      document.documentElement.style.setProperty("--quiz-present-bg-image", bgCss);
+      document.documentElement.style.setProperty("--page-bg-image", bgCss);
+      // Preload so broken URLs are obvious (and we can fall back cleanly).
+      const img = new Image();
+      img.src = bg;
+      img.onerror = () => {
+        // If it fails to load, don't leave a broken background reference.
+        el.stage.style.removeProperty("--quiz-present-bg-image");
+        document.documentElement.style.removeProperty("--quiz-present-bg-image");
+        document.documentElement.style.setProperty("--page-bg-image", "none");
+      };
+    } else {
+      el.stage.style.removeProperty("--quiz-present-bg-image");
+      document.documentElement.style.removeProperty("--quiz-present-bg-image");
+      document.documentElement.style.setProperty("--page-bg-image", "none");
+    }
     const banner = (quiz.branding?.host?.headerImageUrl || "").trim();
     if (banner) {
       el.stage.style.setProperty("--quiz-present-banner-image", `url('${banner}')`);
