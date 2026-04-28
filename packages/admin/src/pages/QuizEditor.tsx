@@ -840,6 +840,15 @@ function SequenceForm({
     else onChange(() => next);
   };
 
+  // Keep a local draft for choices so Enter/newline doesn't get "eaten" by parsing.
+  const [choicesDraft, setChoicesDraft] = useState("");
+  useEffect(() => {
+    if (seq.type !== "question") return;
+    if (seq.input.type !== "buttons") return;
+    const lines = (seq.input.choices || []).map((c) => `${c.id}|${c.label}`);
+    setChoicesDraft(lines.join("\n") + "\n");
+  }, [seq.id, seq.type, (seq as { input?: { type?: string } })?.input?.type]);
+
   return (
     <div>
       <h4 style={{ marginTop: 0 }}>
@@ -977,10 +986,15 @@ function SequenceForm({
           <label className="field">Choices (one per line: id|label)</label>
           <textarea
             rows={4}
-            value={seq.input.type === "buttons" ? seq.input.choices.map((c) => `${c.id}|${c.label}`).join("\n") : ""}
+            value={seq.input.type === "buttons" ? choicesDraft : ""}
             onChange={(e) => {
-              const lines = e.target.value.split("\n").filter(Boolean);
-              const choices = lines.map((line) => {
+              const nextText = e.target.value;
+              setChoicesDraft(nextText);
+              const lines = nextText.split("\n");
+              const choices = lines
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+                .map((line) => {
                 const [id, ...rest] = line.split("|");
                 return { id: id.trim(), label: rest.join("|").trim() || id.trim() };
               });
