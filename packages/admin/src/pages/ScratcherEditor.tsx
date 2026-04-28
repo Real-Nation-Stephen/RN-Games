@@ -53,6 +53,13 @@ const EMBED_VIEW_ASPECT: Record<ScratcherFormatId, string> = {
   "4x3": "1300 / 975",
 };
 
+const FORMAT_DESIGN: Record<ScratcherFormatId, { w: number; h: number }> = {
+  "16x9": { w: 1920, h: 1080 },
+  "1x1": { w: 1920, h: 1920 },
+  "9x16": { w: 1080, h: 1920 },
+  "4x3": { w: 1920, h: 1440 },
+};
+
 function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
   const idoc = iframe.contentDocument;
   const idwin = iframe.contentWindow;
@@ -74,6 +81,44 @@ function getFitHtml2CanvasOptions(iframe: HTMLIFrameElement) {
         (f as HTMLElement).style.backgroundImage = bgImage;
         (f as HTMLElement).style.backgroundSize = "cover";
         (f as HTMLElement).style.backgroundPosition = "center";
+      }
+    },
+  };
+}
+
+function getStageHtml2CanvasOptions(iframe: HTMLIFrameElement, format: ScratcherFormatId) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  const bgImage =
+    idoc && idwin ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--page-bg-image").trim() : "";
+  const bgSolid =
+    idoc && idwin ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--page-bg-solid").trim() : "";
+  const d = FORMAT_DESIGN[format] || { w: 1920, h: 1080 };
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    scale: 2,
+    backgroundColor: bgSolid || "#0a1628",
+    onclone: (doc: Document) => {
+      const fit = doc.getElementById("fit") as HTMLElement | null;
+      const stage = doc.getElementById("stage") as HTMLElement | null;
+      if (fit) {
+        fit.style.overflow = "visible";
+        fit.style.width = `${d.w}px`;
+        fit.style.height = `${d.h}px`;
+        fit.style.margin = "0";
+        fit.style.maxWidth = "unset";
+        if (bgSolid) fit.style.backgroundColor = bgSolid;
+        if (bgImage && bgImage !== "none") {
+          fit.style.backgroundImage = bgImage;
+          fit.style.backgroundSize = "cover";
+          fit.style.backgroundPosition = "center";
+        }
+      }
+      if (stage) {
+        stage.style.transform = "none";
+        stage.style.transformOrigin = "0 0";
       }
     },
   };
@@ -221,14 +266,12 @@ export default function ScratcherEditor() {
     if (!iframe?.contentDocument || !game) return;
     pushPreview();
     await new Promise((r) => setTimeout(r, 200));
-    const fit = iframe.contentDocument.getElementById("fit");
-    if (!fit) return;
-    const canvas = await html2canvas(fit as HTMLElement, {
-      ...getFitHtml2CanvasOptions(iframe),
-      scale: 2,
-    });
+    const stage = iframe.contentDocument.getElementById("stage");
+    if (!stage) return;
+    const canvas = await html2canvas(stage as HTMLElement, getStageHtml2CanvasOptions(iframe, game.scratcherFormat));
     const img = canvas.toDataURL("image/jpeg", 0.95);
-    const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });
+    const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
+    const pdf = new jsPDF({ orientation, unit: "px", format: [canvas.width, canvas.height] });
     pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height, undefined, "FAST");
     pdf.save(`${game.slug || "scratcher"}-preview.pdf`);
   }

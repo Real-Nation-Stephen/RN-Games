@@ -41,7 +41,7 @@
           </div>
 
           <div class="quiz-present-lab-controls">
-            <div style="display: grid; gap: 10; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end">
+            <div style="display: grid; gap: 10; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end">
               <label>
                 <div class="muted" style="font-size: 12px; margin-bottom: 4px">Layout</div>
                 <select id="ctl-layout">
@@ -54,7 +54,8 @@
                 <select id="ctl-input">
                   <option value="buttons4">Buttons (2x2)</option>
                   <option value="buttons5">Buttons (row)</option>
-                  <option value="slider">Slider</option>
+                  <option value="sliderDiscrete">Slider (discrete)</option>
+                  <option value="sliderContinuous">Slider (continuous)</option>
                 </select>
               </label>
               <label>
@@ -65,8 +66,33 @@
                   <option value="none">None</option>
                 </select>
               </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">V align</div>
+                <select id="ctl-valign">
+                  <option value="top">Top</option>
+                  <option value="middle">Middle</option>
+                </select>
+              </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">H align</div>
+                <select id="ctl-halign">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                </select>
+              </label>
               <button id="ctl-random" type="button" class="btn btn-small" style="height: 38px">Randomize text</button>
             </div>
+            <details style="margin-top: 10px">
+              <summary class="muted" style="cursor: pointer; user-select: none">Asset sizes (1920×1080 stage)</summary>
+              <div class="muted" style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8">
+                <div><b>Banner</b>: 1920×96</div>
+                <div><b>Media tile</b>: ~520×520 square</div>
+                <div><b>Brand mark (bottom-left)</b>: 210×84</div>
+                <div><b>Submit button</b>: 320×78</div>
+                <div><b>Powered-by tile</b>: 170×68</div>
+                <div><b>Answers</b>: 2×2 = 2 cols, ~86px tall each</div>
+              </div>
+            </details>
           </div>
         </div>
       </div>

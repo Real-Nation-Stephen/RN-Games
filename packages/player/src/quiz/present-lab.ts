@@ -34,6 +34,31 @@ function renderSlider(root: HTMLElement) {
   root.appendChild(wrap);
 }
 
+function renderSliderDiscrete(root: HTMLElement) {
+  root.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "quiz-present-slider";
+  const r = document.createElement("input");
+  r.type = "range";
+  r.min = "0";
+  r.max = "6";
+  r.step = "1";
+  r.value = "3";
+  r.disabled = true;
+  wrap.appendChild(r);
+
+  const ticks = document.createElement("div");
+  ticks.className = "quiz-present-slider-ticks";
+  for (let i = 0; i <= 6; i++) {
+    const t = document.createElement("div");
+    t.className = "quiz-present-slider-tick";
+    t.innerHTML = `<span class="quiz-present-slider-notch"></span><span class="quiz-present-slider-label">${i}</span>`;
+    ticks.appendChild(t);
+  }
+  wrap.appendChild(ticks);
+  root.appendChild(wrap);
+}
+
 function setMedia(kind: "image" | "music" | "none") {
   const media = byId("lab-media");
   media.innerHTML = "";
@@ -53,6 +78,12 @@ function setLayout(layout: "split" | "full") {
   stage.dataset.presentLayout = layout;
 }
 
+function setAlign(v: "top" | "middle", h: "left" | "center") {
+  const stage = byId("stage");
+  stage.dataset.presentValign = v;
+  stage.dataset.presentHalign = h;
+}
+
 async function main() {
   try {
     const stage = byId("stage");
@@ -67,6 +98,8 @@ async function main() {
     const ctlLayout = byId<HTMLSelectElement>("ctl-layout");
     const ctlInput = byId<HTMLSelectElement>("ctl-input");
     const ctlMedia = byId<HTMLSelectElement>("ctl-media");
+    const ctlVAlign = byId<HTMLSelectElement>("ctl-valign");
+    const ctlHAlign = byId<HTMLSelectElement>("ctl-halign");
     const ctlRandom = byId<HTMLButtonElement>("ctl-random");
 
     const questions = [
@@ -87,8 +120,13 @@ async function main() {
       const media = (ctlMedia.value as "image" | "music" | "none") || "image";
       setMedia(media);
 
+      const v = (ctlVAlign.value as "top" | "middle") || "top";
+      const h = (ctlHAlign.value as "left" | "center") || "left";
+      setAlign(v, h);
+
       const inputMode = ctlInput.value;
-      if (inputMode === "slider") renderSlider(input);
+      if (inputMode === "sliderContinuous") renderSlider(input);
+      else if (inputMode === "sliderDiscrete") renderSliderDiscrete(input);
       else if (inputMode === "buttons5") renderButtons(input, ["Answer", "Answer", "Answer", "Answer", "Answer"], "row");
       else renderButtons(input, ["Answer", "Answer", "Answer", "Answer"], "grid");
     };
@@ -96,6 +134,8 @@ async function main() {
     ctlLayout.addEventListener("change", rerender);
     ctlInput.addEventListener("change", rerender);
     ctlMedia.addEventListener("change", rerender);
+    ctlVAlign.addEventListener("change", rerender);
+    ctlHAlign.addEventListener("change", rerender);
     ctlRandom.addEventListener("click", () => {
       title.textContent = pick(questions);
       rerender();

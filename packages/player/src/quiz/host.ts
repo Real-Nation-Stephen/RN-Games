@@ -228,7 +228,7 @@ async function main() {
       rev = state.revision;
       i = Math.max(0, Math.min(seqs.length - 1, Number(state.currentSequenceIndex) || 0));
       const seq = seqs[i];
-      if (seq) renderSequence(el, quiz!, seq, i, seqs.length);
+      if (seq) renderSequence(el, quiz!, seq, i, seqs.length, { mediaInteractive: true });
       renderList();
       el.prev.disabled = i <= 0 || navBusy;
       el.next.disabled = i >= seqs.length - 1 || navBusy;
@@ -239,7 +239,7 @@ async function main() {
     const render = () => {
       const seq = seqs[i];
       if (!seq) return;
-      renderSequence(el, quiz!, seq, i, seqs.length);
+      renderSequence(el, quiz!, seq, i, seqs.length, { mediaInteractive: true });
       renderList();
       el.prev.disabled = i <= 0 || navBusy;
       el.next.disabled = i >= seqs.length - 1 || navBusy;

@@ -17,6 +17,8 @@ export type RenderSequenceOptions =
   | {
       /** In kiosk mode, inputs become interactive. */
       interactive?: boolean;
+      /** Whether media elements (e.g. audio play) are interactive. */
+      mediaInteractive?: boolean;
       /**
        * Called when the kiosk user picks an answer. Host/present should not pass this.
        * For play-along, answers are still submitted via the phone UI.
@@ -39,6 +41,55 @@ function playSeqSound(url: string, loop: boolean) {
   a.loop = loop;
   lastSeqSound = a;
   void a.play().catch(() => void 0);
+}
+
+function renderAudioTile(
+  media: HTMLElement,
+  audioUrl: string,
+  imageUrl: string | undefined,
+  interactive: boolean,
+) {
+  const wrap = document.createElement("div");
+  wrap.className = "quiz-audio-tile";
+
+  const art = document.createElement("div");
+  art.className = "quiz-audio-art";
+  if (imageUrl) {
+    art.style.backgroundImage = `url('${imageUrl}')`;
+    art.style.backgroundSize = "cover";
+    art.style.backgroundPosition = "center";
+  } else {
+    art.textContent = "♪";
+  }
+
+  const controls = document.createElement("div");
+  controls.className = "quiz-audio-controls";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "quiz-audio-btn";
+  btn.textContent = "Play";
+  btn.disabled = !interactive;
+
+  const a = new Audio(audioUrl);
+  a.preload = "metadata";
+  a.addEventListener("ended", () => (btn.textContent = "Play"));
+  a.addEventListener("pause", () => (btn.textContent = "Play"));
+  a.addEventListener("play", () => (btn.textContent = "Pause"));
+
+  btn.addEventListener("click", async () => {
+    try {
+      if (a.paused) await a.play();
+      else a.pause();
+    } catch {
+      /* ignore */
+    }
+  });
+
+  controls.appendChild(btn);
+  wrap.appendChild(art);
+  wrap.appendChild(controls);
+  media.appendChild(wrap);
 }
 
 export function firstTrack(q: QuizConfig) {
@@ -146,6 +197,24 @@ export function renderSequence(
   const soundUrl = st?.soundUrl;
   if (soundUrl) playSeqSound(soundUrl, st?.soundLoop === true);
 
+  // Question prompt media (image/audio). Presentation view places `el.media` in the left panel.
+  if (seq.type === "question") {
+    const img = (seq.prompt.imageUrl || "").trim();
+    const aud = (seq.prompt.audioUrl || "").trim();
+    if (img) {
+      const elImg = document.createElement("img");
+      elImg.src = img;
+      elImg.alt = "";
+      elImg.style.width = "100%";
+      elImg.style.borderRadius = "12px";
+      mediaImgFix(elImg);
+      el.media.appendChild(elImg);
+    }
+    if (aud) {
+      renderAudioTile(el.media, aud, img || undefined, opts?.mediaInteractive === true);
+    }
+  }
+
   if (seq.type === "question" && seq.input?.type === "buttons" && Array.isArray(seq.input.choices)) {
     el.answers.removeAttribute("hidden");
     el.answers.innerHTML = "";
@@ -194,6 +263,36 @@ export function renderSequence(
       range.value = String(Math.floor(stops.length / 2));
     }
 
+    if (seq.input.kind === "discrete" && seq.input.discrete) {
+      const stops = seq.input.discrete.stops || [];
+      const ticks = document.createElement("div");
+      ticks.className = "quiz-slider-ticks";
+      ticks.style.display = "grid";
+      ticks.style.gridTemplateColumns = `repeat(${Math.max(1, stops.length)}, minmax(0, 1fr))`;
+      ticks.style.gap = "0";
+      for (const s of stops) {
+        const t = document.createElement("div");
+        t.className = "quiz-slider-tick";
+        t.style.display = "grid";
+        t.style.justifyItems = "center";
+        t.style.gap = "6px";
+        const notch = document.createElement("span");
+        notch.style.width = "3px";
+        notch.style.height = "18px";
+        notch.style.borderRadius = "2px";
+        notch.style.background = "rgba(255,255,255,0.92)";
+        const label = document.createElement("span");
+        label.style.fontSize = "12px";
+        label.style.fontWeight = "800";
+        label.style.color = "rgba(0,0,0,0.65)";
+        label.textContent = s.label || s.id;
+        t.appendChild(notch);
+        t.appendChild(label);
+        ticks.appendChild(t);
+      }
+      wrap.appendChild(ticks);
+    }
+
     if (interactive && opts?.onAnswer) {
       const submit = () => {
         if (seq.input.kind === "continuous" && seq.input.continuous) {
@@ -214,4 +313,10 @@ export function renderSequence(
     el.answers.setAttribute("hidden", "true");
     el.answers.innerHTML = "";
   }
+}
+
+function mediaImgFix(img: HTMLImageElement) {
+  img.decoding = "async";
+  img.loading = "eager";
+  img.style.display = "block";
 }

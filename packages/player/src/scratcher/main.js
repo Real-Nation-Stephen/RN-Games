@@ -156,13 +156,20 @@ function layoutScale() {
   els.fit.style.height = `${f.designH * scale}px`;
 
   if (els.sizeHint) {
-    const tooSmall = window.innerWidth < 420 || window.innerHeight < 340;
-    els.sizeHint.hidden = compact || !tooSmall;
+    // Scratchers support multiple authored formats; always hide this hint.
+    els.sizeHint.hidden = true;
   }
 }
 
 function updateOrientationGate() {
-  if (isEmbed || !els.gate) return;
+  // Scratchers are authored for multiple formats; allow desktop preview at any aspect ratio.
+  if (els.gate) {
+    els.gate.classList.remove("is-visible");
+    document.body.style.overflow = "";
+  }
+  return;
+  // (legacy behavior below kept for reference)
+  // if (isEmbed || !els.gate) return;
   if (isCompactScratcherViewport()) {
     els.gate.classList.remove("is-visible");
     document.body.style.overflow = "";
@@ -183,7 +190,8 @@ function updateOrientationGate() {
 function wireFullscreen() {
   if (!els.fsBtn) return;
   const isCoarse = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-  if (isCoarse || !document.fullscreenEnabled) {
+  const isPhone = isCoarse && window.matchMedia && window.matchMedia("(max-width: 520px)").matches;
+  if (isPhone || !document.fullscreenEnabled) {
     els.fsBtn.hidden = true;
     return;
   }

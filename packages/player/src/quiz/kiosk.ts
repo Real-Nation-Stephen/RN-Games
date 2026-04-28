@@ -118,6 +118,7 @@ async function main() {
         isQuestion(seq) && seq.input.mode !== "none"
           ? {
               interactive: true,
+              mediaInteractive: true,
               onAnswer: (ans) => {
                 const ok = calcCorrect(seq, ans);
                 state.answers[seq.id] = { ...ans, correct: ok ?? undefined };
