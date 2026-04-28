@@ -153,21 +153,36 @@
 
 .quiz-present-right {
   background: #f2c21a;
-  padding: 44px 54px;
+  padding: 32px 34px;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: 1fr auto;
   gap: 18px;
-  justify-items: start;
 }
 
-.quiz-stage[data-present-halign="center"] .quiz-present-right {
+.quiz-present-right__content {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 22px;
+  align-content: start;
+  justify-items: stretch;
+  width: 100%;
+}
+
+.quiz-stage[data-present-valign="middle"] .quiz-present-right__content {
+  align-content: center;
+}
+
+.quiz-stage[data-present-halign="center"] .quiz-present-right__content {
   justify-items: center;
   text-align: center;
 }
 
+.quiz-stage[data-present-halign="center"] .quiz-present-right {
+  text-align: center;
+}
+
 .quiz-stage[data-present-valign="middle"] .quiz-present-right {
-  padding-top: 32px;
-  padding-bottom: 32px;
+  /* no padding hack; true centering happens in .quiz-present-right__content */
 }
 
 .quiz-present-media {
@@ -230,6 +245,12 @@
 .quiz-present-input {
   display: grid;
   align-content: start;
+  width: 100%;
+  justify-items: stretch;
+}
+
+.quiz-present-input > * {
+  width: 100%;
 }
 
 .quiz-present-input .quiz-answer {
@@ -246,6 +267,7 @@
 .quiz-present-input .quiz-answers {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  width: 100%;
 }
 
 .quiz-present-answers {
