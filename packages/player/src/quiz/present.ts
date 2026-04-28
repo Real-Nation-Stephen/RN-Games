@@ -31,6 +31,9 @@ async function main() {
     // Presentation should respect the same hex/theme tuning you set for the host surface.
     applyQuizSurface(byId("app"), quiz, "host");
 
+    const powered = document.getElementById("quiz-powered");
+    if (powered && quiz.showPoweredBy === false) powered.setAttribute("hidden", "true");
+
     // Presentation branding: background + banner image (use host theme headerImageUrl if provided).
     const rs = document.documentElement.style;
     const bg = (quiz.branding?.backgroundImage || "").trim();
@@ -69,11 +72,84 @@ async function main() {
     const seqs = track.sequences || [];
     let i = 0;
     let rev = 0;
+    let lastState: SessionState | null = null;
 
     const applyIdx = (idx: number) => {
       i = Math.max(0, Math.min(seqs.length - 1, Number(idx) || 0));
       const seq = seqs[i];
       if (seq) renderSequence(el, quiz, seq, i, seqs.length);
+
+      // Special runtime overlays for play-along.
+      if (seq?.type === "connection" && code) {
+        // Show a QR to the join screen (same as host).
+        const joinUrl = `${window.location.origin}/quiz/${slug}/join/${code}`;
+        el.answers.hidden = false;
+        el.answers.innerHTML = "";
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.alignItems = "center";
+        wrap.style.gap = "14px";
+        const hint = document.createElement("div");
+        hint.className = "muted";
+        hint.style.fontSize = "0.9rem";
+        hint.textContent = "Scan to join";
+        const img = document.createElement("img");
+        img.alt = "Join QR code";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.style.width = "260px";
+        img.style.height = "260px";
+        img.style.objectFit = "contain";
+        img.style.borderRadius = "16px";
+        img.style.background = "rgba(255,255,255,0.92)";
+        img.style.padding = "10px";
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(joinUrl)}`;
+        const txt = document.createElement("div");
+        txt.style.fontWeight = "800";
+        txt.textContent = `Room ${code}`;
+        wrap.appendChild(txt);
+        wrap.appendChild(hint);
+        wrap.appendChild(img);
+        el.answers.appendChild(wrap);
+      } else if (seq?.type === "leaderboard" && lastState) {
+        const sorted = [...(lastState.participants || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+        el.answers.hidden = false;
+        el.answers.innerHTML = "";
+        const list = document.createElement("ol");
+        list.style.listStyle = "none";
+        list.style.padding = "0";
+        list.style.margin = "0";
+        list.style.display = "grid";
+        list.style.gap = "10px";
+        sorted.slice(0, 10).forEach((p, idx2) => {
+          const row = document.createElement("li");
+          row.style.display = "grid";
+          row.style.gridTemplateColumns = "56px 1fr 120px";
+          row.style.alignItems = "center";
+          row.style.gap = "12px";
+          row.style.padding = "10px 14px";
+          row.style.borderRadius = "14px";
+          row.style.background = "rgba(0,0,0,0.18)";
+          const rank = document.createElement("div");
+          rank.style.fontWeight = "900";
+          rank.style.fontSize = "1.15rem";
+          rank.textContent = String(idx2 + 1);
+          const who = document.createElement("div");
+          who.style.fontWeight = "800";
+          who.textContent = `${p.icon || ""} ${p.name || "Player"}`.trim();
+          const score = document.createElement("div");
+          score.style.textAlign = "right";
+          score.style.fontWeight = "900";
+          score.textContent = String(p.score || 0);
+          row.appendChild(rank);
+          row.appendChild(who);
+          row.appendChild(score);
+          list.appendChild(row);
+        });
+        el.answers.appendChild(list);
+      }
+
       // Auto-switch split/full layout depending on whether media exists.
       const hasMedia = (el.media?.children?.length || 0) > 0;
       el.stage.dataset.presentLayout = hasMedia ? "split" : "full";
@@ -81,6 +157,7 @@ async function main() {
 
     const apply = (state: SessionState) => {
       rev = state.revision;
+      lastState = state;
       applyIdx(Number(state.currentSequenceIndex) || 0);
     };
 
