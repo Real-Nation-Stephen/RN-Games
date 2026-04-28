@@ -262,11 +262,11 @@
 }
 
 .quiz-present-right__content {
-  background: color-mix(in srgb, var(--quiz-overlay, rgba(0,0,0,0.45)) 82%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--quiz-present-tile-bg, transparent);
+  border: var(--quiz-present-tile-border, none);
   border-radius: 16px;
   padding: var(--quiz-present-tile-pad, 22px);
-  backdrop-filter: blur(10px);
+  backdrop-filter: var(--quiz-present-tile-blur, none);
 }
 
 .quiz-present-input {

@@ -136,8 +136,15 @@ export function renderSequence(
     seq.type === "question"
       ? seq.textAnimation
       : st?.textAnimation;
-  el.seqTitle.className = `quiz-h1${animClass(titleAnim)}`;
-  el.seqBody.className = `quiz-body${animClass(st?.textAnimation)}`;
+  // Important: presentation HTML relies on `quiz-present-*` classes for layout/typography.
+  // Do not clobber them when rendering sequences.
+  if (isPresent) {
+    el.seqTitle.className = `quiz-present-question${animClass(titleAnim)}`;
+    el.seqBody.className = `quiz-present-body${animClass(st?.textAnimation)}`;
+  } else {
+    el.seqTitle.className = `quiz-h1${animClass(titleAnim)}`;
+    el.seqBody.className = `quiz-body${animClass(st?.textAnimation)}`;
+  }
 
   el.seqKind.textContent = `${idx + 1} / ${total} • ${seq.type.toUpperCase()}`;
 
