@@ -831,10 +831,14 @@ function SequenceForm({
 }: {
   seq: QuizSequence;
   questionIds: string[];
-  onChange: (fn: (s: QuizSequence) => QuizSequence) => void;
+  onChange: (next: QuizSequence | ((s: QuizSequence) => QuizSequence)) => void;
   patchStyle: (p: Partial<QuizSequenceStyle>) => void;
 }) {
   const st = ("style" in seq && seq.style) || emptyStyle();
+  const apply = (next: QuizSequence | ((s: QuizSequence) => QuizSequence)) => {
+    if (typeof next === "function") onChange(next);
+    else onChange(() => next);
+  };
 
   return (
     <div>
@@ -928,13 +932,13 @@ function SequenceForm({
           <label className="field">Title</label>
           <input
             value={(seq as { title?: string }).title || ""}
-            onChange={(e) => onChange((s) => ({ ...s, title: e.target.value }) as QuizSequence)}
+            onChange={(e) => apply((s) => ({ ...s, title: e.target.value }) as QuizSequence)}
           />
           <label className="field">Body</label>
           <textarea
             rows={3}
             value={(seq as { body?: string }).body || ""}
-            onChange={(e) => onChange((s) => ({ ...s, body: e.target.value }) as QuizSequence)}
+            onChange={(e) => apply((s) => ({ ...s, body: e.target.value }) as QuizSequence)}
           />
         </div>
       ) : null}
@@ -945,22 +949,26 @@ function SequenceForm({
           <label className="field">Prompt</label>
           <input
             value={seq.prompt.text || ""}
-            onChange={(e) => onChange({ ...seq, prompt: { ...seq.prompt, text: e.target.value } })}
+            onChange={(e) => apply({ ...seq, prompt: { ...seq.prompt, text: e.target.value } })}
           />
           <label className="field">Subtext</label>
-          <textarea rows={2} value={seq.prompt.body || ""} onChange={(e) => onChange({ ...seq, prompt: { ...seq.prompt, body: e.target.value } })} />
+          <textarea
+            rows={2}
+            value={seq.prompt.body || ""}
+            onChange={(e) => apply({ ...seq, prompt: { ...seq.prompt, body: e.target.value } })}
+          />
           <label className="field">Timer (seconds)</label>
           <input
             type="number"
             value={seq.timerSeconds ?? 0}
-            onChange={(e) => onChange({ ...seq, timerSeconds: Number(e.target.value) })}
+            onChange={(e) => apply({ ...seq, timerSeconds: Number(e.target.value) })}
           />
           <label className="field">Input format</label>
           <select
             value={seq.input.type}
             onChange={(e) => {
               const t = e.target.value;
-              if (t === "buttons") onChange({ ...seq, input: { mode: seq.input.mode, type: "buttons", choices: [{ id: "a", label: "A" }] } });
+              if (t === "buttons") apply({ ...seq, input: { mode: seq.input.mode, type: "buttons", choices: [{ id: "a", label: "A" }] } });
             }}
           >
             <option value="buttons">Multiple choice (buttons)</option>
@@ -976,13 +984,13 @@ function SequenceForm({
                 const [id, ...rest] = line.split("|");
                 return { id: id.trim(), label: rest.join("|").trim() || id.trim() };
               });
-              if (seq.input.type === "buttons") onChange({ ...seq, input: { ...seq.input, choices: choices.length ? choices : [{ id: "a", label: "A" }] } });
+              if (seq.input.type === "buttons") apply({ ...seq, input: { ...seq.input, choices: choices.length ? choices : [{ id: "a", label: "A" }] } });
             }}
           />
           <label className="field">Correct choice id</label>
           <input
             value={seq.correct?.choiceId || ""}
-            onChange={(e) => onChange({ ...seq, correct: { ...seq.correct, choiceId: e.target.value } })}
+            onChange={(e) => apply({ ...seq, correct: { ...seq.correct, choiceId: e.target.value } })}
           />
           <div className="grid2">
             <div>
@@ -990,7 +998,7 @@ function SequenceForm({
               <input
                 type="number"
                 value={seq.scoring?.pointsCorrect ?? 100}
-                onChange={(e) => onChange({ ...seq, scoring: { ...seq.scoring, pointsCorrect: Number(e.target.value) } })}
+                onChange={(e) => apply({ ...seq, scoring: { ...seq.scoring, pointsCorrect: Number(e.target.value) } })}
               />
             </div>
             <div>
@@ -998,7 +1006,7 @@ function SequenceForm({
               <input
                 type="number"
                 value={seq.scoring?.pointsWrong ?? 0}
-                onChange={(e) => onChange({ ...seq, scoring: { ...seq.scoring, pointsWrong: Number(e.target.value) } })}
+                onChange={(e) => apply({ ...seq, scoring: { ...seq.scoring, pointsWrong: Number(e.target.value) } })}
               />
             </div>
           </div>
@@ -1006,14 +1014,14 @@ function SequenceForm({
             <input
               type="checkbox"
               checked={seq.bonusStealEligible !== false}
-              onChange={(e) => onChange({ ...seq, bonusStealEligible: e.target.checked })}
+              onChange={(e) => apply({ ...seq, bonusStealEligible: e.target.checked })}
             />
             Eligible for fastest-correct steal (when global bonus is on)
           </label>
           <label className="field">Question text animation</label>
           <select
             value={seq.textAnimation || "none"}
-            onChange={(e) => onChange({ ...seq, textAnimation: e.target.value as QuizTextAnimationId })}
+            onChange={(e) => apply({ ...seq, textAnimation: e.target.value as QuizTextAnimationId })}
           >
             {TEXT_ANIMS.map((a) => (
               <option key={a.id} value={a.id}>
@@ -1030,7 +1038,7 @@ function SequenceForm({
           <label className="field">Which question</label>
           <select
             value={seq.referencesQuestionId || ""}
-            onChange={(e) => onChange({ ...seq, referencesQuestionId: e.target.value })}
+            onChange={(e) => apply({ ...seq, referencesQuestionId: e.target.value })}
           >
             <option value="">— pick a question —</option>
             {questionIds.map((qid) => (
@@ -1040,9 +1048,9 @@ function SequenceForm({
             ))}
           </select>
           <label className="field">Title override</label>
-          <input value={seq.title || ""} onChange={(e) => onChange({ ...seq, title: e.target.value })} />
+          <input value={seq.title || ""} onChange={(e) => apply({ ...seq, title: e.target.value })} />
           <label className="field">Body override</label>
-          <textarea rows={2} value={seq.body || ""} onChange={(e) => onChange({ ...seq, body: e.target.value })} />
+          <textarea rows={2} value={seq.body || ""} onChange={(e) => apply({ ...seq, body: e.target.value })} />
         </div>
       ) : null}
 
