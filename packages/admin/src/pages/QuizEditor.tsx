@@ -405,6 +405,21 @@ export default function QuizEditor() {
     setSel((s) => Math.max(0, s - 1));
   }
 
+  function moveSequence(from: number, to: number) {
+    if (!quiz) return;
+    if (from === to) return;
+    const max = sequences.length - 1;
+    if (from < 0 || from > max) return;
+    if (to < 0 || to > max) return;
+    patchMainTrack((seqs) => {
+      const next = [...seqs];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+    setSel(to);
+  }
+
   const selected = sequences[sel];
 
   if (!quiz) return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
@@ -693,9 +708,32 @@ export default function QuizEditor() {
             <ol style={{ margin: 0, paddingLeft: 18, maxHeight: 360, overflow: "auto" }}>
               {sequences.map((s, i) => (
                 <li key={s.id} style={{ margin: "6px 0", fontWeight: i === sel ? 700 : 400 }}>
-                  <button type="button" className="btn" style={{ textAlign: "left", width: "100%" }} onClick={() => setSel(i)}>
-                    <code>{s.type}</code> {s.type === "question" ? (s as { prompt?: { text?: string } }).prompt?.text?.slice(0, 28) : (s as { title?: string }).title}
-                  </button>
+                  <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                    <button type="button" className="btn" style={{ textAlign: "left", width: "100%" }} onClick={() => setSel(i)}>
+                      <code>{s.type}</code>{" "}
+                      {s.type === "question" ? (s as { prompt?: { text?: string } }).prompt?.text?.slice(0, 28) : (s as { title?: string }).title}
+                    </button>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn-small"
+                        title="Move up"
+                        disabled={i === 0}
+                        onClick={() => moveSequence(i, i - 1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-small"
+                        title="Move down"
+                        disabled={i === sequences.length - 1}
+                        onClick={() => moveSequence(i, i + 1)}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ol>

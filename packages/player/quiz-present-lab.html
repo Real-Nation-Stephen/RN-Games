@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz presentation layout lab</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/css/quiz.css" />
+  </head>
+  <body class="quiz-page">
+    <div id="app" hidden>
+      <div id="fit">
+        <div id="stage" class="quiz-stage quiz-stage--present-lab">
+          <div class="quiz-present-banner" id="lab-banner">
+            <div class="quiz-present-banner__title">Banner</div>
+          </div>
+
+          <div class="quiz-present-grid">
+            <section class="quiz-present-left">
+              <div id="lab-media" class="quiz-present-media">
+                <div class="quiz-present-media__placeholder">MEDIA</div>
+              </div>
+              <div class="quiz-present-brand">
+                <div class="quiz-present-brand__logo" id="lab-logo">Brand Logo</div>
+              </div>
+            </section>
+
+            <section class="quiz-present-right">
+              <div class="quiz-present-meta">
+                <div id="lab-kind" class="quiz-present-kind">Question N / N</div>
+              </div>
+              <h1 id="lab-title" class="quiz-present-question">Question text goes in this box here</h1>
+
+              <div id="lab-input" class="quiz-present-input"></div>
+
+              <div class="quiz-present-footer">
+                <button id="lab-submit" type="button" class="quiz-present-submit">Submit</button>
+                <div id="lab-powered" class="quiz-present-powered">Powered by Real Nation</div>
+              </div>
+            </section>
+          </div>
+
+          <div class="quiz-present-lab-controls">
+            <div style="display: grid; gap: 10; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end">
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Layout</div>
+                <select id="ctl-layout">
+                  <option value="split">Split (media left)</option>
+                  <option value="full">Full-width (no media)</option>
+                </select>
+              </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Input</div>
+                <select id="ctl-input">
+                  <option value="buttons4">Buttons (2x2)</option>
+                  <option value="buttons5">Buttons (row)</option>
+                  <option value="slider">Slider</option>
+                </select>
+              </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Media</div>
+                <select id="ctl-media">
+                  <option value="image">Image</option>
+                  <option value="music">Music</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <button id="ctl-random" type="button" class="btn btn-small" style="height: 38px">Randomize text</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load</h2>
+        <p class="muted" id="quiz-error-msg"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/quiz/present-lab.ts"></script>
+  </body>
+</html>
+

@@ -7,30 +7,39 @@
     <link rel="stylesheet" href="/src/css/styles.css" />
     <link rel="stylesheet" href="/src/css/quiz.css" />
   </head>
-  <body class="quiz-page quiz-host">
+  <body class="quiz-page quiz-present">
     <div id="app" hidden>
       <div id="fit">
-        <div id="stage" class="quiz-stage">
+        <div id="stage" class="quiz-stage quiz-stage--present" data-present-layout="split">
           <video id="quiz-bg-video" class="quiz-bg-video" muted playsinline autoplay loop hidden></video>
-          <div class="quiz-topbar">
-            <div class="quiz-brand">
-              <img id="quiz-logo" alt="" />
-              <div>
-                <div id="quiz-title" class="quiz-title">Quiz</div>
-                <div id="quiz-sub" class="quiz-sub muted"></div>
-              </div>
-            </div>
+
+          <div class="quiz-present-banner">
+            <div class="quiz-present-banner__title" id="quiz-title">Quiz</div>
+            <div class="quiz-present-banner__sub muted" id="quiz-sub"></div>
+            <img id="quiz-logo" alt="" style="display: none" />
           </div>
-          <div class="quiz-main quiz-main--present">
-            <div class="quiz-left" style="grid-column: 1 / -1">
-              <div class="quiz-card">
-                <div id="quiz-seq-kind" class="muted" style="font-size: 0.85rem"></div>
-                <h1 id="quiz-seq-title" class="quiz-h1"></h1>
-                <p id="quiz-seq-body" class="quiz-body"></p>
-                <div id="quiz-media"></div>
-                <div id="quiz-answers" class="quiz-answers" hidden></div>
+
+          <div class="quiz-present-grid">
+            <section class="quiz-present-left">
+              <div id="quiz-media" class="quiz-present-media"></div>
+              <div class="quiz-present-brand">
+                <div class="quiz-present-brand__logo" id="quiz-present-brandmark" hidden>Brand</div>
               </div>
-            </div>
+            </section>
+
+            <section class="quiz-present-right">
+              <div class="quiz-present-meta">
+                <div id="quiz-seq-kind" class="quiz-present-kind">Question N / N</div>
+              </div>
+              <h1 id="quiz-seq-title" class="quiz-present-question"></h1>
+              <p id="quiz-seq-body" class="quiz-present-body"></p>
+              <div id="quiz-answers" class="quiz-present-input" hidden></div>
+              <div class="quiz-present-footer">
+                <div></div>
+                <button type="button" class="quiz-present-submit" disabled>Submit</button>
+                <div class="quiz-present-powered" id="quiz-powered">Powered by Real Nation</div>
+              </div>
+            </section>
           </div>
         </div>
       </div>

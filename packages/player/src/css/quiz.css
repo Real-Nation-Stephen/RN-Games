@@ -93,6 +93,223 @@
   border-radius: 0;
 }
 
+.quiz-stage--present-lab {
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.quiz-present-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 96px;
+  background: #0b57ff;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  z-index: 3;
+}
+
+.quiz-present-banner__title {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.quiz-present-banner__sub {
+  margin-left: 16px;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.quiz-present-grid {
+  position: absolute;
+  top: 96px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 0.44fr 0.56fr;
+  z-index: 2;
+}
+
+/* Full-width variant (no left panel). */
+.quiz-stage[data-present-layout="full"] .quiz-present-grid {
+  grid-template-columns: 1fr;
+}
+
+.quiz-present-left {
+  background: #f3c5f5;
+  padding: 26px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 16px;
+}
+
+.quiz-stage[data-present-layout="full"] .quiz-present-left {
+  display: none;
+}
+
+.quiz-present-right {
+  background: #f2c21a;
+  padding: 32px 34px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 18px;
+}
+
+.quiz-present-media {
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.08);
+  display: grid;
+  place-items: center;
+}
+
+.quiz-present-media__placeholder {
+  width: min(520px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  background: #04c8cc;
+  color: rgba(0, 0, 0, 0.72);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.quiz-present-brand {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.quiz-present-brand__logo {
+  width: 210px;
+  height: 84px;
+  border-radius: 10px;
+  background: #000;
+  color: rgba(255, 255, 255, 0.82);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.quiz-present-kind {
+  font-size: 20px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+.quiz-present-question {
+  margin: 0;
+  font-size: 56px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.quiz-present-body {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.78);
+  max-width: 70ch;
+}
+
+.quiz-present-input {
+  display: grid;
+  align-content: start;
+}
+
+.quiz-present-input .quiz-answer {
+  height: 86px;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(210, 30, 30, 0.92);
+  font-weight: 900;
+  font-size: 22px;
+  text-align: center;
+}
+
+.quiz-present-input .quiz-answers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.quiz-present-answers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 6px;
+}
+
+.quiz-present-answers--row {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.quiz-present-answer {
+  height: 86px;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(210, 30, 30, 0.92);
+  font-weight: 900;
+  font-size: 22px;
+}
+
+.quiz-present-slider input[type="range"] {
+  width: 100%;
+  margin-top: 20px;
+  accent-color: rgba(255, 255, 255, 0.92);
+}
+
+.quiz-present-footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 20px;
+}
+
+.quiz-present-submit {
+  grid-column: 2;
+  height: 78px;
+  width: 320px;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(80, 80, 80, 0.92);
+  color: rgba(210, 30, 30, 0.92);
+  font-weight: 900;
+  font-size: 28px;
+}
+
+.quiz-present-powered {
+  grid-column: 3;
+  justify-self: end;
+  width: 170px;
+  height: 68px;
+  border-radius: 10px;
+  background: #d33be0;
+  color: rgba(0, 0, 0, 0.72);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.quiz-present-lab-controls {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  backdrop-filter: blur(12px);
+}
+
 .quiz-topbar {
   position: absolute;
   top: 0;

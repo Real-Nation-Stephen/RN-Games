@@ -61,6 +61,9 @@ async function main() {
       i = Math.max(0, Math.min(seqs.length - 1, Number(idx) || 0));
       const seq = seqs[i];
       if (seq) renderSequence(el, quiz, seq, i, seqs.length);
+      // Auto-switch split/full layout depending on whether media exists.
+      const hasMedia = (el.media?.children?.length || 0) > 0;
+      el.stage.dataset.presentLayout = hasMedia ? "split" : "full";
     };
 
     const apply = (state: SessionState) => {
