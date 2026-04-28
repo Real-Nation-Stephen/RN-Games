@@ -90,6 +90,16 @@ export const handler = async (event) => {
       if (Date.now() > Date.parse(session.expiresAt || "1970-01-01")) {
         return { statusCode: 410, headers, body: JSON.stringify({ error: "Session expired" }) };
       }
+
+      // Auto-close timed questions when the deadline passes (so mobile unlock/timers work without manual host actions).
+      if (session.phase === "open" && typeof session.closesAt === "number" && Date.now() > session.closesAt) {
+        session.phase = "closed";
+        session.openedAt = null;
+        session.closesAt = null;
+        session.bonus = null;
+        session.revision = Number(session.revision || 0) + 1;
+        await setSession(code, session);
+      }
       if (rev && Number(session.revision) === rev) {
         return { statusCode: 200, headers, body: JSON.stringify({ changed: false, state: null }) };
       }

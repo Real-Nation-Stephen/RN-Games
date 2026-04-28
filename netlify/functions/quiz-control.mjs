@@ -58,16 +58,33 @@ export const handler = async (event) => {
       session.lobbyOpen = false;
     } else if (action === "prev") {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) - 1, 0, maxIdx);
-      session.phase = "closed";
-      session.openedAt = null;
-      session.closesAt = null;
       session.bonus = null;
+      const s = seqs[session.currentSequenceIndex];
+      // Auto-open questions on navigation for play-along.
+      if (s?.type === "question") {
+        session.phase = "open";
+        session.openedAt = Date.now();
+        const seconds = Number(s?.timerSeconds || 0);
+        session.closesAt = seconds > 0 ? session.openedAt + seconds * 1000 : null;
+      } else {
+        session.phase = "closed";
+        session.openedAt = null;
+        session.closesAt = null;
+      }
     } else if (action === "next") {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) + 1, 0, maxIdx);
-      session.phase = "closed";
-      session.openedAt = null;
-      session.closesAt = null;
       session.bonus = null;
+      const s = seqs[session.currentSequenceIndex];
+      if (s?.type === "question") {
+        session.phase = "open";
+        session.openedAt = Date.now();
+        const seconds = Number(s?.timerSeconds || 0);
+        session.closesAt = seconds > 0 ? session.openedAt + seconds * 1000 : null;
+      } else {
+        session.phase = "closed";
+        session.openedAt = null;
+        session.closesAt = null;
+      }
     } else if (action === "open") {
       session.phase = "open";
       session.openedAt = Date.now();
