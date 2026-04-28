@@ -38,6 +38,10 @@ export type QuizSequenceStyle = {
   presentHAlign?: QuizPresentHAlign;
   /** Presentation: show small brand logo above headline (uses quiz.branding.logoUrl). */
   presentShowLogo?: boolean;
+  /** Presentation: logo max height (px). 0/undefined = CSS default. */
+  presentLogoHeightPx?: number;
+  /** Presentation: spacing below logo (px). 0/undefined = CSS default. */
+  presentLogoGapPx?: number;
   /** Presentation: padding inside the right content tile. 0/undefined = CSS default. */
   presentTilePadPx?: number;
   /** Presentation: outer padding for the right panel. 0/undefined = CSS default. */

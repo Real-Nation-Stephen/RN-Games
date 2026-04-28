@@ -922,6 +922,26 @@ function SequenceForm({
           </label>
         </div>
         <div>
+          <label className="field">Presentation logo height (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={140}
+            value={Number.isFinite(Number(st.presentLogoHeightPx)) ? Number(st.presentLogoHeightPx) : 0}
+            onChange={(e) => patchStyle({ presentLogoHeightPx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="field">Presentation logo gap (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={80}
+            value={Number.isFinite(Number(st.presentLogoGapPx)) ? Number(st.presentLogoGapPx) : 0}
+            onChange={(e) => patchStyle({ presentLogoGapPx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
           <label className="field">Presentation title size (px)</label>
           <input
             type="number"

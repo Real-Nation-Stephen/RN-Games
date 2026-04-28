@@ -189,9 +189,17 @@ export function renderSequence(
     if (el.slideLogo && st?.presentShowLogo === true && logoUrl) {
       el.slideLogo.src = logoUrl;
       el.slideLogo.hidden = false;
+      const lh = Number(st?.presentLogoHeightPx);
+      if (Number.isFinite(lh) && lh > 0) el.stage.style.setProperty("--quiz-present-logo-h", `${lh}px`);
+      else el.stage.style.removeProperty("--quiz-present-logo-h");
+      const lg = Number(st?.presentLogoGapPx);
+      if (Number.isFinite(lg) && lg >= 0) el.stage.style.setProperty("--quiz-present-logo-gap", `${lg}px`);
+      else el.stage.style.removeProperty("--quiz-present-logo-gap");
     } else if (el.slideLogo) {
       el.slideLogo.hidden = true;
       el.slideLogo.removeAttribute("src");
+      el.stage.style.removeProperty("--quiz-present-logo-h");
+      el.stage.style.removeProperty("--quiz-present-logo-gap");
     }
 
     const pad = Number(st?.presentTilePadPx);

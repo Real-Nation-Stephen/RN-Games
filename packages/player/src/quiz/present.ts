@@ -34,21 +34,6 @@ async function main() {
     const powered = document.getElementById("quiz-powered");
     if (powered && quiz.showPoweredBy === false) powered.setAttribute("hidden", "true");
 
-    // Presentation branding: background + banner image (use host theme headerImageUrl if provided).
-    const rs = document.documentElement.style;
-    const bg = (quiz.branding?.backgroundImage || "").trim();
-    if (bg) rs.setProperty("--quiz-present-bg-image", `url('${bg}')`);
-    else rs.removeProperty("--quiz-present-bg-image");
-    const banner = (quiz.branding?.host?.headerImageUrl || "").trim();
-    if (banner) {
-      rs.setProperty("--quiz-present-banner-image", `url('${banner}')`);
-      // Common banner size for projector screens.
-      rs.setProperty("--quiz-present-banner-h", "120px");
-    } else {
-      rs.removeProperty("--quiz-present-banner-image");
-      rs.removeProperty("--quiz-present-banner-h");
-    }
-
     const el: SequenceStageEls & { logo: HTMLImageElement; title: HTMLElement; sub: HTMLElement; slideLogo: HTMLImageElement } = {
       stage: byId("stage"),
       fit: byId("fit"),
@@ -63,6 +48,20 @@ async function main() {
       answers: byId("quiz-answers"),
       slideLogo: byId("quiz-slide-logo"),
     };
+
+    // Presentation branding: apply directly to the stage so it cannot be lost to inheritance/cascades.
+    const bg = (quiz.branding?.backgroundImage || "").trim();
+    if (bg) el.stage.style.setProperty("--quiz-present-bg-image", `url('${bg}')`);
+    else el.stage.style.removeProperty("--quiz-present-bg-image");
+    const banner = (quiz.branding?.host?.headerImageUrl || "").trim();
+    if (banner) {
+      el.stage.style.setProperty("--quiz-present-banner-image", `url('${banner}')`);
+      // Common banner size for projector screens.
+      el.stage.style.setProperty("--quiz-present-banner-h", "120px");
+    } else {
+      el.stage.style.removeProperty("--quiz-present-banner-image");
+      el.stage.style.removeProperty("--quiz-present-banner-h");
+    }
 
     el.title.textContent = quiz.title || "Quiz";
     el.sub.textContent = code ? `Room ${code} • audience view` : "Facilitated • audience view";

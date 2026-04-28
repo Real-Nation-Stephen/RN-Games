@@ -265,10 +265,11 @@
 
 .quiz-present-slide-logo {
   width: auto;
-  max-height: 64px;
+  max-height: var(--quiz-present-logo-h, 64px);
   max-width: min(280px, 100%);
   object-fit: contain;
   justify-self: start;
+  margin-bottom: var(--quiz-present-logo-gap, 10px);
 }
 
 .quiz-stage[data-present-halign="center"] .quiz-present-slide-logo {
