@@ -30,6 +30,21 @@ async function main() {
     ensureQuizFontFaces(quiz);
     applyQuizSurface(byId("app"), quiz, "default");
 
+    // Presentation branding: background + banner image (use host theme headerImageUrl if provided).
+    const rs = document.documentElement.style;
+    const bg = (quiz.branding?.backgroundImage || "").trim();
+    if (bg) rs.setProperty("--quiz-present-bg-image", `url('${bg}')`);
+    else rs.removeProperty("--quiz-present-bg-image");
+    const banner = (quiz.branding?.host?.headerImageUrl || "").trim();
+    if (banner) {
+      rs.setProperty("--quiz-present-banner-image", `url('${banner}')`);
+      // Common banner size for projector screens.
+      rs.setProperty("--quiz-present-banner-h", "120px");
+    } else {
+      rs.removeProperty("--quiz-present-banner-image");
+      rs.removeProperty("--quiz-present-banner-h");
+    }
+
     const el: SequenceStageEls & { logo: HTMLImageElement; title: HTMLElement; sub: HTMLElement } = {
       stage: byId("stage"),
       fit: byId("fit"),

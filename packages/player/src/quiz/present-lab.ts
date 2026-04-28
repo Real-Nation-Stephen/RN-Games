@@ -66,11 +66,7 @@ function setMedia(kind: "image" | "music" | "none") {
     media.innerHTML = `<div class="quiz-present-media__placeholder" style="opacity:0.35">NO MEDIA</div>`;
     return;
   }
-  if (kind === "image") {
-    media.innerHTML = `<div class="quiz-present-media__placeholder">IMAGE</div>`;
-    return;
-  }
-  media.innerHTML = `<div class="quiz-present-media__placeholder">MUSIC</div>`;
+  media.innerHTML = `<div class="quiz-present-media__placeholder">${kind === "music" ? "MUSIC" : "IMAGE"}</div>`;
 }
 
 function setLayout(layout: "split" | "full") {
@@ -82,6 +78,35 @@ function setAlign(v: "top" | "middle", h: "left" | "center") {
   const stage = byId("stage");
   stage.dataset.presentValign = v;
   stage.dataset.presentHalign = h;
+}
+
+function applyBranding(bgUrl: string, bannerUrl: string, mediaUrl: string) {
+  const root = document.documentElement.style;
+  if (bgUrl) root.setProperty("--quiz-present-bg-image", `url('${bgUrl}')`);
+  else root.removeProperty("--quiz-present-bg-image");
+  if (bannerUrl) {
+    root.setProperty("--quiz-present-banner-image", `url('${bannerUrl}')`);
+    root.setProperty("--quiz-present-banner-h", "120px");
+  } else {
+    root.removeProperty("--quiz-present-banner-image");
+    root.removeProperty("--quiz-present-banner-h");
+  }
+  root.setProperty("--quiz-btn-bg", "#8cc440");
+  root.setProperty("--quiz-btn-text", "#ffffff");
+
+  const media = byId("lab-media");
+  if (mediaUrl) {
+    media.innerHTML = "";
+    const img = document.createElement("img");
+    img.src = mediaUrl;
+    img.alt = "";
+    img.style.width = "min(520px, 100%)";
+    img.style.aspectRatio = "1 / 1";
+    img.style.display = "block";
+    img.style.borderRadius = "10px";
+    img.style.objectFit = "cover";
+    media.appendChild(img);
+  }
 }
 
 async function main() {
@@ -101,6 +126,10 @@ async function main() {
     const ctlVAlign = byId<HTMLSelectElement>("ctl-valign");
     const ctlHAlign = byId<HTMLSelectElement>("ctl-halign");
     const ctlRandom = byId<HTMLButtonElement>("ctl-random");
+    const ctlBg = byId<HTMLInputElement>("ctl-bg");
+    const ctlBanner = byId<HTMLInputElement>("ctl-banner");
+    const ctlMediaUrl = byId<HTMLInputElement>("ctl-media-url");
+    const ctlApplyBrand = byId<HTMLButtonElement>("ctl-apply-brand");
 
     const questions = [
       "Question text goes in this box here",
@@ -139,6 +168,10 @@ async function main() {
     ctlRandom.addEventListener("click", () => {
       title.textContent = pick(questions);
       rerender();
+    });
+
+    ctlApplyBrand.addEventListener("click", () => {
+      applyBranding(ctlBg.value.trim(), ctlBanner.value.trim(), ctlMediaUrl.value.trim());
     });
 
     // initial

@@ -84,6 +84,24 @@
               </label>
               <button id="ctl-random" type="button" class="btn btn-small" style="height: 38px">Randomize text</button>
             </div>
+            <div style="display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px">
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Background image URL</div>
+                <input id="ctl-bg" placeholder="/api/file?id=…" style="width:100%" />
+              </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Banner image URL (1920×120)</div>
+                <input id="ctl-banner" placeholder="/api/file?id=…" style="width:100%" />
+              </label>
+              <label>
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px">Media tile URL (520×520)</div>
+                <input id="ctl-media-url" placeholder="/api/file?id=…" style="width:100%" />
+              </label>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+              <button id="ctl-apply-brand" type="button" class="btn btn-small">Apply branding</button>
+              <span class="muted" style="font-size:12px">Buttons use bg <code>#8cc440</code> + white text when branding applied.</span>
+            </div>
             <details style="margin-top: 10px">
               <summary class="muted" style="cursor: pointer; user-select: none">Asset sizes (1920×1080 stage)</summary>
               <div class="muted" style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8">
