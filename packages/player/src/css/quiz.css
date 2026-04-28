@@ -91,6 +91,7 @@
    Ensure Present background images always win. */
 #stage.quiz-stage--present,
 #stage.quiz-stage--present-lab {
+  background-color: var(--quiz-stage-bg, #0a1628);
   background-image: var(--quiz-present-bg-image-override, var(--quiz-present-bg-image, none));
   background-size: cover;
   background-position: center;
@@ -276,7 +277,7 @@
 .quiz-present-slide-logo {
   width: auto;
   max-height: var(--quiz-present-logo-h, 64px);
-  max-width: min(280px, 100%);
+  max-width: min(var(--quiz-present-logo-wmax, 420px), 100%);
   object-fit: contain;
   justify-self: start;
   margin-bottom: var(--quiz-present-logo-gap, 10px);

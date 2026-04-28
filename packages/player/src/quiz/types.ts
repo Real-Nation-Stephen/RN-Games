@@ -42,6 +42,8 @@ export type QuizSequenceStyle = {
   presentLogoHeightPx?: number;
   /** Presentation: spacing below logo (px). 0/undefined = CSS default. */
   presentLogoGapPx?: number;
+  /** Presentation: logo max width (px). 0/undefined = CSS default. */
+  presentLogoMaxWidthPx?: number;
   /** Presentation: padding inside the right content tile. 0/undefined = CSS default. */
   presentTilePadPx?: number;
   /** Presentation: outer padding for the right panel. 0/undefined = CSS default. */

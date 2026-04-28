@@ -34,10 +34,18 @@
           <div class="quiz-main">
             <div class="quiz-left">
               <div class="quiz-card">
-                <div id="quiz-seq-kind" class="muted" style="font-size: 0.85rem"></div>
-                <h1 id="quiz-seq-title" class="quiz-h1"></h1>
-                <p id="quiz-seq-body" class="quiz-body"></p>
-                <div id="quiz-media"></div>
+                <iframe
+                  id="quiz-present-preview"
+                  title="Presentation preview"
+                  style="width:100%; aspect-ratio: 16 / 9; border: 0; border-radius: 14px; background: rgba(0,0,0,0.18);"
+                ></iframe>
+                <div class="muted" style="margin-top: 10px; font-size: 0.85rem">
+                  Preview mirrors the Presentation view.
+                </div>
+                <div id="quiz-seq-kind" class="muted" style="font-size: 0.85rem; margin-top: 10px" hidden></div>
+                <h1 id="quiz-seq-title" class="quiz-h1" hidden></h1>
+                <p id="quiz-seq-body" class="quiz-body" hidden></p>
+                <div id="quiz-media" hidden></div>
                 <div id="quiz-answers" class="quiz-answers" hidden></div>
               </div>
             </div>

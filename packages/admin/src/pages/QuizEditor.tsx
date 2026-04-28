@@ -942,6 +942,16 @@ function SequenceForm({
           />
         </div>
         <div>
+          <label className="field">Presentation logo max width (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={900}
+            value={Number.isFinite(Number(st.presentLogoMaxWidthPx)) ? Number(st.presentLogoMaxWidthPx) : 0}
+            onChange={(e) => patchStyle({ presentLogoMaxWidthPx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
           <label className="field">Presentation title size (px)</label>
           <input
             type="number"

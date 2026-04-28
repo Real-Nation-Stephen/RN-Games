@@ -174,8 +174,8 @@ export function renderSequence(
   // Host/controller uses direct background painting. Presentation uses a CSS variable so global/per-slide work consistently.
   if (!isPresent) el.stage.style.background = bgHex;
   else {
+    // Per-slide bgHex should override Present stage bg, but absence should keep the global stage bg.
     if (st?.bgHex) el.stage.style.setProperty("--quiz-stage-bg", st.bgHex);
-    else el.stage.style.removeProperty("--quiz-stage-bg");
   }
 
   if (isPresent) {
@@ -198,11 +198,15 @@ export function renderSequence(
       const lg = Number(st?.presentLogoGapPx);
       if (Number.isFinite(lg) && lg >= 0) el.stage.style.setProperty("--quiz-present-logo-gap", `${lg}px`);
       else el.stage.style.removeProperty("--quiz-present-logo-gap");
+      const lw = Number(st?.presentLogoMaxWidthPx);
+      if (Number.isFinite(lw) && lw > 0) el.stage.style.setProperty("--quiz-present-logo-wmax", `${lw}px`);
+      else el.stage.style.removeProperty("--quiz-present-logo-wmax");
     } else if (el.slideLogo) {
       el.slideLogo.hidden = true;
       el.slideLogo.removeAttribute("src");
       el.stage.style.removeProperty("--quiz-present-logo-h");
       el.stage.style.removeProperty("--quiz-present-logo-gap");
+      el.stage.style.removeProperty("--quiz-present-logo-wmax");
     }
 
     const pad = Number(st?.presentTilePadPx);

@@ -19,6 +19,7 @@ type Els = SequenceStageEls & {
   createSession: HTMLButtonElement;
   joinLink: HTMLElement;
   qr: HTMLImageElement;
+  presentPreview: HTMLIFrameElement;
   list: HTMLOListElement;
   participantCount: HTMLElement;
   participants: HTMLElement;
@@ -65,6 +66,7 @@ function getEls(): Els {
     createSession: byId("quiz-create-session"),
     joinLink: byId("quiz-join-link"),
     qr: byId("quiz-qr"),
+    presentPreview: byId("quiz-present-preview"),
     list: byId("quiz-seq-list"),
     participantCount: byId("quiz-participant-count"),
     participants: byId("quiz-participants"),
@@ -179,6 +181,13 @@ async function main() {
       el.openPresent.disabled = false;
       el.openLeaderboard.disabled = false;
       el.sessionLost.setAttribute("hidden", "true");
+
+      // Keep the host preview in sync with the real presentation view.
+      const presentUrl =
+        playMode === "playAlong"
+          ? `${window.location.origin}/quiz/${quiz.slug}/present/${code}?embed=1`
+          : `${window.location.origin}/quiz/${quiz.slug}/present?embed=1`;
+      el.presentPreview.src = presentUrl;
     };
 
     const renderList = () => {
