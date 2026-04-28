@@ -29,6 +29,11 @@ export type QuizSequenceStyle = {
   bgImageUrl?: string;
   textHex?: string;
   buttonHex?: string;
+  /**
+   * Extra spacing between the question text and the input block (answers/slider).
+   * Useful for fine-tuning different fonts / copy lengths in Presentation view.
+   */
+  questionToAnswersGapPx?: number;
   /** Optional short sound when slide is shown */
   soundUrl?: string;
   soundLoop?: boolean;

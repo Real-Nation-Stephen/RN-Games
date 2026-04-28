@@ -218,6 +218,9 @@ export function renderSequence(
   if (seq.type === "question" && seq.input?.type === "buttons" && Array.isArray(seq.input.choices)) {
     el.answers.removeAttribute("hidden");
     el.answers.innerHTML = "";
+    const gap = Number(st?.questionToAnswersGapPx);
+    if (Number.isFinite(gap) && gap > 0) el.answers.style.marginTop = `${gap}px`;
+    else el.answers.style.removeProperty("margin-top");
     const btnHex = st?.buttonHex;
     for (const c of seq.input.choices) {
       const b = document.createElement("button");
@@ -239,6 +242,9 @@ export function renderSequence(
     const interactive = opts?.interactive === true;
     el.answers.removeAttribute("hidden");
     el.answers.innerHTML = "";
+    const gap = Number(st?.questionToAnswersGapPx);
+    if (Number.isFinite(gap) && gap > 0) el.answers.style.marginTop = `${gap}px`;
+    else el.answers.style.removeProperty("margin-top");
 
     const wrap = document.createElement("div");
     wrap.style.display = "grid";

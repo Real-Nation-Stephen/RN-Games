@@ -869,6 +869,19 @@ function SequenceForm({
             ))}
           </select>
         </div>
+        <div>
+          <label className="field">Question → answers gap (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={160}
+            value={Number.isFinite(Number(st.questionToAnswersGapPx)) ? Number(st.questionToAnswersGapPx) : 0}
+            onChange={(e) => patchStyle({ questionToAnswersGapPx: Number(e.target.value) })}
+          />
+          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            Presentation/kiosk tuning. 0 = default spacing.
+          </div>
+        </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <label className="field">Background image</label>
           <button type="button" className="btn" onClick={() => void pickUpload((url) => patchStyle({ bgImageUrl: url }))}>
