@@ -479,7 +479,7 @@ export default function QuizEditor() {
     const src = seqs[at];
     if (!src) return;
     const copy = JSON.parse(JSON.stringify(src)) as QuizSequence;
-    copy.id = makeId(copy.type);
+    copy.id = uid(copy.type);
     const nextSeqs = [...seqs.slice(0, at + 1), copy, ...seqs.slice(at + 1)];
     const nextTrack = { ...track, sequences: nextSeqs };
     setQuiz({ ...quiz, tracks: [nextTrack, ...(quiz.tracks || []).slice(1)] });
