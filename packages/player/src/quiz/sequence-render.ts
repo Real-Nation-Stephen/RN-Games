@@ -10,6 +10,8 @@ export type SequenceStageEls = {
   seqBody: HTMLElement;
   media: HTMLElement;
   answers: HTMLElement;
+  /** Optional: present view can provide a per-slide brand mark. */
+  slideLogo?: HTMLImageElement;
 };
 
 export type RenderSequenceOptions =
@@ -174,14 +176,30 @@ export function renderSequence(
   else el.stage.style.removeProperty("background");
 
   if (isPresent) {
+    // Clear any prior per-slide background override unless this slide sets one.
+    el.stage.style.removeProperty("--quiz-present-bg-image-override");
+
     if (st?.presentVAlign) el.stage.dataset.presentValign = st.presentVAlign;
     else delete el.stage.dataset.presentValign;
     if (st?.presentHAlign) el.stage.dataset.presentHalign = st.presentHAlign;
     else delete el.stage.dataset.presentHalign;
 
+    // Optional per-slide brand mark above headline.
+    const logoUrl = (q.branding?.logoUrl || "").trim();
+    if (el.slideLogo && st?.presentShowLogo === true && logoUrl) {
+      el.slideLogo.src = logoUrl;
+      el.slideLogo.hidden = false;
+    } else if (el.slideLogo) {
+      el.slideLogo.hidden = true;
+      el.slideLogo.removeAttribute("src");
+    }
+
     const pad = Number(st?.presentTilePadPx);
     if (Number.isFinite(pad) && pad > 0) el.stage.style.setProperty("--quiz-present-tile-pad", `${pad}px`);
     else el.stage.style.removeProperty("--quiz-present-tile-pad");
+    const rPad = Number(st?.presentRightPadPx);
+    if (Number.isFinite(rPad) && rPad > 0) el.stage.style.setProperty("--quiz-present-right-pad", `${rPad}px`);
+    else el.stage.style.removeProperty("--quiz-present-right-pad");
     const tSize = Number(st?.presentTitleSizePx);
     if (Number.isFinite(tSize) && tSize > 0) el.stage.style.setProperty("--quiz-present-title-size", `${tSize}px`);
     else el.stage.style.removeProperty("--quiz-present-title-size");

@@ -902,6 +902,26 @@ function SequenceForm({
           />
         </div>
         <div>
+          <label className="field">Presentation right padding (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={120}
+            value={Number.isFinite(Number(st.presentRightPadPx)) ? Number(st.presentRightPadPx) : 0}
+            onChange={(e) => patchStyle({ presentRightPadPx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={st.presentShowLogo === true}
+              onChange={(e) => patchStyle({ presentShowLogo: e.target.checked })}
+            />
+            Show brand logo above headline (presentation)
+          </label>
+        </div>
+        <div>
           <label className="field">Presentation title size (px)</label>
           <input
             type="number"

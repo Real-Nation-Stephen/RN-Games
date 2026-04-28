@@ -49,7 +49,7 @@ async function main() {
       rs.removeProperty("--quiz-present-banner-h");
     }
 
-    const el: SequenceStageEls & { logo: HTMLImageElement; title: HTMLElement; sub: HTMLElement } = {
+    const el: SequenceStageEls & { logo: HTMLImageElement; title: HTMLElement; sub: HTMLElement; slideLogo: HTMLImageElement } = {
       stage: byId("stage"),
       fit: byId("fit"),
       bgVideo: byId("quiz-bg-video"),
@@ -61,6 +61,7 @@ async function main() {
       seqBody: byId("quiz-seq-body"),
       media: byId("quiz-media"),
       answers: byId("quiz-answers"),
+      slideLogo: byId("quiz-slide-logo"),
     };
 
     el.title.textContent = quiz.title || "Quiz";

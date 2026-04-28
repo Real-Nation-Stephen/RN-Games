@@ -28,15 +28,15 @@
 }
 
 .quiz-text-anim-fadeIn {
-  animation: quizFadeIn 0.55s ease-out both;
+  animation: quizFadeIn 0.9s ease-out both;
 }
 
 .quiz-text-anim-floatIn {
-  animation: quizFloatIn 0.7s ease-out both;
+  animation: quizFloatIn 1.05s ease-out both;
 }
 
 .quiz-text-anim-slideUp {
-  animation: quizSlideUp 0.55s ease-out both;
+  animation: quizSlideUp 0.9s ease-out both;
 }
 
 @keyframes quizFadeIn {
@@ -172,7 +172,7 @@
 
 .quiz-present-right {
   background: transparent;
-  padding: 32px 34px;
+  padding: var(--quiz-present-right-pad, 32px);
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 18px;
@@ -251,6 +251,7 @@
   line-height: 1.05;
   letter-spacing: -0.01em;
   color: var(--quiz-text, rgba(255, 255, 255, 0.92));
+  white-space: pre-line;
 }
 
 .quiz-present-body {
@@ -259,6 +260,37 @@
   line-height: 1.35;
   color: var(--quiz-muted, rgba(255, 255, 255, 0.78));
   max-width: 70ch;
+  white-space: pre-line;
+}
+
+.quiz-present-slide-logo {
+  width: auto;
+  max-height: 64px;
+  max-width: min(280px, 100%);
+  object-fit: contain;
+  justify-self: start;
+}
+
+.quiz-stage[data-present-halign="center"] .quiz-present-slide-logo {
+  justify-self: center;
+}
+
+/* Host controller: topbar and buttons should remain readable under custom branding. */
+body.quiz-host .quiz-topbar {
+  background: color-mix(in srgb, var(--quiz-surface-bg, #0a1628) 86%, transparent);
+  backdrop-filter: none;
+}
+
+body.quiz-host .btn {
+  background: color-mix(in srgb, var(--quiz-surface-bg, #0a1628) 75%, transparent);
+  color: var(--quiz-text, #fff);
+  border-color: color-mix(in srgb, var(--quiz-text, #fff) 20%, transparent);
+}
+
+body.quiz-host .btn-primary {
+  background: var(--quiz-btn-bg, rgba(90, 120, 220, 0.45));
+  color: var(--quiz-btn-text, var(--quiz-text, #fff));
+  border-color: color-mix(in srgb, var(--quiz-btn-bg, rgba(90, 120, 220, 0.45)) 70%, #fff);
 }
 
 .quiz-present-right__content {
