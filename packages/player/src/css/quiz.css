@@ -82,7 +82,7 @@
 
 .quiz-stage.quiz-stage--present,
 .quiz-stage.quiz-stage--present-lab {
-  background-image: var(--quiz-present-bg-image, none);
+  background-image: var(--quiz-present-bg-image-override, var(--quiz-present-bg-image, none));
   background-size: cover;
   background-position: center;
 }
@@ -247,7 +247,7 @@
 
 .quiz-present-question {
   margin: 0;
-  font-size: 56px;
+  font-size: var(--quiz-present-title-size, 56px);
   line-height: 1.05;
   letter-spacing: -0.01em;
   color: var(--quiz-text, rgba(255, 255, 255, 0.92));
@@ -255,7 +255,7 @@
 
 .quiz-present-body {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--quiz-present-body-size, 18px);
   line-height: 1.35;
   color: var(--quiz-muted, rgba(255, 255, 255, 0.78));
   max-width: 70ch;
@@ -265,7 +265,7 @@
   background: color-mix(in srgb, var(--quiz-overlay, rgba(0,0,0,0.45)) 82%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
-  padding: 22px 24px;
+  padding: var(--quiz-present-tile-pad, 22px);
   backdrop-filter: blur(10px);
 }
 
@@ -312,8 +312,8 @@
   height: 86px;
   border-radius: 10px;
   border: 0;
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(210, 30, 30, 0.92);
+  background: var(--quiz-btn-bg, rgba(255, 255, 255, 0.92));
+  color: var(--quiz-btn-text, rgba(0, 0, 0, 0.92));
   font-weight: 900;
   font-size: 22px;
 }

@@ -22,6 +22,9 @@ export type QuizPlayMode = "facilitated" | "playAlong" | "kiosk";
 /** Text entrance presets (extend without breaking older quizzes). */
 export type QuizTextAnimationId = "none" | "fadeIn" | "floatIn" | "slideUp";
 
+export type QuizPresentVAlign = "top" | "middle";
+export type QuizPresentHAlign = "left" | "center";
+
 export type QuizSequenceStyle = {
   /** Overrides stage / slide background when set */
   bgHex?: string;
@@ -29,6 +32,16 @@ export type QuizSequenceStyle = {
   bgImageUrl?: string;
   textHex?: string;
   buttonHex?: string;
+  /** Presentation: vertical align for the right content tile. */
+  presentVAlign?: QuizPresentVAlign;
+  /** Presentation: horizontal align for the right content tile. */
+  presentHAlign?: QuizPresentHAlign;
+  /** Presentation: padding inside the right content tile. 0/undefined = CSS default. */
+  presentTilePadPx?: number;
+  /** Presentation: title font size (px). 0/undefined = CSS default. */
+  presentTitleSizePx?: number;
+  /** Presentation: body font size (px). 0/undefined = CSS default. */
+  presentBodySizePx?: number;
   /**
    * Extra spacing between the question text and the input block (answers/slider).
    * Useful for fine-tuning different fonts / copy lengths in Presentation view.

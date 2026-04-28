@@ -130,6 +130,8 @@ export function renderSequence(
 ) {
   stopSeqSound();
   const st = "style" in seq ? seq.style : undefined;
+  const isPresent =
+    el.stage.classList.contains("quiz-stage--present") || el.stage.classList.contains("quiz-stage--present-lab");
   const titleAnim =
     seq.type === "question"
       ? seq.textAnimation
@@ -160,7 +162,26 @@ export function renderSequence(
 
   el.media.innerHTML = "";
   const bgHex = st?.bgHex || seq.media?.bgColor || q.branding?.backgroundColor || "#0a1628";
-  el.stage.style.background = bgHex;
+  // Presentation uses CSS background images + overlay tile. Do not paint the stage background per-sequence there.
+  if (!isPresent) el.stage.style.background = bgHex;
+  else el.stage.style.removeProperty("background");
+
+  if (isPresent) {
+    if (st?.presentVAlign) el.stage.dataset.presentValign = st.presentVAlign;
+    else delete el.stage.dataset.presentValign;
+    if (st?.presentHAlign) el.stage.dataset.presentHalign = st.presentHAlign;
+    else delete el.stage.dataset.presentHalign;
+
+    const pad = Number(st?.presentTilePadPx);
+    if (Number.isFinite(pad) && pad > 0) el.stage.style.setProperty("--quiz-present-tile-pad", `${pad}px`);
+    else el.stage.style.removeProperty("--quiz-present-tile-pad");
+    const tSize = Number(st?.presentTitleSizePx);
+    if (Number.isFinite(tSize) && tSize > 0) el.stage.style.setProperty("--quiz-present-title-size", `${tSize}px`);
+    else el.stage.style.removeProperty("--quiz-present-title-size");
+    const bSize = Number(st?.presentBodySizePx);
+    if (Number.isFinite(bSize) && bSize > 0) el.stage.style.setProperty("--quiz-present-body-size", `${bSize}px`);
+    else el.stage.style.removeProperty("--quiz-present-body-size");
+  }
 
   if (st?.textHex) {
     el.seqTitle.style.color = st.textHex;
@@ -180,6 +201,10 @@ export function renderSequence(
     el.bgVideo.hidden = false;
     if (el.bgVideo.src !== seq.media.videoUrl) el.bgVideo.src = seq.media.videoUrl;
     void el.bgVideo.play().catch(() => void 0);
+  } else if (styleBg && isPresent) {
+    // Presentation: treat per-sequence bg image as a slide background override (not "media content").
+    el.bgVideo.hidden = true;
+    el.stage.style.setProperty("--quiz-present-bg-image-override", `url('${styleBg}')`);
   } else if (styleBg) {
     el.bgVideo.hidden = true;
     const url = styleBg || "";
@@ -222,21 +247,37 @@ export function renderSequence(
     if (Number.isFinite(gap) && gap > 0) el.answers.style.marginTop = `${gap}px`;
     else el.answers.style.removeProperty("margin-top");
     const btnHex = st?.buttonHex;
-    for (const c of seq.input.choices) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "quiz-answer";
-      b.textContent = c.label;
-      const interactive = opts?.interactive === true;
-      b.disabled = !interactive;
-      if (interactive && opts?.onAnswer) {
-        b.addEventListener("click", () => opts.onAnswer?.({ choiceId: c.id }));
+    if (isPresent) {
+      const wrap = document.createElement("div");
+      wrap.className =
+        seq.input.choices.length >= 5 ? "quiz-present-answers quiz-present-answers--row" : "quiz-present-answers";
+      for (const c of seq.input.choices) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "quiz-present-answer";
+        b.textContent = c.label;
+        b.disabled = true;
+        wrap.appendChild(b);
       }
-      if (btnHex) {
-        b.style.background = btnHex;
-        b.style.borderColor = "rgba(255,255,255,0.25)";
+      el.answers.appendChild(wrap);
+      // Presentation uses global surface vars for button colors; don't inline per-button styles.
+    } else {
+      for (const c of seq.input.choices) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "quiz-answer";
+        b.textContent = c.label;
+        const interactive = opts?.interactive === true;
+        b.disabled = !interactive;
+        if (interactive && opts?.onAnswer) {
+          b.addEventListener("click", () => opts.onAnswer?.({ choiceId: c.id }));
+        }
+        if (btnHex) {
+          b.style.background = btnHex;
+          b.style.borderColor = "rgba(255,255,255,0.25)";
+        }
+        el.answers.appendChild(b);
       }
-      el.answers.appendChild(b);
     }
   } else if (seq.type === "question" && seq.input?.type === "slider") {
     const interactive = opts?.interactive === true;
@@ -247,13 +288,16 @@ export function renderSequence(
     else el.answers.style.removeProperty("margin-top");
 
     const wrap = document.createElement("div");
-    wrap.style.display = "grid";
-    wrap.style.gap = "10px";
-    wrap.style.gridColumn = "1 / -1";
+    wrap.className = isPresent ? "quiz-present-slider" : "";
+    if (!isPresent) {
+      wrap.style.display = "grid";
+      wrap.style.gap = "10px";
+      wrap.style.gridColumn = "1 / -1";
+    }
 
     const range = document.createElement("input");
     range.type = "range";
-    range.className = "quiz-slider";
+    range.className = isPresent ? "" : "quiz-slider";
     range.disabled = !interactive;
 
     if (seq.input.kind === "continuous" && seq.input.continuous) {

@@ -870,6 +870,58 @@ function SequenceForm({
           <input value={st.buttonHex || ""} onChange={(e) => patchStyle({ buttonHex: e.target.value })} />
         </div>
         <div>
+          <label className="field">Presentation V align</label>
+          <select
+            value={st.presentVAlign || ""}
+            onChange={(e) => patchStyle({ presentVAlign: (e.target.value || undefined) as QuizSequenceStyle["presentVAlign"] })}
+          >
+            <option value="">Default</option>
+            <option value="top">Top</option>
+            <option value="middle">Middle</option>
+          </select>
+        </div>
+        <div>
+          <label className="field">Presentation H align</label>
+          <select
+            value={st.presentHAlign || ""}
+            onChange={(e) => patchStyle({ presentHAlign: (e.target.value || undefined) as QuizSequenceStyle["presentHAlign"] })}
+          >
+            <option value="">Default</option>
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+          </select>
+        </div>
+        <div>
+          <label className="field">Presentation tile padding (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={120}
+            value={Number.isFinite(Number(st.presentTilePadPx)) ? Number(st.presentTilePadPx) : 0}
+            onChange={(e) => patchStyle({ presentTilePadPx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="field">Presentation title size (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={96}
+            value={Number.isFinite(Number(st.presentTitleSizePx)) ? Number(st.presentTitleSizePx) : 0}
+            onChange={(e) => patchStyle({ presentTitleSizePx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="field">Presentation body size (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={48}
+            value={Number.isFinite(Number(st.presentBodySizePx)) ? Number(st.presentBodySizePx) : 0}
+            onChange={(e) => patchStyle({ presentBodySizePx: Number(e.target.value) })}
+          />
+        </div>
+        <div>
           <label className="field">Text animation</label>
           <select
             value={st.textAnimation || "none"}
