@@ -171,9 +171,12 @@ export function renderSequence(
 
   el.media.innerHTML = "";
   const bgHex = st?.bgHex || seq.media?.bgColor || q.branding?.backgroundColor || "#0a1628";
-  // Presentation uses CSS background images + overlay tile. Do not paint the stage background per-sequence there.
+  // Host/controller uses direct background painting. Presentation uses a CSS variable so global/per-slide work consistently.
   if (!isPresent) el.stage.style.background = bgHex;
-  else el.stage.style.removeProperty("background");
+  else {
+    if (st?.bgHex) el.stage.style.setProperty("--quiz-stage-bg", st.bgHex);
+    else el.stage.style.removeProperty("--quiz-stage-bg");
+  }
 
   if (isPresent) {
     // Clear any prior per-slide background override unless this slide sets one.

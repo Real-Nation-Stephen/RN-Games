@@ -75,7 +75,7 @@
   height: 1080px;
   transform-origin: 0 0;
   position: relative;
-  background: #0a1628;
+  background: var(--quiz-stage-bg, #0a1628);
   border-radius: 16px;
   overflow: hidden;
 }

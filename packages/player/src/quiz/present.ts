@@ -49,6 +49,10 @@ async function main() {
       slideLogo: byId("quiz-slide-logo"),
     };
 
+    // Present stage base color (global). This is the "Default stage background (hex)" users expect to control.
+    const stageBg = (quiz.branding?.backgroundColor || "").trim() || "#0a1628";
+    el.stage.style.setProperty("--quiz-stage-bg", stageBg);
+
     // Presentation branding:
     // - Apply directly to the stage (used by `.quiz-stage--present` background)
     // - Also apply to the page background layer (`body::before`) as a reliable fallback
@@ -56,7 +60,9 @@ async function main() {
     const bg = (quiz.branding?.backgroundImage || "").trim();
     if (bg) {
       const bgCss = `url('${bg}')`;
-      el.stage.style.setProperty("--quiz-present-bg-image", bgCss);
+      // Use full-page background for Present by default (matches expectation of "full screen" background).
+      // Per-slide overrides still use `--quiz-present-bg-image-override` on the stage.
+      el.stage.style.removeProperty("--quiz-present-bg-image");
       document.documentElement.style.setProperty("--quiz-present-bg-image", bgCss);
       document.documentElement.style.setProperty("--page-bg-image", bgCss);
       // Preload so broken URLs are obvious (and we can fall back cleanly).
