@@ -31,7 +31,9 @@ export async function fetchOk(url: string, init?: RequestInit): Promise<void> {
 }
 
 export async function fetchQuiz(slug: string): Promise<QuizConfig> {
-  const q = await fetchJson<QuizConfig>(`/api/public-wheel?slug=${encodeURIComponent(slug)}`);
+  // Avoid stale branding/icons due to intermediary/browser caching.
+  const url = `/api/public-wheel?slug=${encodeURIComponent(slug)}&cb=${Date.now()}`;
+  const q = await fetchJson<QuizConfig>(url, { cache: "no-store" });
   if (!q || q.gameType !== "quiz") throw new Error("Not a quiz");
   return q;
 }
