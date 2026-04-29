@@ -268,7 +268,7 @@ async function main() {
       list.slice(0, max).forEach((p) => {
         const chip = document.createElement("span");
         chip.className = "quiz-participant-chip";
-        chip.title = `${p.name} (${p.score} pts)`;
+        chip.title = String(p.name || "").trim() || "Player";
         const icon = String(p.icon || "").trim();
         const looksLikeUrl = /^https?:\/\//.test(icon) || icon.startsWith("/api/") || icon.startsWith("/play/");
         if (looksLikeUrl) {

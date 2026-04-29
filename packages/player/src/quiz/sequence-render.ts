@@ -148,7 +148,14 @@ export function renderSequence(
     el.seqBody.className = `quiz-body${animClass(st?.textAnimation)}`;
   }
 
-  el.seqKind.textContent = `${idx + 1} / ${total} • ${seq.type.toUpperCase()}`;
+  const hideMeta = q?.branding?.layout?.hideSlideMeta === true;
+  if (isPresent && hideMeta) {
+    el.seqKind.textContent = "";
+    el.seqKind.setAttribute("hidden", "true");
+  } else {
+    el.seqKind.textContent = `${idx + 1} / ${total} • ${seq.type.toUpperCase()}`;
+    el.seqKind.removeAttribute("hidden");
+  }
 
   let title = "";
   let body = "";

@@ -175,7 +175,7 @@ export type QuizConfig = {
       body?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
       button?: { url: string; family: string; weight?: number | string; style?: "normal" | "italic" };
     };
-    layout?: { buttonBottomPadPx?: number };
+    layout?: { buttonBottomPadPx?: number; hideSlideMeta?: boolean };
     /** Player phone UI */
     mobile?: QuizSurfaceTheme & {
       /** Sprite icons for picker (comma-separated URLs or single sheet — MVP: URL list) */

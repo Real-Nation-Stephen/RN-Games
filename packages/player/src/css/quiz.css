@@ -369,7 +369,7 @@ body.quiz-host .btn-primary {
   display: grid;
   gap: 16px;
   width: 100%;
-  max-width: 1100px;
+  max-width: 100%;
 }
 
 .quiz-present-reveal-item {
@@ -390,7 +390,7 @@ body.quiz-host .btn-primary {
   font-weight: 900;
   font-size: clamp(22px, 2.1vw, 34px);
   line-height: 1.1;
-  color: color-mix(in srgb, var(--quiz-text, rgba(255, 255, 255, 0.92)) 92%, rgba(90, 255, 220, 0.35));
+  color: var(--quiz-muted, rgba(255, 255, 255, 0.72));
 }
 
 .quiz-present-answers {
@@ -776,6 +776,13 @@ body.quiz-host .btn-primary {
   padding-left: 18px;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+/* Host controller: make the sequence list scrollable. */
+body.quiz-host .quiz-seq-list {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 8px;
 }
 
 .quiz-section-head {

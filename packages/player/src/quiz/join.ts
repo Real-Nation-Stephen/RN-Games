@@ -162,6 +162,12 @@ async function main() {
         const v = String(p?.icon || "").trim();
         if (v) takenIcons.add(v);
       }
+      // If the currently selected icon is taken (and we haven't joined yet),
+      // auto-select the first available icon so the UI stays accurate.
+      if (!participantId && picked.value && takenIcons.has(picked.value)) {
+        const next = iconSet.find((x) => !takenIcons.has(x)) || picked.value;
+        picked.value = next;
+      }
     };
     const rerenderIcons = () => renderIcons(icons, iconSet, picked, takenIcons, rerenderIcons);
     rerenderIcons();
@@ -281,7 +287,9 @@ async function main() {
       }
       playWait.textContent = canAnswer
         ? mobileCopy.pickAnswerText || "Pick an answer."
-        : mobileCopy.answersLockedText || "Answers are locked. Wait for the next question.";
+        : state.phase === "closed"
+          ? mobileCopy.answersLockedText || "Time’s up — answers are closed."
+          : mobileCopy.answersLockedText || "Answers are locked. Wait for the next question.";
 
       playSubmit.disabled = !canAnswer || !selectedChoiceId;
     };

@@ -73,12 +73,12 @@ export const handler = async (event) => {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) - 1, 0, maxIdx);
       session.bonus = null;
       const s = seqs[session.currentSequenceIndex];
-      // Auto-open questions on navigation for play-along.
+      // For play-along, do NOT auto-open questions on navigation.
+      // Host explicitly starts the timer (and unlocks answers) via action === "open".
       if (s?.type === "question") {
-        session.phase = "open";
-        session.openedAt = Date.now();
-        const seconds = Number(s?.timerSeconds || 0);
-        session.closesAt = seconds > 0 ? session.openedAt + seconds * 1000 : null;
+        session.phase = "closed";
+        session.openedAt = null;
+        session.closesAt = null;
       } else {
         session.phase = "closed";
         session.openedAt = null;
@@ -98,10 +98,9 @@ export const handler = async (event) => {
       session.bonus = null;
       const s = seqs[session.currentSequenceIndex];
       if (s?.type === "question") {
-        session.phase = "open";
-        session.openedAt = Date.now();
-        const seconds = Number(s?.timerSeconds || 0);
-        session.closesAt = seconds > 0 ? session.openedAt + seconds * 1000 : null;
+        session.phase = "closed";
+        session.openedAt = null;
+        session.closesAt = null;
       } else {
         session.phase = "closed";
         session.openedAt = null;

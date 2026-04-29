@@ -647,6 +647,18 @@ export default function QuizEditor() {
             </button>
             {quiz.branding?.backgroundImage ? <code className="muted"> {quiz.branding.backgroundImage.slice(0, 40)}…</code> : null}
           </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+              <input
+                type="checkbox"
+                checked={quiz.branding?.layout?.hideSlideMeta === true}
+                onChange={(e) =>
+                  setQuiz({ ...quiz, branding: { ...quiz.branding, layout: { ...quiz.branding?.layout, hideSlideMeta: e.target.checked } } })
+                }
+              />
+              Hide slide meta label (e.g. “10 / 27 • REVEAL”) on Presentation
+            </label>
+          </div>
         </div>
         <h4 style={{ marginTop: 16 }}>Fonts (CSS stacks or family names)</h4>
         <div className="grid2">
@@ -947,11 +959,23 @@ export default function QuizEditor() {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 1fr) 2fr", gap: 16, marginTop: 14, alignItems: "start" }}>
           <div>
             <label className="field">Order</label>
-            <ol style={{ margin: 0, paddingLeft: 18, maxHeight: 360, overflow: "auto" }}>
+            <ol style={{ margin: 0, paddingLeft: 18, maxHeight: 560, overflow: "auto", paddingRight: 6 }}>
               {sequences.map((s, i) => (
-                <li key={s.id} style={{ margin: "6px 0", fontWeight: i === sel ? 700 : 400 }}>
+                <li key={s.id} style={{ margin: "10px 0", fontWeight: i === sel ? 800 : 500 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-                    <button type="button" className="btn" style={{ textAlign: "left", width: "100%" }} onClick={() => setSel(i)}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        textAlign: "left",
+                        width: "100%",
+                        padding: "12px 12px",
+                        borderRadius: 14,
+                        borderColor: i === sel ? "rgba(217, 61, 219, 0.55)" : undefined,
+                        color: i === sel ? "#d93ddb" : undefined,
+                      }}
+                      onClick={() => setSel(i)}
+                    >
                       <code>{s.type}</code>{" "}
                       {s.type === "question" ? (s as { prompt?: { text?: string } }).prompt?.text?.slice(0, 28) : (s as { title?: string }).title}
                     </button>
