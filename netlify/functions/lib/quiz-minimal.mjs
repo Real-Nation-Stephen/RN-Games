@@ -36,5 +36,7 @@ export function sessionPublicState(session, quiz) {
     answeredCount,
     bonus: session.bonus || null,
     lobbyOpen: session.lobbyOpen !== false,
+    revealShown: session.revealShown,
+    revealSeqId: session.revealSeqId,
   };
 }

@@ -750,6 +750,20 @@ body.quiz-host .btn-primary {
   line-height: 1.45;
 }
 
+.quiz-section-head {
+  list-style: none;
+  margin: 14px 0 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--quiz-text, rgba(255, 255, 255, 0.92)) 82%, transparent);
+  background: color-mix(in srgb, var(--quiz-overlay, rgba(0,0,0,0.22)) 55%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .quiz-seq-list li {
   margin: 6px 0;
 }

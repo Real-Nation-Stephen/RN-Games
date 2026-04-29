@@ -53,9 +53,22 @@ export const handler = async (event) => {
     }
     const seqs = quiz.tracks?.[0]?.sequences || [];
     const maxIdx = Math.max(0, seqs.length - 1);
+    const syncReveal = () => {
+      const s = seqs[session.currentSequenceIndex];
+      const ids = Array.isArray(s?.referencesQuestionIds) ? s.referencesQuestionIds.filter(Boolean) : [];
+      const isMultiReveal = s?.type === "reveal" && ids.length > 0;
+      if (isMultiReveal) {
+        session.revealSeqId = s.id;
+        session.revealShown = typeof session.revealShown === "number" && session.revealShown >= 0 ? session.revealShown : 0;
+      } else {
+        session.revealSeqId = undefined;
+        session.revealShown = undefined;
+      }
+    };
 
     if (action === "lockLobby") {
       session.lobbyOpen = false;
+      syncReveal();
     } else if (action === "prev") {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) - 1, 0, maxIdx);
       session.bonus = null;
@@ -71,6 +84,15 @@ export const handler = async (event) => {
         session.openedAt = null;
         session.closesAt = null;
       }
+      // Reset multi-reveal progress when landing on a reveal slide.
+      const ids = Array.isArray(s?.referencesQuestionIds) ? s.referencesQuestionIds.filter(Boolean) : [];
+      if (s?.type === "reveal" && ids.length > 0) {
+        session.revealSeqId = s.id;
+        session.revealShown = 0;
+      } else {
+        session.revealSeqId = undefined;
+        session.revealShown = undefined;
+      }
     } else if (action === "next") {
       session.currentSequenceIndex = clamp(Number(session.currentSequenceIndex || 0) + 1, 0, maxIdx);
       session.bonus = null;
@@ -85,6 +107,14 @@ export const handler = async (event) => {
         session.openedAt = null;
         session.closesAt = null;
       }
+      const ids = Array.isArray(s?.referencesQuestionIds) ? s.referencesQuestionIds.filter(Boolean) : [];
+      if (s?.type === "reveal" && ids.length > 0) {
+        session.revealSeqId = s.id;
+        session.revealShown = 0;
+      } else {
+        session.revealSeqId = undefined;
+        session.revealShown = undefined;
+      }
     } else if (action === "open") {
       session.phase = "open";
       session.openedAt = Date.now();
@@ -92,6 +122,7 @@ export const handler = async (event) => {
       const seconds = Number(s?.timerSeconds || 0);
       session.closesAt = seconds > 0 ? session.openedAt + seconds * 1000 : null;
       session.bonus = null;
+      syncReveal();
     } else if (action === "close") {
       const s = seqs[session.currentSequenceIndex];
       const bonusEnabled = quiz.playAlong?.bonus?.fastestCorrectSteal === true;
@@ -116,12 +147,25 @@ export const handler = async (event) => {
       }
       session.openedAt = null;
       session.closesAt = null;
+      syncReveal();
+    } else if (action === "revealNext") {
+      const s = seqs[session.currentSequenceIndex];
+      const ids = Array.isArray(s?.referencesQuestionIds) ? s.referencesQuestionIds.filter(Boolean) : [];
+      if (s?.type === "reveal" && ids.length > 0) {
+        session.revealSeqId = s.id;
+        const cur = typeof session.revealShown === "number" ? session.revealShown : 0;
+        session.revealShown = Math.min(ids.length, Math.max(0, cur) + 1);
+      } else {
+        session.revealSeqId = undefined;
+        session.revealShown = undefined;
+      }
     } else if (action === "end") {
       session.phase = "ended";
       session.openedAt = null;
       session.closesAt = null;
       session.bonus = null;
       session.lobbyOpen = false;
+      syncReveal();
     } else {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action" }) };
     }

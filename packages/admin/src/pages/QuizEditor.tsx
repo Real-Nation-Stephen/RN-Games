@@ -1299,6 +1299,19 @@ function SequenceForm({
             value={(seq as { subhead?: string }).subhead || (seq as { body?: string }).body || ""}
             onChange={(e) => onChange((s) => ({ ...s, subhead: e.target.value }) as QuizSequence)}
           />
+          {seq.type === "intro" ? (
+            <div style={{ marginTop: 10 }}>
+              <label className="field">Section</label>
+              <input
+                value={(seq as any).section?.title || ""}
+                onChange={(e) => onChange((s) => ({ ...s, section: { title: e.target.value } }) as QuizSequence)}
+                placeholder="Optional section title (shows as header in host list)"
+              />
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                Non-destructive: existing intros still work; setting this just adds a host list header.
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {seq.type === "holding" || seq.type === "outro" || seq.type === "breaker" ? (
@@ -1315,6 +1328,16 @@ function SequenceForm({
             value={(seq as { body?: string }).body || ""}
             onChange={(e) => apply((s) => ({ ...s, body: e.target.value }) as QuizSequence)}
           />
+          {seq.type === "breaker" ? (
+            <div style={{ marginTop: 10 }}>
+              <label className="field">Section</label>
+              <input
+                value={(seq as any).section?.title || ""}
+                onChange={(e) => apply((s) => ({ ...s, section: { title: e.target.value } }) as QuizSequence)}
+                placeholder="Optional section title (shows as header in host list)"
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -1415,18 +1438,82 @@ function SequenceForm({
       {seq.type === "reveal" ? (
         <div style={{ marginTop: 14 }}>
           <h5>Answer reveal</h5>
-          <label className="field">Which question</label>
-          <select
-            value={seq.referencesQuestionId || ""}
-            onChange={(e) => apply({ ...seq, referencesQuestionId: e.target.value })}
-          >
-            <option value="">— pick a question —</option>
-            {questionIds.map((qid) => (
-              <option key={qid} value={qid}>
-                {qid}
-              </option>
-            ))}
-          </select>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={Array.isArray((seq as any).referencesQuestionIds) && (seq as any).referencesQuestionIds.length > 0}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  const first = seq.referencesQuestionId || questionIds[0] || "";
+                  apply({ ...seq, referencesQuestionIds: first ? [first] : [] } as any);
+                } else {
+                  apply({ ...seq, referencesQuestionIds: undefined } as any);
+                }
+              }}
+            />
+            Multi-answer reveal (host can reveal one-by-one)
+          </label>
+          {Array.isArray((seq as any).referencesQuestionIds) && (seq as any).referencesQuestionIds.length > 0 ? (
+            <div style={{ marginTop: 10 }}>
+              <label className="field">Questions to reveal</label>
+              {((seq as any).referencesQuestionIds as string[]).map((qid, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                  <select
+                    value={qid || ""}
+                    onChange={(e) => {
+                      const next = [...(((seq as any).referencesQuestionIds as string[]) || [])];
+                      next[idx] = e.target.value;
+                      apply({ ...seq, referencesQuestionIds: next } as any);
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">— pick a question —</option>
+                    {questionIds.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    onClick={() => {
+                      const next = [...(((seq as any).referencesQuestionIds as string[]) || [])];
+                      next.splice(idx, 1);
+                      apply({ ...seq, referencesQuestionIds: next.length ? next : undefined } as any);
+                    }}
+                    title="Remove"
+                  >
+                    −
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-small"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  const next = [...(((seq as any).referencesQuestionIds as string[]) || [])];
+                  next.push(questionIds[0] || "");
+                  apply({ ...seq, referencesQuestionIds: next } as any);
+                }}
+              >
+                Add another
+              </button>
+            </div>
+          ) : (
+            <>
+              <label className="field">Which question</label>
+              <select value={seq.referencesQuestionId || ""} onChange={(e) => apply({ ...seq, referencesQuestionId: e.target.value })}>
+                <option value="">— pick a question —</option>
+                {questionIds.map((qid) => (
+                  <option key={qid} value={qid}>
+                    {qid}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <label className="field">Title override</label>
           <input value={seq.title || ""} onChange={(e) => apply({ ...seq, title: e.target.value })} />
           <label className="field">Body override</label>

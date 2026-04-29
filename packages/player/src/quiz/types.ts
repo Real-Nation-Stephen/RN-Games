@@ -82,6 +82,8 @@ export type QuizSequence =
       body?: string;
       headline?: string;
       subhead?: string;
+      /** Optional section header for host list + navigation clarity. */
+      section?: { title?: string };
       advance?: { kind: QuizAdvanceKind };
       timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
       media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
@@ -94,8 +96,11 @@ export type QuizSequence =
       type: "reveal";
       /** Which question sequence id this reveals (correct answer / commentary) */
       referencesQuestionId?: string;
+      /** Multi-answer reveal: reveal multiple questions in one slide. */
+      referencesQuestionIds?: string[];
       title?: string;
       body?: string;
+      section?: { title?: string };
       advance?: { kind: QuizAdvanceKind };
       timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
       media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
@@ -110,6 +115,7 @@ export type QuizSequence =
       correct?: { choiceId?: string; text?: string; value?: number; stopId?: string };
       scoring?: { pointsCorrect?: number; pointsWrong?: number };
       timerSeconds?: number;
+      section?: { title?: string };
       advance?: { kind: QuizAdvanceKind };
       timing?: { durationMs?: number; opensAtMs?: number; closesAtMs?: number };
       media?: { videoUrl?: string; bgVideoUrl?: string; bgImageUrl?: string; bgColor?: string };
@@ -224,4 +230,8 @@ export type SessionState = {
   /** For play-along: how many unique participants have answered the current question. */
   answeredCount?: number;
   bonus?: { kind: string; winnerId?: string; points?: number } | null;
+  /** Multi-answer reveal: how many answers are currently revealed on the slide. */
+  revealShown?: number;
+  /** Multi-answer reveal: the reveal sequence this applies to (guards against stale state). */
+  revealSeqId?: string;
 };

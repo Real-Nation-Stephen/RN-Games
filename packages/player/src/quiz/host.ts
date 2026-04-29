@@ -26,6 +26,7 @@ type Els = SequenceStageEls & {
   participants: HTMLElement;
   lockLobby: HTMLButtonElement;
   startTimer: HTMLButtonElement;
+  revealNext: HTMLButtonElement;
   answered: HTMLElement;
   timer: HTMLElement;
   openPresent: HTMLButtonElement;
@@ -77,6 +78,7 @@ function getEls(): Els {
     participants: byId("quiz-participants"),
     lockLobby: byId("quiz-lock-lobby"),
     startTimer: byId("quiz-start-timer"),
+    revealNext: byId("quiz-reveal-next"),
     answered: byId("quiz-answered"),
     timer: byId("quiz-timer"),
     openPresent: byId("quiz-open-present"),
@@ -238,6 +240,13 @@ async function main() {
     const renderList = () => {
       el.list.innerHTML = "";
       seqs.forEach((s, idx) => {
+        const sectionTitle = (s as { section?: { title?: string } })?.section?.title;
+        if (sectionTitle) {
+          const head = document.createElement("li");
+          head.className = "quiz-section-head";
+          head.textContent = sectionTitle;
+          el.list.appendChild(head);
+        }
         const li = document.createElement("li");
         li.style.opacity = idx === i ? "1" : "0.72";
         const label =
@@ -311,6 +320,12 @@ async function main() {
       const isQuestion = state.current?.type === "question";
       const canStart = isQuestion && state.phase !== "open" && !navBusy;
       el.startTimer.disabled = !canStart;
+
+      const revealIds = (seq as any)?.type === "reveal" ? ((seq as any).referencesQuestionIds as string[] | undefined) : undefined;
+      const canReveal = playMode === "playAlong" && Array.isArray(revealIds) && revealIds.filter(Boolean).length > 0;
+      if (canReveal) el.revealNext.removeAttribute("hidden");
+      else el.revealNext.setAttribute("hidden", "true");
+
       if (isQuestion && playMode === "playAlong") {
         const a = Number(state.answeredCount || 0);
         const n = (state.participants || []).length;
@@ -488,6 +503,19 @@ async function main() {
         await pollOnce();
       } finally {
         el.lockLobby.disabled = false;
+      }
+    });
+
+    el.revealNext.addEventListener("click", async () => {
+      if (preview) return;
+      if (!sessionCode || !hostKey || navBusy) return;
+      el.revealNext.disabled = true;
+      try {
+        await control("revealNext");
+      } catch {
+        await pollOnce();
+      } finally {
+        el.revealNext.disabled = false;
       }
     });
 

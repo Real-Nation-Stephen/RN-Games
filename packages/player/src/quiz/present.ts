@@ -127,6 +127,22 @@ async function main() {
     let i = 0;
     let rev = 0;
     let lastState: SessionState | null = null;
+    let lastRevealSeqId = "";
+    let lastRevealShown = -1;
+
+    const findQuestion = (id: string) => {
+      const s = seqs.find((x) => x && (x as any).id === id);
+      return s && (s as any).type === "question" ? (s as any) : null;
+    };
+
+    const formatAnswer = (q: any) => {
+      const cid = String(q?.correct?.choiceId || "").trim();
+      const choices = q?.input?.type === "buttons" ? q?.input?.choices || [] : [];
+      const choice = choices.find((c: any) => String(c.id) === cid);
+      const lead = cid ? `${cid.toUpperCase()}. ` : "";
+      const label = String(choice?.label || "").trim();
+      return `${lead}${label || cid || "—"}`.trim();
+    };
 
     const applyIdx = (idx: number) => {
       i = Math.max(0, Math.min(seqs.length - 1, Number(idx) || 0));
@@ -166,6 +182,59 @@ async function main() {
         wrap.appendChild(hint);
         wrap.appendChild(img);
         el.answers.appendChild(wrap);
+      } else if (seq?.type === "reveal" && lastState) {
+        const ids = Array.isArray((seq as any).referencesQuestionIds)
+          ? ((seq as any).referencesQuestionIds as string[]).map((s) => String(s || "").trim()).filter(Boolean)
+          : [];
+        const single = String((seq as any).referencesQuestionId || "").trim();
+        const qids = ids.length ? ids : single ? [single] : [];
+        if (qids.length) {
+          const shown =
+            String(lastState.revealSeqId || "") === String((seq as any).id || "") ? Math.max(0, Number(lastState.revealShown || 0)) : 0;
+          el.answers.hidden = false;
+          el.answers.innerHTML = "";
+
+          const wrap = document.createElement("div");
+          wrap.style.display = "grid";
+          wrap.style.gap = "12px";
+          wrap.style.maxWidth = "88ch";
+
+          qids.forEach((qid, idx2) => {
+            const q = findQuestion(qid);
+            const block = document.createElement("div");
+            block.style.padding = "12px 14px";
+            block.style.borderRadius = "14px";
+            block.style.border = "1px solid rgba(255,255,255,0.12)";
+            block.style.background = "rgba(0,0,0,0.16)";
+
+            const qt = document.createElement("div");
+            qt.style.fontWeight = "900";
+            qt.style.marginBottom = "6px";
+            qt.textContent = `Question: ${String(q?.prompt?.text || "Question").trim()}`;
+
+            const ans = document.createElement("div");
+            ans.className = "muted";
+            ans.style.fontWeight = "800";
+            ans.textContent = `Answer: ${formatAnswer(q)}`;
+
+            if (idx2 >= shown) {
+              ans.style.display = "none";
+            } else {
+              // Animate only the newly revealed answer.
+              const seqId = String((seq as any).id || "");
+              const shouldAnim = seqId === lastRevealSeqId && shown > lastRevealShown && idx2 === shown - 1;
+              if (shouldAnim) ans.classList.add("quiz-text-anim-fadeIn");
+            }
+
+            block.appendChild(qt);
+            block.appendChild(ans);
+            wrap.appendChild(block);
+          });
+
+          el.answers.appendChild(wrap);
+          lastRevealSeqId = String((seq as any).id || "");
+          lastRevealShown = shown;
+        }
       } else if (seq?.type === "leaderboard" && lastState) {
         const sorted = [...(lastState.participants || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
         el.answers.hidden = false;
