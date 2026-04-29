@@ -129,6 +129,8 @@ export type QuizSurfaceTheme = {
   textHex?: string;
   mutedHex?: string;
   buttonHex?: string;
+  /** Button down/selected color (mobile answer UX). */
+  buttonDownHex?: string;
   buttonTextHex?: string;
   overlayHex?: string;
   /** Comma-separated font stack or Google Font name */
@@ -172,6 +174,20 @@ export type QuizConfig = {
     mobile?: QuizSurfaceTheme & {
       /** Sprite icons for picker (comma-separated URLs or single sheet — MVP: URL list) */
       playerIconSetUrl?: string;
+    };
+    /** Customizable player phone copy (optional). */
+    mobileCopy?: {
+      joinTitle?: string;
+      joinNameLabel?: string;
+      joinNamePlaceholder?: string;
+      joinIconLabel?: string;
+      joinButtonLabel?: string;
+      joinHelpText?: string;
+      betweenQuestionsText?: string;
+      pickAnswerText?: string;
+      answersLockedText?: string;
+      submitButtonLabel?: string;
+      submittedText?: string;
     };
     /** Host controller (facilitator) */
     host?: QuizSurfaceTheme;

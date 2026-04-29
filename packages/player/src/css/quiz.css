@@ -620,8 +620,9 @@ body.quiz-host .btn-primary {
 }
 
 .quiz-page .btn-primary {
-  background: rgba(90, 120, 220, 0.45);
-  border-color: rgba(130, 160, 255, 0.45);
+  background: var(--quiz-btn-bg, rgba(90, 120, 220, 0.45));
+  border-color: color-mix(in srgb, var(--quiz-btn-bg, rgba(130, 160, 255, 0.45)) 72%, rgba(255, 255, 255, 0.25));
+  color: var(--quiz-btn-text, var(--text));
 }
 
 .quiz-page .btn-small {
@@ -726,6 +727,16 @@ body.quiz-host .btn-primary {
   cursor: not-allowed;
 }
 
+.quiz-answer.is-selected {
+  background: var(--quiz-btn-bg-down, var(--quiz-btn-bg, rgba(255, 255, 255, 0.18)));
+  border-color: color-mix(in srgb, var(--quiz-btn-bg-down, var(--quiz-btn-bg, rgba(255, 255, 255, 0.18))) 76%, rgba(255, 255, 255, 0.25));
+  color: var(--quiz-btn-text, var(--text));
+}
+
+.quiz-answer:active:not([disabled]) {
+  transform: translateY(1px);
+}
+
 .quiz-slider {
   width: 100%;
   margin-top: 10px;
@@ -751,6 +762,31 @@ body.quiz-host .btn-primary {
   align-items: center;
   justify-content: center;
   padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+}
+
+.quiz-join-step h2,
+.quiz-play-step h2 {
+  margin: 0 0 10px;
+}
+
+.quiz-play-step #play-status {
+  margin-bottom: 10px;
+}
+
+.quiz-join-step #join-icon-label {
+  margin-top: 12px;
+}
+
+.quiz-join-step #join-help {
+  margin: 10px 0 0;
+}
+
+.quiz-holding {
+  margin-top: 12px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .quiz-join-card {

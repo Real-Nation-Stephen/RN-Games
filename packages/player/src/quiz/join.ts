@@ -96,6 +96,7 @@ async function main() {
     const { slug, code } = getSlugAndCode();
     const debug = qs().get("debug") === "1";
     const quiz = await fetchQuiz(slug);
+    const mobileCopy = quiz.branding?.mobileCopy || {};
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     ensureQuizFontFaces(quiz);
     applyQuizSurface(byId("app"), quiz, "mobile");
@@ -105,6 +106,10 @@ async function main() {
     const sub = byId("quiz-sub");
     const joinStep = byId("join-step");
     const playStep = byId("play-step");
+    const joinTitle = byId("join-title");
+    const joinNameLabel = byId("join-name-label");
+    const joinIconLabel = byId("join-icon-label");
+    const joinHelp = byId("join-help");
     const name = byId<HTMLInputElement>("join-name");
     const icons = byId("join-icons");
     const joinBtn = byId<HTMLButtonElement>("join-btn");
@@ -113,6 +118,9 @@ async function main() {
     const playQuestion = byId("play-question");
     const playAnswers = byId("play-answers");
     const playWait = byId("play-wait");
+    const playSubmit = byId<HTMLButtonElement>("play-submit");
+    const playHolding = byId("play-holding");
+    const playSubmitted = byId("play-submitted");
 
     title.textContent = quiz.title || "Quiz";
     sub.textContent = `Code: ${code}`;
@@ -142,8 +150,21 @@ async function main() {
 
     let participantId = "";
     let rev = 0;
+    let lastQuestionId = "";
+    let selectedChoiceId = "";
+    let submittedForQuestionId = "";
 
     const key = storageKey(slug, code);
+
+    // Apply customizable copy.
+    joinTitle.textContent = mobileCopy.joinTitle || "Join";
+    joinNameLabel.textContent = mobileCopy.joinNameLabel || "Your name (player / team)";
+    name.placeholder = mobileCopy.joinNamePlaceholder || "Type a name…";
+    joinIconLabel.textContent = mobileCopy.joinIconLabel || "Icon";
+    joinBtn.textContent = mobileCopy.joinButtonLabel || "Join session";
+    joinHelp.textContent = mobileCopy.joinHelpText || "You’ll be locked to the host screen — no skipping ahead.";
+    playSubmit.textContent = mobileCopy.submitButtonLabel || "Submit answer";
+    playSubmitted.textContent = mobileCopy.submittedText || "Your answer has been recorded.";
 
     const setPlayVisible = () => {
       joinStep.setAttribute("hidden", "true");
@@ -157,6 +178,8 @@ async function main() {
 
     const renderQuestion = (state: SessionState) => {
       playStatus.textContent = `Session ${state.code} • ${state.phase}`;
+      playSubmit.disabled = true;
+      playHolding.setAttribute("hidden", "true");
       if (state.phase === "bonus" && state.bonus?.kind === "fastestCorrectSteal") {
         const winner = state.bonus.winnerId;
         if (participantId && winner === participantId) {
@@ -193,42 +216,77 @@ async function main() {
       if (!cur) {
         playQuestion.textContent = "Waiting for host…";
         playAnswers.innerHTML = "";
-        playWait.textContent = "Stay on this screen.";
+        playWait.textContent = mobileCopy.betweenQuestionsText || "Stay on this screen.";
         return;
       }
       if (cur.type !== "question" || !cur.question) {
         playQuestion.textContent = "Waiting…";
         playAnswers.innerHTML = "";
-        playWait.textContent = "The host is between questions.";
+        playWait.textContent = mobileCopy.betweenQuestionsText || "The host is between questions.";
         return;
       }
       playQuestion.textContent = cur.question.text || "Question";
       const choices = cur.question.choices || [];
       playAnswers.innerHTML = "";
       const canAnswer = state.phase === "open";
+      const qid = String(cur.question.id || "");
+      if (qid && qid !== lastQuestionId) {
+        lastQuestionId = qid;
+        selectedChoiceId = "";
+        submittedForQuestionId = "";
+      }
+
+      // Already submitted for this question: show holding state.
+      if (qid && submittedForQuestionId === qid) {
+        playAnswers.innerHTML = "";
+        playSubmit.disabled = true;
+        playHolding.removeAttribute("hidden");
+        playWait.textContent = "";
+        return;
+      }
+
       for (const c of choices) {
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "quiz-answer";
+        b.className = `quiz-answer ${selectedChoiceId === c.id ? "is-selected" : ""}`;
         b.textContent = c.label;
         b.disabled = !canAnswer;
         b.addEventListener("click", async () => {
           if (!canAnswer) return;
-          b.disabled = true;
-          try {
-            await fetchJson(`/api/quiz-answer`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ code: state.code, participantId, answer: { choiceId: c.id } }),
-            });
-          } catch {
-            // ignore in MVP
-          }
+          selectedChoiceId = c.id;
+          // Rerender selection state.
+          Array.from(playAnswers.querySelectorAll("button.quiz-answer")).forEach((btn) => btn.classList.remove("is-selected"));
+          b.classList.add("is-selected");
+          playSubmit.disabled = !selectedChoiceId;
         });
         playAnswers.appendChild(b);
       }
-      playWait.textContent = canAnswer ? "Pick an answer." : "Answers are locked. Wait for the next question.";
+      playWait.textContent = canAnswer
+        ? mobileCopy.pickAnswerText || "Pick an answer."
+        : mobileCopy.answersLockedText || "Answers are locked. Wait for the next question.";
+
+      playSubmit.disabled = !canAnswer || !selectedChoiceId;
     };
+
+    playSubmit.addEventListener("click", async () => {
+      if (!participantId || !selectedChoiceId) return;
+      playSubmit.disabled = true;
+      try {
+        await fetchJson(`/api/quiz-answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, participantId, answer: { choiceId: selectedChoiceId } }),
+        });
+        // Mark submitted for current question (best-effort).
+        submittedForQuestionId = lastQuestionId || submittedForQuestionId || "1";
+        playHolding.removeAttribute("hidden");
+        playAnswers.innerHTML = "";
+        playWait.textContent = "";
+      } catch {
+        // If it failed, re-enable submit (keep selection).
+        playSubmit.disabled = false;
+      }
+    });
 
     joinBtn.addEventListener("click", async () => {
       const displayName = name.value.trim();

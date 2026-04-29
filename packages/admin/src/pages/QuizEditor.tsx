@@ -198,6 +198,10 @@ function SurfaceFields({
           <input value={t.buttonHex || ""} onChange={(e) => set({ buttonHex: e.target.value })} />
         </div>
         <div>
+          <label className="field">Button down/selected hex</label>
+          <input value={(t as any).buttonDownHex || ""} onChange={(e) => set({ buttonDownHex: e.target.value } as any)} />
+        </div>
+        <div>
           <label className="field">Button text hex</label>
           <input value={t.buttonTextHex || ""} onChange={(e) => set({ buttonTextHex: e.target.value })} />
         </div>
@@ -231,7 +235,7 @@ function SurfaceFields({
         {t.headerImageUrl ? <code>{t.headerImageUrl.slice(0, 40)}…</code> : null}
       </p>
       {title.startsWith("Mobile") && (
-        <p className="muted">
+        <div className="muted">
           <label className="field">Player icon sheet / asset URL (optional)</label>
           <input
             style={{ width: "100%", maxWidth: 480 }}
@@ -276,7 +280,7 @@ function SurfaceFields({
               </button>
             </div>
           </div>
-        </p>
+        </div>
       )}
     </details>
   );
@@ -725,6 +729,96 @@ export default function QuizEditor() {
           theme={quiz.branding?.mobile || {}}
           onChange={(mobile) => setQuiz({ ...quiz, branding: { ...quiz.branding, mobile } })}
         />
+        <details style={{ marginTop: 10 }}>
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Mobile copy</summary>
+          <div className="grid2" style={{ marginTop: 10 }}>
+            {(() => {
+              const c = quiz.branding?.mobileCopy || {};
+              const set = (patch: Partial<typeof c>) =>
+                setQuiz({ ...quiz, branding: { ...quiz.branding, mobileCopy: { ...c, ...patch } } });
+              return (
+                <>
+                  <div>
+                    <label className="field">Join title</label>
+                    <input value={c.joinTitle || ""} onChange={(e) => set({ joinTitle: e.target.value })} placeholder="Join" />
+                  </div>
+                  <div>
+                    <label className="field">Name label</label>
+                    <input
+                      value={c.joinNameLabel || ""}
+                      onChange={(e) => set({ joinNameLabel: e.target.value })}
+                      placeholder="Your name (player / team)"
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Name placeholder</label>
+                    <input
+                      value={c.joinNamePlaceholder || ""}
+                      onChange={(e) => set({ joinNamePlaceholder: e.target.value })}
+                      placeholder="Type a name…"
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Icon label</label>
+                    <input value={c.joinIconLabel || ""} onChange={(e) => set({ joinIconLabel: e.target.value })} placeholder="Icon" />
+                  </div>
+                  <div>
+                    <label className="field">Join button label</label>
+                    <input
+                      value={c.joinButtonLabel || ""}
+                      onChange={(e) => set({ joinButtonLabel: e.target.value })}
+                      placeholder="Join session"
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Join help text</label>
+                    <input
+                      value={c.joinHelpText || ""}
+                      onChange={(e) => set({ joinHelpText: e.target.value })}
+                      placeholder="You’ll be locked to the host screen — no skipping ahead."
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Between questions text</label>
+                    <input
+                      value={c.betweenQuestionsText || ""}
+                      onChange={(e) => set({ betweenQuestionsText: e.target.value })}
+                      placeholder="The host is between questions."
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Pick answer text</label>
+                    <input value={c.pickAnswerText || ""} onChange={(e) => set({ pickAnswerText: e.target.value })} placeholder="Pick an answer." />
+                  </div>
+                  <div>
+                    <label className="field">Answers locked text</label>
+                    <input
+                      value={c.answersLockedText || ""}
+                      onChange={(e) => set({ answersLockedText: e.target.value })}
+                      placeholder="Answers are locked. Wait for the next question."
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Submit button label</label>
+                    <input
+                      value={c.submitButtonLabel || ""}
+                      onChange={(e) => set({ submitButtonLabel: e.target.value })}
+                      placeholder="Submit answer"
+                    />
+                  </div>
+                  <div>
+                    <label className="field">Submitted/holding text</label>
+                    <input
+                      value={c.submittedText || ""}
+                      onChange={(e) => set({ submittedText: e.target.value })}
+                      placeholder="Your answer has been recorded."
+                    />
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </details>
         <SurfaceFields
           title="Host controller theme"
           theme={quiz.branding?.host || {}}

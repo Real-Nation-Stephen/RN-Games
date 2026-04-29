@@ -20,25 +20,31 @@
           </div>
 
           <div id="join-step" class="quiz-join-step">
-            <h2 style="margin: 0 0 8px">Join</h2>
-            <label class="field">Your name (player / team)</label>
+            <h2 id="join-title">Join</h2>
+            <label class="field" id="join-name-label">Your name (player / team)</label>
             <input id="join-name" type="text" placeholder="Type a name…" />
-            <label class="field" style="margin-top: 10px">Icon</label>
+            <label class="field" id="join-icon-label">Icon</label>
             <div id="join-icons" class="quiz-icons"></div>
             <button id="join-btn" type="button" class="btn btn-primary" style="margin-top: 14px; width: 100%">
               Join session
             </button>
-            <p class="muted" style="margin: 10px 0 0; font-size: 0.85rem">
+            <p class="muted" id="join-help" style="font-size: 0.85rem">
               You’ll be locked to the host screen — no skipping ahead.
             </p>
             <p class="muted" id="debug-icons" style="margin: 8px 0 0; font-size: 0.75rem" hidden></p>
           </div>
 
           <div id="play-step" class="quiz-play-step" hidden>
-            <div class="muted" id="play-status" style="margin-bottom: 10px"></div>
-            <h2 id="play-question" style="margin: 0 0 10px"></h2>
+            <div class="muted" id="play-status"></div>
+            <h2 id="play-question"></h2>
             <div id="play-answers" class="quiz-answers"></div>
-            <div class="muted" id="play-wait" style="margin-top: 12px; font-size: 0.9rem"></div>
+            <button id="play-submit" type="button" class="btn btn-primary" disabled style="margin-top: 12px; width: 100%">
+              Submit answer
+            </button>
+            <div id="play-holding" class="quiz-holding" hidden>
+              <div class="muted" id="play-submitted">Your answer has been recorded.</div>
+            </div>
+            <div class="muted" id="play-wait" style="font-size: 0.9rem"></div>
           </div>
         </div>
       </div>

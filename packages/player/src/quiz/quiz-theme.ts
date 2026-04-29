@@ -24,6 +24,9 @@ export function applyQuizSurface(
   if (kit?.buttonHex) root.style.setProperty("--quiz-btn-bg", kit.buttonHex);
   else root.style.removeProperty("--quiz-btn-bg");
 
+  if ((kit as any)?.buttonDownHex) root.style.setProperty("--quiz-btn-bg-down", String((kit as any).buttonDownHex));
+  else root.style.removeProperty("--quiz-btn-bg-down");
+
   if (kit?.buttonTextHex) root.style.setProperty("--quiz-btn-text", kit.buttonTextHex);
   else root.style.removeProperty("--quiz-btn-text");
 
