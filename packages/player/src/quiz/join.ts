@@ -4,7 +4,7 @@ import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
 import { ensureQuizFontFaces } from "./font-loader";
 
-const ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
+const DEFAULT_ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
 
 function storageKey(slug: string, code: string) {
   return `rngames-quiz-player:${slug}:${code}`;
@@ -58,13 +58,31 @@ async function postJoin(body: Record<string, unknown>) {
   return t ? (JSON.parse(t) as { participantId: string; reconnected?: boolean }) : { participantId: "" };
 }
 
-function renderIcons(root: HTMLElement, active: { value: string }, onPick: () => void) {
+function looksLikeUrl(s: string) {
+  return /^https?:\/\//.test(s) || s.startsWith("/api/") || s.startsWith("/play/");
+}
+
+function renderIcons(root: HTMLElement, icons: string[], active: { value: string }, onPick: () => void) {
   root.innerHTML = "";
-  for (const i of ICONS) {
+  for (const i of icons) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = `quiz-icon ${active.value === i ? "is-active" : ""}`;
-    b.textContent = i;
+    if (looksLikeUrl(i)) {
+      b.textContent = "";
+      const img = document.createElement("img");
+      img.src = i;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "contain";
+      img.style.borderRadius = "10px";
+      b.appendChild(img);
+    } else {
+      b.textContent = i;
+    }
     b.addEventListener("click", () => {
       active.value = i;
       onPick();
@@ -103,8 +121,15 @@ async function main() {
       logo.style.display = "block";
     }
 
-    const picked = { value: ICONS[0] };
-    const rerenderIcons = () => renderIcons(icons, picked, rerenderIcons);
+    const iconSetRaw = String(quiz.branding?.mobile?.playerIconSetUrl || "").trim();
+    const iconSet = iconSetRaw
+      ? iconSetRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : DEFAULT_ICONS;
+    const picked = { value: iconSet[0] || DEFAULT_ICONS[0] };
+    const rerenderIcons = () => renderIcons(icons, iconSet, picked, rerenderIcons);
     rerenderIcons();
 
     let participantId = "";

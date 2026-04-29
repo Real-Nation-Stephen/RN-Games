@@ -220,6 +220,21 @@ async function main() {
       }
     });
 
+    // Fullscreen button (host).
+    const fsBtn = document.getElementById("quiz-fs-btn") as HTMLButtonElement | null;
+    if (fsBtn) {
+      const canFs = typeof document !== "undefined" && !!document.documentElement?.requestFullscreen;
+      if (!canFs) fsBtn.setAttribute("hidden", "true");
+      fsBtn.addEventListener("click", async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+
     const renderList = () => {
       el.list.innerHTML = "";
       seqs.forEach((s, idx) => {
@@ -242,11 +257,27 @@ async function main() {
       el.participants.innerHTML = "";
       const max = 20;
       list.slice(0, max).forEach((p) => {
-        const s = document.createElement("span");
-        s.className = "quiz-participant-chip";
-        s.title = `${p.name} (${p.score} pts)`;
-        s.textContent = p.icon || "•";
-        el.participants.appendChild(s);
+        const chip = document.createElement("span");
+        chip.className = "quiz-participant-chip";
+        chip.title = `${p.name} (${p.score} pts)`;
+        const icon = String(p.icon || "").trim();
+        const looksLikeUrl = /^https?:\/\//.test(icon) || icon.startsWith("/api/") || icon.startsWith("/play/");
+        if (looksLikeUrl) {
+          const img = document.createElement("img");
+          img.src = icon;
+          img.alt = "";
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.style.width = "22px";
+          img.style.height = "22px";
+          img.style.objectFit = "contain";
+          img.style.borderRadius = "8px";
+          chip.textContent = "";
+          chip.appendChild(img);
+        } else {
+          chip.textContent = icon || "•";
+        }
+        el.participants.appendChild(chip);
       });
       if (list.length > max) {
         const more = document.createElement("span");

@@ -42,7 +42,10 @@ export const handler = async (event) => {
     const code = String(body.code || "").trim().toUpperCase();
     const slug = String(body.slug || "").trim().toLowerCase();
     const name = String(body.name || "").trim();
-    const icon = String(body.icon || "🙂").trim().slice(0, 4);
+    const iconRaw = String(body.icon || "🙂").trim();
+    // Allow either emoji (short) or an uploaded icon URL (longer).
+    const looksLikeUrl = /^https?:\/\//.test(iconRaw) || iconRaw.startsWith("/api/") || iconRaw.startsWith("/play/");
+    const icon = looksLikeUrl ? iconRaw.slice(0, 400) : iconRaw.slice(0, 8);
     const existingParticipantId = String(body.participantId || "").trim();
     if (!code || !slug) return { statusCode: 400, headers, body: JSON.stringify({ error: "code and slug required" }) };
     let session = await getSession(code);

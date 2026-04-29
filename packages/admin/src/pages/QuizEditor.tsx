@@ -954,7 +954,7 @@ export default function QuizEditor() {
         <iframe
           ref={thumbIframeRef}
           title="Quiz thumbnail renderer"
-          style={{ width: 0, height: 0, border: 0, position: "absolute", left: -9999, top: -9999 }}
+          style={{ width: 1920, height: 1080, border: 0, position: "absolute", left: -9999, top: -9999 }}
         />
       </div>
     </div>

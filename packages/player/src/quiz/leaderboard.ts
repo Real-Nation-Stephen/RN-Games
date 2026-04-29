@@ -34,7 +34,39 @@ function render(list: HTMLOListElement, state: SessionState) {
   list.innerHTML = "";
   sorted.slice(0, 20).forEach((p, idx) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="quiz-rank">${idx + 1}</span><div><div style="font-weight:800">${p.icon} ${p.name}</div><div class="muted" style="font-size:0.85rem">Score</div></div><div class="quiz-score">${p.score}</div>`;
+    const icon = String(p.icon || "").trim();
+    const looksLikeUrl = /^https?:\/\//.test(icon) || icon.startsWith("/api/") || icon.startsWith("/play/");
+    const left = document.createElement("div");
+    const who = document.createElement("div");
+    who.style.fontWeight = "800";
+    if (looksLikeUrl) {
+      const img = document.createElement("img");
+      img.src = icon;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.style.width = "22px";
+      img.style.height = "22px";
+      img.style.objectFit = "contain";
+      img.style.verticalAlign = "middle";
+      img.style.marginRight = "8px";
+      who.appendChild(img);
+      who.appendChild(document.createTextNode(p.name));
+    } else {
+      who.textContent = `${icon} ${p.name}`.trim();
+    }
+    const sub = document.createElement("div");
+    sub.className = "muted";
+    sub.style.fontSize = "0.85rem";
+    sub.textContent = "Score";
+    left.appendChild(who);
+    left.appendChild(sub);
+    li.innerHTML = `<span class="quiz-rank">${idx + 1}</span>`;
+    li.appendChild(left);
+    const score = document.createElement("div");
+    score.className = "quiz-score";
+    score.textContent = String(p.score);
+    li.appendChild(score);
     list.appendChild(li);
   });
 }
@@ -64,6 +96,21 @@ async function main() {
 
     layoutStage(stage, fit, 1920, 1080);
     window.addEventListener("resize", () => layoutStage(stage, fit, 1920, 1080));
+
+    // Fullscreen button (leaderboard).
+    const fsBtn = document.getElementById("quiz-fs-btn") as HTMLButtonElement | null;
+    if (fsBtn) {
+      const canFs = typeof document !== "undefined" && !!document.documentElement?.requestFullscreen;
+      if (!canFs) fsBtn.setAttribute("hidden", "true");
+      fsBtn.addEventListener("click", async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
 
     let rev = 0;
     const loop = async () => {
