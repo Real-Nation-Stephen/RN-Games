@@ -26,8 +26,14 @@ async function main() {
   try {
     const qsp = new URLSearchParams(window.location.search);
     const preview = qsp.get("preview") === "1";
+    const thumb = qsp.get("thumb") === "1";
     const { slug, code } = getSlugAndCode();
     let quiz: QuizConfig | null = null;
+
+    if (thumb) {
+      // Used for thumbnails: remove entrance animations so html2canvas captures text immediately.
+      document.body.dataset.quizThumb = "1";
+    }
 
     if (preview) {
       await new Promise<void>((resolve) => {
@@ -213,18 +219,30 @@ async function main() {
       async function getSessionJson(revNum: number) {
         const url = quizSessionGetUrl({ code, rev: String(revNum), cb: String(Date.now()) });
         const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error(`Session ${res.status}`);
-        return res.json() as Promise<{ changed: boolean; state: SessionState | null }>;
+        return { status: res.status, json: (async () => (await res.ok ? res.json() : null))() } as const;
       }
 
-      const boot = await getSessionJson(0);
-      if (!boot.changed || !boot.state) throw new Error("Session not found");
+      const maxAttempts = 10;
+      let boot: { changed: boolean; state: SessionState | null } | null = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const r = await getSessionJson(0);
+        if (r.status === 404 || r.status === 410 || r.status === 423) {
+          await new Promise((z) => setTimeout(z, 120 + attempt * 80));
+          continue;
+        }
+        const j = (await r.json) as { changed: boolean; state: SessionState | null } | null;
+        if (j && j.changed && j.state) boot = j;
+        break;
+      }
+      if (!boot?.changed || !boot.state) throw new Error("Session not found");
       apply(boot.state);
 
       const loop = async () => {
         try {
-          const r = await getSessionJson(rev);
-          if (r.changed && r.state) apply(r.state);
+          const r0 = await getSessionJson(rev);
+          if (r0.status !== 200) return;
+          const r = (await r0.json) as { changed: boolean; state: SessionState | null } | null;
+          if (r?.changed && r.state) apply(r.state);
         } catch {
           /* keep polling */
         } finally {

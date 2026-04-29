@@ -220,6 +220,30 @@ function SurfaceFields({
             onChange={(e) => set({ playerIconSetUrl: e.target.value })}
             placeholder="https://…"
           />
+          <div style={{ marginTop: 10 }}>
+            <label className="field">Upload icon images (optional)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              {...({ webkitdirectory: "true" } as any)}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                // Sort for stable order.
+                files.sort((a, b) => a.name.localeCompare(b.name));
+                const urls: string[] = [];
+                for (const f of files) {
+                  const { url } = await uploadFile(f);
+                  urls.push(url);
+                }
+                set({ playerIconSetUrl: urls.join(",") } as any);
+              }}
+            />
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+              Uploading multiple images will store a comma-separated list of `/api/file?id=…` URLs.
+            </div>
+          </div>
         </p>
       )}
     </details>
@@ -317,7 +341,7 @@ export default function QuizEditor() {
     // Render first Present slide in a dedicated preview iframe and capture it.
     const iframe = thumbIframeRef.current;
     if (!iframe) return;
-    const src = `/play/quiz-present.html?preview=1&slug=${encodeURIComponent(quiz.slug)}&cb=${Date.now()}`;
+    const src = `/play/quiz-present.html?preview=1&thumb=1&slug=${encodeURIComponent(quiz.slug)}&cb=${Date.now()}`;
     iframe.src = src;
     await new Promise<void>((resolve) => {
       const onLoad = () => resolve();
@@ -343,7 +367,8 @@ export default function QuizEditor() {
       },
       window.location.origin,
     );
-    await new Promise((r) => setTimeout(r, 220));
+    // Give renderSequence time to paint text (animations disabled for thumb).
+    await new Promise((r) => setTimeout(r, 700));
     const fit = iframe.contentDocument?.getElementById("fit");
     if (!fit) return;
     try {

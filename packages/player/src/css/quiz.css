@@ -33,6 +33,24 @@ body.quiz-present #app {
   background: transparent;
 }
 
+/* Thumbnail capture: disable entrance animations so text doesn't start at opacity 0. */
+body[data-quiz-thumb="1"] .quiz-text-anim-fadeIn,
+body[data-quiz-thumb="1"] .quiz-text-anim-floatIn,
+body[data-quiz-thumb="1"] .quiz-text-anim-slideUp {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Host preview uses an iframe; hide stage text/content to prevent overlap. */
+.quiz-page.quiz-host #quiz-seq-kind,
+.quiz-page.quiz-host #quiz-seq-title,
+.quiz-page.quiz-host #quiz-seq-body,
+.quiz-page.quiz-host #quiz-media,
+.quiz-page.quiz-host #quiz-answers {
+  display: none !important;
+}
+
 .quiz-text-anim-fadeIn {
   animation: quizFadeIn 0.9s ease-out both;
 }
