@@ -220,6 +220,21 @@ function SurfaceFields({
             onChange={(e) => set({ playerIconSetUrl: e.target.value })}
             placeholder="https://…"
           />
+          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            {(() => {
+              const raw = String(t.playerIconSetUrl || "").trim();
+              if (!raw) return <>Current icons: <b>0</b></>;
+              const items = raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+              return (
+                <>
+                  Current icons: <b>{items.length}</b> {items.length ? <>(e.g. <code>{items[0].slice(0, 44)}…</code>)</> : null}
+                </>
+              );
+            })()}
+          </div>
           <div style={{ marginTop: 10 }}>
             <label className="field">Upload icon images (optional)</label>
             <input
@@ -242,6 +257,11 @@ function SurfaceFields({
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
               Uploading multiple images will store a comma-separated list of `/api/file?id=…` URLs.
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-small" onClick={() => set({ playerIconSetUrl: "" } as any)}>
+                Clear icons
+              </button>
             </div>
           </div>
         </p>
