@@ -1379,6 +1379,34 @@ function SequenceForm({
             value={seq.prompt.body || ""}
             onChange={(e) => apply({ ...seq, prompt: { ...seq.prompt, body: e.target.value } })}
           />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+            <button type="button" className="btn" onClick={() => void pickUpload((url) => apply({ ...seq, prompt: { ...seq.prompt, imageUrl: url } }))}>
+              Upload question image
+            </button>
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => apply({ ...seq, prompt: { ...seq.prompt, imageUrl: "" } })}
+              disabled={!String(seq.prompt.imageUrl || "").trim()}
+            >
+              Clear
+            </button>
+            {seq.prompt.imageUrl ? <code className="muted">{seq.prompt.imageUrl.slice(0, 56)}…</code> : <span className="muted">No image</span>}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
+            <button type="button" className="btn" onClick={() => void pickAudio((url) => apply({ ...seq, prompt: { ...seq.prompt, audioUrl: url } }))}>
+              Upload question audio
+            </button>
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => apply({ ...seq, prompt: { ...seq.prompt, audioUrl: "" } })}
+              disabled={!String(seq.prompt.audioUrl || "").trim()}
+            >
+              Clear
+            </button>
+            {seq.prompt.audioUrl ? <code className="muted">{seq.prompt.audioUrl.slice(0, 56)}…</code> : <span className="muted">No audio</span>}
+          </div>
           <label className="field">Timer (seconds)</label>
           <input
             type="number"

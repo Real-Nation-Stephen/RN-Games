@@ -74,6 +74,7 @@ async function main() {
       answers: byId("quiz-answers"),
       slideLogo: byId("quiz-slide-logo"),
     };
+    const timerEl = document.getElementById("quiz-present-timer") as HTMLElement | null;
 
     // Present stage base color (global). This is the "Default stage background (hex)" users expect to control.
     const stageBg = (quiz.branding?.backgroundColor || "").trim() || "#0a1628";
@@ -300,6 +301,16 @@ async function main() {
       rev = state.revision;
       lastState = state;
       applyIdx(Number(state.currentSequenceIndex) || 0);
+      if (timerEl) {
+        if (state.phase === "open" && typeof state.closesAt === "number") {
+          const ms = Math.max(0, state.closesAt - Date.now());
+          const s = Math.ceil(ms / 1000);
+          timerEl.textContent = `⏱ ${s}s`;
+          timerEl.removeAttribute("hidden");
+        } else {
+          timerEl.setAttribute("hidden", "true");
+        }
+      }
     };
 
     if (code) {

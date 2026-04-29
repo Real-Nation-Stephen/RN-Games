@@ -127,6 +127,7 @@ async function main() {
     const playQuestion = byId("play-question");
     const playAnswers = byId("play-answers");
     const playWait = byId("play-wait");
+    const playTimer = document.getElementById("play-timer") as HTMLElement | null;
     const playSubmit = byId<HTMLButtonElement>("play-submit");
     const playHolding = byId("play-holding");
     const playSubmitted = byId("play-submitted");
@@ -204,6 +205,7 @@ async function main() {
       playStatus.textContent = `Session ${state.code} • ${state.phase}`;
       playSubmit.disabled = true;
       playHolding.setAttribute("hidden", "true");
+      if (playTimer) playTimer.setAttribute("hidden", "true");
       if (state.phase === "bonus" && state.bonus?.kind === "fastestCorrectSteal") {
         const winner = state.bonus.winnerId;
         if (participantId && winner === participantId) {
@@ -215,7 +217,27 @@ async function main() {
             const b = document.createElement("button");
             b.type = "button";
             b.className = "quiz-answer";
-            b.textContent = `${p.icon} ${p.name}`;
+            const icon = String(p.icon || "").trim();
+            const looks = looksLikeUrl(icon);
+            if (looks) {
+              b.textContent = "";
+              b.style.display = "flex";
+              b.style.alignItems = "center";
+              b.style.gap = "10px";
+              const img = document.createElement("img");
+              img.src = icon;
+              img.alt = "";
+              img.loading = "lazy";
+              img.decoding = "async";
+              img.style.width = "26px";
+              img.style.height = "26px";
+              img.style.objectFit = "contain";
+              img.style.borderRadius = "8px";
+              b.appendChild(img);
+              b.appendChild(document.createTextNode(String(p.name || "Player")));
+            } else {
+              b.textContent = `${icon} ${p.name}`.trim();
+            }
             b.addEventListener("click", async () => {
               try {
                 await fetchJson(`/api/quiz-bonus`, {
@@ -253,6 +275,12 @@ async function main() {
       const choices = cur.question.choices || [];
       playAnswers.innerHTML = "";
       const canAnswer = state.phase === "open";
+      if (playTimer && state.phase === "open" && typeof state.closesAt === "number") {
+        const ms = Math.max(0, state.closesAt - Date.now());
+        const s = Math.ceil(ms / 1000);
+        playTimer.textContent = `⏱ ${s}s`;
+        playTimer.removeAttribute("hidden");
+      }
       const qid = String(cur.question.id || "");
       if (qid && qid !== lastQuestionId) {
         lastQuestionId = qid;

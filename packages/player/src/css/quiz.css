@@ -822,12 +822,53 @@ body.quiz-host .quiz-seq-list {
   margin-bottom: 10px;
 }
 
+.quiz-join-step {
+  display: grid;
+  gap: 10px;
+}
+
+.quiz-play-step {
+  display: grid;
+  gap: 10px;
+}
+
 .quiz-join-step #join-icon-label {
   margin-top: 12px;
 }
 
 .quiz-join-step #join-help {
   margin: 10px 0 0;
+}
+
+.quiz-play-toprow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.quiz-play-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.quiz-present-timer {
+  position: absolute;
+  top: calc(var(--quiz-present-banner-h, 96px) + 18px);
+  right: 22px;
+  z-index: 5;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 10px 12px;
+  backdrop-filter: blur(10px);
 }
 
 .quiz-holding {

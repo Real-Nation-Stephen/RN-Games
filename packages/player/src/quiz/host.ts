@@ -347,6 +347,32 @@ async function main() {
     });
 
     // Timer countdown UI (host).
+    let lastBeepSecond = -1;
+    let audioCtx: AudioContext | null = null;
+    const beep = (freq = 880, ms = 85) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctx) return;
+        if (!audioCtx) audioCtx = new Ctx();
+        const ctx = audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.value = freq;
+        g.gain.value = 0.0001;
+        o.connect(g);
+        g.connect(ctx.destination);
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(0.12, now + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
+        o.start(now);
+        o.stop(now + ms / 1000);
+      } catch {
+        /* ignore */
+      }
+    };
     const tickTimer = () => {
       try {
         // rev/phase are updated via polling; we only render remaining time here.
@@ -358,8 +384,13 @@ async function main() {
           const s = Math.ceil(ms / 1000);
           el.timer.textContent = `⏱ ${s}s`;
           el.timer.hidden = false;
+          if (s > 0 && s <= 5 && s !== lastBeepSecond) {
+            lastBeepSecond = s;
+            beep(s <= 2 ? 1040 : 880, 75);
+          }
         } else {
           el.timer.hidden = true;
+          lastBeepSecond = -1;
         }
       } catch {
         el.timer.hidden = true;
