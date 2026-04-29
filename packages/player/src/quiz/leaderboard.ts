@@ -37,9 +37,13 @@ function render(list: HTMLOListElement, state: SessionState) {
     const icon = String(p.icon || "").trim();
     const looksLikeUrl = /^https?:\/\//.test(icon) || icon.startsWith("/api/") || icon.startsWith("/play/");
     const left = document.createElement("div");
+    left.style.minWidth = "0";
     const who = document.createElement("div");
     who.style.fontWeight = "800";
     if (looksLikeUrl) {
+      who.style.display = "flex";
+      who.style.alignItems = "center";
+      who.style.gap = "8px";
       const img = document.createElement("img");
       img.src = icon;
       img.alt = "";
@@ -48,8 +52,6 @@ function render(list: HTMLOListElement, state: SessionState) {
       img.style.width = "22px";
       img.style.height = "22px";
       img.style.objectFit = "contain";
-      img.style.verticalAlign = "middle";
-      img.style.marginRight = "8px";
       who.appendChild(img);
       who.appendChild(document.createTextNode(p.name));
     } else {
@@ -58,6 +60,7 @@ function render(list: HTMLOListElement, state: SessionState) {
     const sub = document.createElement("div");
     sub.className = "muted";
     sub.style.fontSize = "0.85rem";
+    sub.style.marginTop = "4px";
     sub.textContent = "Score";
     left.appendChild(who);
     left.appendChild(sub);

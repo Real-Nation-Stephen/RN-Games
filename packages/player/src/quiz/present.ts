@@ -191,7 +191,26 @@ async function main() {
           rank.textContent = String(idx2 + 1);
           const who = document.createElement("div");
           who.style.fontWeight = "800";
-          who.textContent = `${p.icon || ""} ${p.name || "Player"}`.trim();
+          const icon = String(p.icon || "").trim();
+          const looksLikeUrl = /^https?:\/\//.test(icon) || icon.startsWith("/api/") || icon.startsWith("/play/");
+          if (looksLikeUrl) {
+            who.style.display = "flex";
+            who.style.alignItems = "center";
+            who.style.gap = "8px";
+            const img = document.createElement("img");
+            img.src = icon;
+            img.alt = "";
+            img.loading = "lazy";
+            img.decoding = "async";
+            img.style.width = "22px";
+            img.style.height = "22px";
+            img.style.objectFit = "contain";
+            img.style.borderRadius = "8px";
+            who.appendChild(img);
+            who.appendChild(document.createTextNode(p.name || "Player"));
+          } else {
+            who.textContent = `${icon || ""} ${p.name || "Player"}`.trim();
+          }
           const score = document.createElement("div");
           score.style.textAlign = "right";
           score.style.fontWeight = "900";
