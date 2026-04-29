@@ -301,17 +301,28 @@ async function main() {
       rev = state.revision;
       lastState = state;
       applyIdx(Number(state.currentSequenceIndex) || 0);
-      if (timerEl) {
-        if (state.phase === "open" && typeof state.closesAt === "number") {
-          const ms = Math.max(0, state.closesAt - Date.now());
+      // Timer ticks are handled by a lightweight local loop (not just on poll revisions).
+    };
+
+    const tickTimer = () => {
+      try {
+        if (!timerEl) return;
+        const st = lastState;
+        if (st?.phase === "open" && typeof st.closesAt === "number") {
+          const ms = Math.max(0, st.closesAt - Date.now());
           const s = Math.ceil(ms / 1000);
           timerEl.textContent = `⏱ ${s}s`;
           timerEl.removeAttribute("hidden");
         } else {
           timerEl.setAttribute("hidden", "true");
         }
+      } catch {
+        /* ignore */
+      } finally {
+        window.setTimeout(tickTimer, 200);
       }
     };
+    tickTimer();
 
     if (code) {
       async function getSessionJson(revNum: number) {
