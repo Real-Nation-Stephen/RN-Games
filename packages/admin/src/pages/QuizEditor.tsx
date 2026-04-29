@@ -147,6 +147,25 @@ async function pickAudio(setUrl: (u: string) => void) {
   input.click();
 }
 
+async function pickManyImages(onUrls: (urls: string[]) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.multiple = true;
+  input.onchange = async () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    const urls: string[] = [];
+    for (const f of files) {
+      const { url } = await uploadFile(f);
+      urls.push(url);
+    }
+    onUrls(urls);
+  };
+  input.click();
+}
+
 function SurfaceFields({
   title,
   theme,
@@ -237,24 +256,17 @@ function SurfaceFields({
           </div>
           <div style={{ marginTop: 10 }}>
             <label className="field">Upload icon images (optional)</label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              {...({ webkitdirectory: "true" } as any)}
-              onChange={async (e) => {
-                const files = Array.from(e.target.files || []);
-                if (!files.length) return;
-                // Sort for stable order.
-                files.sort((a, b) => a.name.localeCompare(b.name));
-                const urls: string[] = [];
-                for (const f of files) {
-                  const { url } = await uploadFile(f);
-                  urls.push(url);
-                }
-                set({ playerIconSetUrl: urls.join(",") } as any);
-              }}
-            />
+            <button
+              type="button"
+              className="btn"
+              onClick={() =>
+                void pickManyImages((urls) => {
+                  set({ playerIconSetUrl: urls.join(",") } as any);
+                })
+              }
+            >
+              Upload icon images
+            </button>
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
               Uploading multiple images will store a comma-separated list of `/api/file?id=…` URLs.
             </div>

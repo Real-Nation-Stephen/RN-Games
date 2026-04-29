@@ -94,6 +94,7 @@ function renderIcons(root: HTMLElement, icons: string[], active: { value: string
 async function main() {
   try {
     const { slug, code } = getSlugAndCode();
+    const debug = qs().get("debug") === "1";
     const quiz = await fetchQuiz(slug);
     if (quiz.faviconUrl) setFavicon(quiz.faviconUrl);
     ensureQuizFontFaces(quiz);
@@ -128,6 +129,13 @@ async function main() {
           .map((s) => s.trim())
           .filter(Boolean)
       : DEFAULT_ICONS;
+    if (debug) {
+      const d = document.getElementById("debug-icons");
+      if (d) {
+        d.textContent = `icons: ${iconSetRaw ? iconSet.length : 0}`;
+        d.removeAttribute("hidden");
+      }
+    }
     const picked = { value: iconSet[0] || DEFAULT_ICONS[0] };
     const rerenderIcons = () => renderIcons(icons, iconSet, picked, rerenderIcons);
     rerenderIcons();
