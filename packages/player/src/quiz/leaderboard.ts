@@ -57,13 +57,7 @@ function render(list: HTMLOListElement, state: SessionState) {
     } else {
       who.textContent = `${icon} ${p.name}`.trim();
     }
-    const sub = document.createElement("div");
-    sub.className = "muted";
-    sub.style.fontSize = "0.85rem";
-    sub.style.marginTop = "4px";
-    sub.textContent = "Score";
     left.appendChild(who);
-    left.appendChild(sub);
     li.innerHTML = `<span class="quiz-rank">${idx + 1}</span>`;
     li.appendChild(left);
     const score = document.createElement("div");

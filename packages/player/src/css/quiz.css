@@ -365,6 +365,34 @@ body.quiz-host .btn-primary {
   width: 100%;
 }
 
+.quiz-present-reveal-list {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.quiz-present-reveal-item {
+  padding: 18px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.quiz-present-reveal-q {
+  font-weight: 900;
+  font-size: clamp(20px, 1.8vw, 30px);
+  line-height: 1.15;
+}
+
+.quiz-present-reveal-a {
+  margin-top: 10px;
+  font-weight: 900;
+  font-size: clamp(22px, 2.1vw, 34px);
+  line-height: 1.1;
+  color: color-mix(in srgb, var(--quiz-text, rgba(255, 255, 255, 0.92)) 92%, rgba(90, 255, 220, 0.35));
+}
+
 .quiz-present-answers {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -829,6 +857,12 @@ body.quiz-host .btn-primary {
 
 .quiz-icon.is-active {
   outline: 2px solid rgba(255, 210, 90, 0.6);
+}
+
+.quiz-icon:disabled {
+  opacity: 0.35;
+  filter: grayscale(0.35);
+  cursor: not-allowed;
 }
 
 .quiz-lb {

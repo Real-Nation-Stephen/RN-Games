@@ -194,27 +194,26 @@ async function main() {
           el.answers.hidden = false;
           el.answers.innerHTML = "";
 
+          // If this is a multi-answer reveal, replace the default single-answer title/body.
+          if (ids.length > 0) {
+            el.seqTitle.textContent = (seq as any).title || "Answers";
+            el.seqBody.textContent = "";
+          }
+
           const wrap = document.createElement("div");
-          wrap.style.display = "grid";
-          wrap.style.gap = "12px";
-          wrap.style.maxWidth = "88ch";
+          wrap.className = "quiz-present-reveal-list";
 
           qids.forEach((qid, idx2) => {
             const q = findQuestion(qid);
             const block = document.createElement("div");
-            block.style.padding = "12px 14px";
-            block.style.borderRadius = "14px";
-            block.style.border = "1px solid rgba(255,255,255,0.12)";
-            block.style.background = "rgba(0,0,0,0.16)";
+            block.className = "quiz-present-reveal-item";
 
             const qt = document.createElement("div");
-            qt.style.fontWeight = "900";
-            qt.style.marginBottom = "6px";
+            qt.className = "quiz-present-reveal-q";
             qt.textContent = `Question: ${String(q?.prompt?.text || "Question").trim()}`;
 
             const ans = document.createElement("div");
-            ans.className = "muted";
-            ans.style.fontWeight = "800";
+            ans.className = "quiz-present-reveal-a";
             ans.textContent = `Answer: ${formatAnswer(q)}`;
 
             if (idx2 >= shown) {

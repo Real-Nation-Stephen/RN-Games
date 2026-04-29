@@ -62,12 +62,21 @@ function looksLikeUrl(s: string) {
   return /^https?:\/\//.test(s) || s.startsWith("/api/") || s.startsWith("/play/");
 }
 
-function renderIcons(root: HTMLElement, icons: string[], active: { value: string }, onPick: () => void) {
+function renderIcons(
+  root: HTMLElement,
+  icons: string[],
+  active: { value: string },
+  taken: Set<string>,
+  onPick: () => void,
+) {
   root.innerHTML = "";
   for (const i of icons) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = `quiz-icon ${active.value === i ? "is-active" : ""}`;
+    const isTaken = taken.has(i) && active.value !== i;
+    b.disabled = isTaken;
+    if (isTaken) b.title = "Taken";
     if (looksLikeUrl(i)) {
       b.textContent = "";
       const img = document.createElement("img");
@@ -145,7 +154,16 @@ async function main() {
       }
     }
     const picked = { value: iconSet[0] || DEFAULT_ICONS[0] };
-    const rerenderIcons = () => renderIcons(icons, iconSet, picked, rerenderIcons);
+    const takenIcons = new Set<string>();
+    const syncTaken = (state: SessionState | null) => {
+      takenIcons.clear();
+      const parts = state?.participants || [];
+      for (const p of parts) {
+        const v = String(p?.icon || "").trim();
+        if (v) takenIcons.add(v);
+      }
+    };
+    const rerenderIcons = () => renderIcons(icons, iconSet, picked, takenIcons, rerenderIcons);
     rerenderIcons();
 
     let participantId = "";
@@ -303,6 +321,12 @@ async function main() {
         setPlayVisible();
       } catch (e) {
         joinBtn.disabled = false;
+        // Allow user to pick a different icon if their choice was taken.
+        const msg = e instanceof Error ? e.message : "";
+        if (/icon_taken/i.test(msg)) {
+          joinBtn.disabled = false;
+          return;
+        }
         throw e;
       }
     });
@@ -349,6 +373,14 @@ async function main() {
         const r = await pollSession(code, rev);
         if (r.changed && r.state) {
           rev = r.state.revision;
+          // Keep icon availability fresh even before joining.
+          if (!participantId) {
+            syncTaken(r.state);
+            rerenderIcons();
+          } else {
+            // If the user's stored icon becomes taken (rare), keep their own selection allowed.
+            syncTaken(r.state);
+          }
           if (participantId) renderQuestion(r.state);
           delay = r.state.phase === "open" ? 260 : 400;
         }

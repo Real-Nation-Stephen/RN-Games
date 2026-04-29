@@ -91,6 +91,12 @@ export const handler = async (event) => {
       return { statusCode: 429, headers, body: JSON.stringify({ error: "Session full" }) };
     }
 
+    // Soft uniqueness: avoid duplicate icons where possible (races can still happen).
+    const used = new Set((session.participants || []).map((p) => String(p?.icon || "").trim()).filter(Boolean));
+    if (icon && used.has(icon)) {
+      return { statusCode: 409, headers, body: JSON.stringify({ error: "icon_taken", code: "icon_taken" }) };
+    }
+
     let displayName = name;
     if (quiz?.playAlong?.profanityBlock !== false && isBlockedName(name)) {
       displayName = `Guest ${existingCount + 1}`;
