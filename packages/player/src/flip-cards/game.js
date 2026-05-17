@@ -47,8 +47,9 @@ function resolveFront(cfg, deckIndex) {
 
 function resolveBack(cfg, deckIndex) {
   const c = cfg.cards[deckIndex];
-  const shared = (cfg.sharedBackImage || "").trim();
-  return (c?.backImage || "").trim() || shared || "";
+  const shared = (cfg.sharedRearImage || cfg.sharedBackImage || "").trim();
+  const rear = (c?.rearImage || c?.backImage || "").trim();
+  return rear || shared || "";
 }
 
 function setFavicon(url) {
@@ -650,7 +651,8 @@ async function openDetail(slotIndex) {
       deckIdx,
       frontUrl: frontUrl || "(empty)",
       backUrl: backUrl || "(empty)",
-      card,
+      rearImage: card?.rearImage || "(empty)",
+      backImage: card?.backImage || "(empty)",
     });
   }
   detailTitle.textContent = card.header || "";

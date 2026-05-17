@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { connectLambda } from "@netlify/blobs";
+import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -69,6 +70,7 @@ function emptyFlipCardRecord(id, slug) {
     brandLogoCorner: "bl",
     sharedFrontImage: "",
     sharedBackImage: "",
+    sharedRearImage: "",
     backgroundImage: "",
     backgroundColor: "#ffffff",
     brandLogoUrl: "",
@@ -86,6 +88,7 @@ function emptyFlipCardRecord(id, slug) {
     },
     cards: Array.from({ length: n }, (_, i) => ({
       frontImage: "",
+      rearImage: "",
       backImage: "",
       header: `Card ${i + 1}`,
       body: "Placeholder copy for this card.",
@@ -183,17 +186,10 @@ function syncFlipCards(f) {
   f.cardsDealt = Math.min(Math.max(1, Number(f.cardsDealt) || 1), n);
   f.maxColumns = Math.min(6, Math.max(1, Number(f.maxColumns) || 4));
   const prev = Array.isArray(f.cards) ? f.cards : [];
-  f.cards = Array.from({ length: n }, (_, i) => {
-    const c = prev[i];
-    return {
-      frontImage: c?.frontImage || "",
-      backImage: c?.backImage || "",
-      header: c?.header || `Card ${i + 1}`,
-      body: c?.body || "",
-      overlayButtonText: c?.overlayButtonText || "Back",
-      soundUrl: c?.soundUrl || "",
-    };
-  });
+  f.cards = Array.from({ length: n }, (_, i) => normalizeFlipCardFace(prev[i], i));
+  const sharedRear = flipCardSharedRearUrl(f);
+  f.sharedRearImage = sharedRear;
+  f.sharedBackImage = sharedRear;
 }
 
 function emptyWheelRecord(id, slug) {
@@ -402,6 +398,7 @@ export const handler = async (event, context) => {
           "brandLogoCorner",
           "sharedFrontImage",
           "sharedBackImage",
+          "sharedRearImage",
           "backgroundImage",
           "backgroundColor",
           "brandLogoUrl",

@@ -6,12 +6,51 @@ import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 
 type FlipCardFace = {
   frontImage: string;
-  backImage: string;
+  /** Canonical card back art URL (preferred over legacy `backImage`). */
+  rearImage?: string;
+  backImage?: string;
   header: string;
   body: string;
   overlayButtonText: string;
   soundUrl?: string;
 };
+
+function cardRearUrl(c: Pick<FlipCardFace, "rearImage" | "backImage">) {
+  return (c.rearImage || c.backImage || "").trim();
+}
+
+function normalizeFlipGameForPut(g: FlipCardGame): FlipCardGame {
+  const cards = g.cards.map((c, i) => {
+    const rear = cardRearUrl(c);
+    return {
+      ...c,
+      frontImage: (c.frontImage || "").trim(),
+      rearImage: rear,
+      backImage: rear,
+      header: c.header || `Card ${i + 1}`,
+      body: c.body || "",
+      overlayButtonText: c.overlayButtonText || "Back",
+      soundUrl: c.soundUrl || "",
+    };
+  });
+  const sharedRear = (g.sharedRearImage || g.sharedBackImage || "").trim();
+  return { ...g, cards, sharedRearImage: sharedRear, sharedBackImage: sharedRear };
+}
+
+function mergeFlipCardsMedia(sent: FlipCardGame, saved: FlipCardGame): FlipCardGame {
+  const cards = saved.cards.map((c, i) => {
+    const rear = cardRearUrl(c) || cardRearUrl(sent.cards[i] || {});
+    return { ...c, rearImage: rear, backImage: rear };
+  });
+  const sharedRear = (
+    saved.sharedRearImage ||
+    saved.sharedBackImage ||
+    sent.sharedRearImage ||
+    sent.sharedBackImage ||
+    ""
+  ).trim();
+  return { ...saved, cards, sharedRearImage: sharedRear, sharedBackImage: sharedRear };
+}
 
 type FlipShuffle = {
   enabled: boolean;
@@ -43,6 +82,7 @@ type FlipCardGame = {
   brandLogoCorner: "tl" | "tr" | "bl" | "br";
   sharedFrontImage: string;
   sharedBackImage: string;
+  sharedRearImage?: string;
   backgroundImage: string;
   backgroundColor: string;
   brandLogoUrl: string;
@@ -62,9 +102,11 @@ function publicFlipPayload(g: FlipCardGame) {
   const src = Array.isArray(g.cards) ? g.cards : [];
   const cards = Array.from({ length: n }, (_, i) => {
     const c = src[i] || {};
+    const rear = cardRearUrl(c);
     return {
       frontImage: c.frontImage || "",
-      backImage: c.backImage || "",
+      rearImage: rear,
+      backImage: rear,
       header: c.header || `Card ${i + 1}`,
       body: c.body || "",
       overlayButtonText: c.overlayButtonText || "Back",
@@ -84,7 +126,8 @@ function publicFlipPayload(g: FlipCardGame) {
     maxColumns: maxCol,
     brandLogoCorner: g.brandLogoCorner || "bl",
     sharedFrontImage: (g.sharedFrontImage || "").trim(),
-    sharedBackImage: (g.sharedBackImage || "").trim(),
+    sharedBackImage: (g.sharedRearImage || g.sharedBackImage || "").trim(),
+    sharedRearImage: (g.sharedRearImage || g.sharedBackImage || "").trim(),
     backgroundImage: g.backgroundImage || "",
     backgroundColor: g.backgroundColor || "#ffffff",
     brandLogoUrl: g.brandLogoUrl || "",
@@ -118,6 +161,7 @@ function resizeCards(prev: FlipCardFace[], n: number): FlipCardFace[] {
     const i = out.length;
     out.push({
       frontImage: "",
+      rearImage: "",
       backImage: "",
       header: `Card ${i + 1}`,
       body: "",
@@ -178,13 +222,14 @@ export default function FlipCardEditor() {
     gameRef.current = game;
   }, [game]);
 
-  const saveGame = useCallback(async (payload: FlipCardGame) => {
+  const saveGame = useCallback(async (payloadIn: FlipCardGame) => {
     setSaving(true);
     setErr(null);
+    const payload = normalizeFlipGameForPut(payloadIn);
     try {
       const res = await apiSend("/api/wheels", "PUT", payload);
       if (res?.wheel) {
-        const saved = res.wheel as FlipCardGame;
+        const saved = mergeFlipCardsMedia(payload, res.wheel as FlipCardGame);
         gameRef.current = saved;
         setGame(saved);
       }
@@ -266,8 +311,14 @@ export default function FlipCardEditor() {
       if (!blob) return;
       const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
       const { url } = await uploadFile(file);
-      const res = await apiSend("/api/wheels", "PUT", { ...game, thumbnailUrl: url });
-      if (res?.wheel) setGame(res.wheel as FlipCardGame);
+      const base = gameRef.current ?? game;
+      const payload = normalizeFlipGameForPut({ ...base, thumbnailUrl: url });
+      const res = await apiSend("/api/wheels", "PUT", payload);
+      if (res?.wheel) {
+        const saved = mergeFlipCardsMedia(payload, res.wheel as FlipCardGame);
+        gameRef.current = saved;
+        setGame(saved);
+      }
     } catch {
       /* optional */
     }
@@ -495,7 +546,7 @@ export default function FlipCardEditor() {
         </label>
 
         {(() => {
-          const missing = game.cards.slice(0, n).filter((c) => !(c.backImage || "").trim()).length;
+          const missing = game.cards.slice(0, n).filter((c) => !cardRearUrl(c)).length;
           if (missing === 0) return null;
           return (
             <p className="muted" style={{ marginTop: 12, color: "var(--rn-warn, #e8a838)" }}>
@@ -530,7 +581,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            void patchGame((g) => ({ ...g, sharedBackImage: url }));
+            void patchGame((g) => ({ ...g, sharedRearImage: url, sharedBackImage: url }));
           }}
         />
         {game.sharedBackImage ? <span className="muted"> ✓</span> : null}
@@ -571,18 +622,24 @@ export default function FlipCardEditor() {
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     if (!f) return;
-                    const { url } = await uploadFile(f);
-                    void patchGame((g) => {
-                      const cards = [...g.cards];
-                      cards[i] = { ...cards[i], backImage: url };
-                      return { ...g, cards };
-                    });
+                    try {
+                      const { url } = await uploadFile(f);
+                      void patchGame((g) => {
+                        const cards = [...g.cards];
+                        cards[i] = { ...cards[i], rearImage: url, backImage: url };
+                        return { ...g, cards };
+                      });
+                    } catch (uploadErr) {
+                      setErr(uploadErr instanceof Error ? uploadErr.message : "Back image upload failed");
+                    } finally {
+                      e.target.value = "";
+                    }
                   }}
                 />
-                {card.backImage ? (
+                {cardRearUrl(card) ? (
                   <>
                     <img
-                      src={card.backImage}
+                      src={cardRearUrl(card)}
                       alt=""
                       style={{ display: "block", maxWidth: 120, marginTop: 8, borderRadius: 4 }}
                     />
@@ -591,10 +648,10 @@ export default function FlipCardEditor() {
                     className="btn btn-small"
                     style={{ marginTop: 6 }}
                     onClick={() => {
-                      const url = card.backImage;
+                      const url = cardRearUrl(card);
                       void patchGame((g) => ({
                         ...g,
-                        cards: g.cards.map((c) => ({ ...c, backImage: url })),
+                        cards: g.cards.map((c) => ({ ...c, rearImage: url, backImage: url })),
                       }));
                     }}
                   >

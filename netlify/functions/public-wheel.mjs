@@ -1,5 +1,6 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
+import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -36,17 +37,8 @@ function toPublicFlipCard(f) {
   const dealt = Math.min(Math.max(1, Number(f.cardsDealt) || 1), n);
   const maxCol = Math.min(6, Math.max(1, Number(f.maxColumns) || 4));
   const src = Array.isArray(f.cards) ? f.cards : [];
-  const cards = Array.from({ length: n }, (_, i) => {
-    const c = src[i] || {};
-    return {
-      frontImage: c.frontImage || "",
-      backImage: c.backImage || "",
-      header: c.header || `Card ${i + 1}`,
-      body: c.body || "",
-      overlayButtonText: c.overlayButtonText || "Back",
-      soundUrl: c.soundUrl || "",
-    };
-  });
+  const cards = Array.from({ length: n }, (_, i) => normalizeFlipCardFace(src[i], i));
+  const sharedRear = flipCardSharedRearUrl(f);
   return {
     gameType: "flip-cards",
     id: f.id,
@@ -60,7 +52,8 @@ function toPublicFlipCard(f) {
     maxColumns: maxCol,
     brandLogoCorner: f.brandLogoCorner || "bl",
     sharedFrontImage: (f.sharedFrontImage || "").trim(),
-    sharedBackImage: (f.sharedBackImage || "").trim(),
+    sharedBackImage: sharedRear,
+    sharedRearImage: sharedRear,
     backgroundImage: f.backgroundImage || "",
     backgroundColor: f.backgroundColor || "#ffffff",
     brandLogoUrl: f.brandLogoUrl || "",
