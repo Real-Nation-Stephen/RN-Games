@@ -65,10 +65,19 @@ function setFavicon(url) {
   } else if (link) link.remove();
 }
 
+/** Normalize stored media paths (always same-origin `/api/file?…`). */
+function resolveMediaUrl(url) {
+  const u = (url || "").trim();
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u) || u.startsWith("data:")) return u;
+  if (u.startsWith("/")) return u;
+  return `/${u.replace(/^\//, "")}`;
+}
+
 /** Avoid `src=""` which browsers treat as the page URL (broken image icon). */
 function setImgSrc(img, url) {
   if (!img) return;
-  const u = (url || "").trim();
+  const u = resolveMediaUrl(url);
   if (!u) {
     img.removeAttribute("src");
     return;
@@ -632,8 +641,18 @@ async function openDetail(slotIndex) {
 
   detailFlipInner.style.transform = "";
 
-  setImgSrc(detailFrontImg, resolveFront(liveConfig, deckIdx));
-  setImgSrc(detailBackImg, resolveBack(liveConfig, deckIdx));
+  const frontUrl = resolveFront(liveConfig, deckIdx);
+  const backUrl = resolveBack(liveConfig, deckIdx);
+  setImgSrc(detailFrontImg, frontUrl);
+  setImgSrc(detailBackImg, backUrl);
+  if (new URLSearchParams(window.location.search).get("flipDebug") === "1") {
+    console.info("[flip-cards] openDetail", {
+      deckIdx,
+      frontUrl: frontUrl || "(empty)",
+      backUrl: backUrl || "(empty)",
+      card,
+    });
+  }
   detailTitle.textContent = card.header || "";
   detailBody.textContent = card.body || "";
   backBtn.textContent = card.overlayButtonText || "Back";
@@ -717,7 +736,10 @@ async function bootstrap() {
     return;
   }
 
-  const res = await fetch(`${API_BASE}/public-wheel?slug=${encodeURIComponent(slug)}`);
+  const res = await fetch(
+    `${API_BASE}/public-wheel?slug=${encodeURIComponent(slug)}&cb=${Date.now()}`,
+    { cache: "no-store" },
+  );
   if (!res.ok) {
     if (selectionTitleEl) selectionTitleEl.textContent = "Game not found.";
     return;

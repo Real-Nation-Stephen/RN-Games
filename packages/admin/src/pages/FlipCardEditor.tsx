@@ -135,6 +135,9 @@ export default function FlipCardEditor() {
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  /** Latest game for uploads — avoids stale closures when many card images are saved in a row. */
+  const gameRef = useRef<FlipCardGame | null>(null);
+  const saveQueueRef = useRef(Promise.resolve());
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -145,7 +148,9 @@ export default function FlipCardEditor() {
         navigate(`/wheels/${id}`, { replace: true });
         return;
       }
-      setGame(data as FlipCardGame);
+      const loaded = data as FlipCardGame;
+      gameRef.current = loaded;
+      setGame(loaded);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
@@ -169,18 +174,58 @@ export default function FlipCardEditor() {
     return () => window.clearTimeout(t);
   }, [game, pushPreview]);
 
-  async function save() {
-    if (!game) return;
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
+
+  const saveGame = useCallback(async (payload: FlipCardGame) => {
     setSaving(true);
     setErr(null);
     try {
-      const res = await apiSend("/api/wheels", "PUT", game);
-      if (res?.wheel) setGame(res.wheel as FlipCardGame);
+      const res = await apiSend("/api/wheels", "PUT", payload);
+      if (res?.wheel) {
+        const saved = res.wheel as FlipCardGame;
+        gameRef.current = saved;
+        setGame(saved);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
+  }, []);
+
+  /** Queue PUTs so rapid per-card uploads do not overwrite each other on the server. */
+  const persistGame = useCallback(
+    (next: FlipCardGame) => {
+      gameRef.current = next;
+      setGame(next);
+      saveQueueRef.current = saveQueueRef.current.then(() => saveGame(next)).catch(() => undefined);
+      return saveQueueRef.current;
+    },
+    [saveGame],
+  );
+
+  const patchGame = useCallback(
+    (mutator: (g: FlipCardGame) => FlipCardGame, opts?: { persist?: boolean }) => {
+      const prev = gameRef.current;
+      if (!prev) return Promise.resolve();
+      const next = mutator(prev);
+      if (opts?.persist === false) {
+        gameRef.current = next;
+        setGame(next);
+        return Promise.resolve();
+      }
+      return persistGame(next);
+    },
+    [persistGame],
+  );
+
+  async function save() {
+    const g = gameRef.current;
+    if (!g) return;
+    await saveQueueRef.current;
+    await saveGame(g);
   }
 
   async function deleteGame() {
@@ -319,7 +364,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, faviconUrl: url });
+            void patchGame((g) => ({ ...g, faviconUrl: url }));
           }}
         />
         {game.faviconUrl ? <span className="muted"> ✓</span> : null}
@@ -449,6 +494,17 @@ export default function FlipCardEditor() {
           Show fullscreen button (icon only — same style as mute)
         </label>
 
+        {(() => {
+          const missing = game.cards.slice(0, n).filter((c) => !(c.backImage || "").trim()).length;
+          if (missing === 0) return null;
+          return (
+            <p className="muted" style={{ marginTop: 12, color: "var(--rn-warn, #e8a838)" }}>
+              {missing} card{missing === 1 ? "" : "s"} missing a back image on the server — upload each
+              back below (thumbnails appear when saved). Shared front alone does not fill card backs.
+            </p>
+          );
+        })()}
+
         <label className="field" style={{ marginTop: 16 }}>
           Shared front image (optional — used when a card’s front is empty)
         </label>
@@ -459,7 +515,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, sharedFrontImage: url });
+            void patchGame((g) => ({ ...g, sharedFrontImage: url }));
           }}
         />
         {game.sharedFrontImage ? <span className="muted"> ✓</span> : null}
@@ -474,7 +530,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, sharedBackImage: url });
+            void patchGame((g) => ({ ...g, sharedBackImage: url }));
           }}
         />
         {game.sharedBackImage ? <span className="muted"> ✓</span> : null}
@@ -492,11 +548,20 @@ export default function FlipCardEditor() {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     const { url } = await uploadFile(f);
-                    const cards = [...game.cards];
-                    cards[i] = { ...cards[i], frontImage: url };
-                    setGame({ ...game, cards });
+                    void patchGame((g) => {
+                      const cards = [...g.cards];
+                      cards[i] = { ...cards[i], frontImage: url };
+                      return { ...g, cards };
+                    });
                   }}
                 />
+                {card.frontImage ? (
+                  <img
+                    src={card.frontImage}
+                    alt=""
+                    style={{ display: "block", maxWidth: 120, marginTop: 8, borderRadius: 4 }}
+                  />
+                ) : null}
               </div>
               <div>
                 <label className="field">Back image</label>
@@ -507,24 +572,35 @@ export default function FlipCardEditor() {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     const { url } = await uploadFile(f);
-                    const cards = [...game.cards];
-                    cards[i] = { ...cards[i], backImage: url };
-                    setGame({ ...game, cards });
+                    void patchGame((g) => {
+                      const cards = [...g.cards];
+                      cards[i] = { ...cards[i], backImage: url };
+                      return { ...g, cards };
+                    });
                   }}
                 />
                 {card.backImage ? (
-                  <button
+                  <>
+                    <img
+                      src={card.backImage}
+                      alt=""
+                      style={{ display: "block", maxWidth: 120, marginTop: 8, borderRadius: 4 }}
+                    />
+                    <button
                     type="button"
                     className="btn btn-small"
                     style={{ marginTop: 6 }}
                     onClick={() => {
                       const url = card.backImage;
-                      const cards = game.cards.map((c) => ({ ...c, backImage: url }));
-                      setGame({ ...game, cards });
+                      void patchGame((g) => ({
+                        ...g,
+                        cards: g.cards.map((c) => ({ ...c, backImage: url })),
+                      }));
                     }}
                   >
                     Apply this back to all cards
                   </button>
+                  </>
                 ) : null}
               </div>
             </div>
@@ -533,9 +609,14 @@ export default function FlipCardEditor() {
               type="text"
               value={card.header}
               onChange={(e) => {
-                const cards = [...game.cards];
-                cards[i] = { ...cards[i], header: e.target.value };
-                setGame({ ...game, cards });
+                patchGame(
+                  (g) => {
+                    const cards = [...g.cards];
+                    cards[i] = { ...cards[i], header: e.target.value };
+                    return { ...g, cards };
+                  },
+                  { persist: false },
+                );
               }}
             />
             <label className="field">Body copy</label>
@@ -543,9 +624,14 @@ export default function FlipCardEditor() {
               rows={3}
               value={card.body}
               onChange={(e) => {
-                const cards = [...game.cards];
-                cards[i] = { ...cards[i], body: e.target.value };
-                setGame({ ...game, cards });
+                patchGame(
+                  (g) => {
+                    const cards = [...g.cards];
+                    cards[i] = { ...cards[i], body: e.target.value };
+                    return { ...g, cards };
+                  },
+                  { persist: false },
+                );
               }}
             />
             <label className="field">Overlay button text (detail view)</label>
@@ -553,9 +639,14 @@ export default function FlipCardEditor() {
               type="text"
               value={card.overlayButtonText}
               onChange={(e) => {
-                const cards = [...game.cards];
-                cards[i] = { ...cards[i], overlayButtonText: e.target.value };
-                setGame({ ...game, cards });
+                patchGame(
+                  (g) => {
+                    const cards = [...g.cards];
+                    cards[i] = { ...cards[i], overlayButtonText: e.target.value };
+                    return { ...g, cards };
+                  },
+                  { persist: false },
+                );
               }}
             />
             <label className="field">Sound (optional)</label>
@@ -566,9 +657,11 @@ export default function FlipCardEditor() {
                 const f = e.target.files?.[0];
                 if (!f) return;
                 const { url } = await uploadFile(f);
-                const cards = [...game.cards];
-                cards[i] = { ...cards[i], soundUrl: url };
-                setGame({ ...game, cards });
+                void patchGame((g) => {
+                  const cards = [...g.cards];
+                  cards[i] = { ...cards[i], soundUrl: url };
+                  return { ...g, cards };
+                });
               }}
             />
             {card.soundUrl ? <span className="muted"> ✓</span> : null}
@@ -594,7 +687,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, backgroundImage: url });
+            void patchGame((g) => ({ ...g, backgroundImage: url }));
           }}
         />
         {game.backgroundImage ? <span className="muted"> ✓</span> : null}
@@ -609,7 +702,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, brandLogoUrl: url });
+            void patchGame((g) => ({ ...g, brandLogoUrl: url }));
           }}
         />
         {game.brandLogoUrl ? <span className="muted"> ✓</span> : null}
@@ -624,7 +717,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, sounds: { ...game.sounds, music: url } });
+            void patchGame((g) => ({ ...g, sounds: { ...g.sounds, music: url } }));
           }}
         />
         {game.sounds?.music ? <span className="muted"> ✓</span> : null}
@@ -655,7 +748,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, fonts: { ...game.fonts, heading: url } });
+            void patchGame((g) => ({ ...g, fonts: { ...g.fonts, heading: url } }));
           }}
         />
         <label className="field" style={{ marginTop: 12 }}>
@@ -668,7 +761,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, fonts: { ...game.fonts, body: url } });
+            void patchGame((g) => ({ ...g, fonts: { ...g.fonts, body: url } }));
           }}
         />
         <label className="field" style={{ marginTop: 12 }}>
@@ -681,7 +774,7 @@ export default function FlipCardEditor() {
             const f = e.target.files?.[0];
             if (!f) return;
             const { url } = await uploadFile(f);
-            setGame({ ...game, fonts: { ...game.fonts, button: url } });
+            void patchGame((g) => ({ ...g, fonts: { ...g.fonts, button: url } }));
           }}
         />
 
@@ -761,7 +854,10 @@ export default function FlipCardEditor() {
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Live preview</h3>
-        <p className="muted">Updates from your current settings (save to persist on the server).</p>
+        <p className="muted">
+          Preview updates as you edit. Image uploads save to the server automatically; use Save for copy,
+          layout, and colours.
+        </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <button type="button" className="btn btn-primary" onClick={() => pushPreview()}>
             Refresh preview
@@ -784,7 +880,7 @@ export default function FlipCardEditor() {
             minHeight: 280,
             border: "1px solid var(--rn-border)",
             borderRadius: 8,
-            background: game.backgroundColor || "#9f2527",
+            background: game.backgroundColor || "#ffffff",
             display: "block",
           }}
         />

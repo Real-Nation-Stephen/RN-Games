@@ -4,6 +4,7 @@ import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
 };
 
 /** Strip fields not needed client-side */
