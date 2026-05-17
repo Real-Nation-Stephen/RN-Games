@@ -25,7 +25,7 @@ body.flip-cards-game::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-color: var(--flip-bg-solid, #9f2527);
+  background-color: var(--flip-bg-solid, #ffffff);
   background-image: var(--flip-bg-image, none);
   background-size: cover;
   background-position: center;

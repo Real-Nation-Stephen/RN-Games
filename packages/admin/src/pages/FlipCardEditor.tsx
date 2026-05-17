@@ -42,6 +42,7 @@ type FlipCardGame = {
   maxColumns: number;
   brandLogoCorner: "tl" | "tr" | "bl" | "br";
   sharedFrontImage: string;
+  sharedBackImage: string;
   backgroundImage: string;
   backgroundColor: string;
   brandLogoUrl: string;
@@ -83,8 +84,9 @@ function publicFlipPayload(g: FlipCardGame) {
     maxColumns: maxCol,
     brandLogoCorner: g.brandLogoCorner || "bl",
     sharedFrontImage: (g.sharedFrontImage || "").trim(),
+    sharedBackImage: (g.sharedBackImage || "").trim(),
     backgroundImage: g.backgroundImage || "",
-    backgroundColor: g.backgroundColor || "#9f2527",
+    backgroundColor: g.backgroundColor || "#ffffff",
     brandLogoUrl: g.brandLogoUrl || "",
     sounds: {
       music: g.sounds?.music || null,
@@ -462,6 +464,21 @@ export default function FlipCardEditor() {
         />
         {game.sharedFrontImage ? <span className="muted"> ✓</span> : null}
 
+        <label className="field" style={{ marginTop: 12 }}>
+          Shared back image (optional — used when a card’s back is empty)
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            setGame({ ...game, sharedBackImage: url });
+          }}
+        />
+        {game.sharedBackImage ? <span className="muted"> ✓</span> : null}
+
         {game.cards.slice(0, n).map((card, i) => (
           <div key={i} style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--rn-border, #333)" }}>
             <h4 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Card {i + 1}</h4>
@@ -495,6 +512,20 @@ export default function FlipCardEditor() {
                     setGame({ ...game, cards });
                   }}
                 />
+                {card.backImage ? (
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    style={{ marginTop: 6 }}
+                    onClick={() => {
+                      const url = card.backImage;
+                      const cards = game.cards.map((c) => ({ ...c, backImage: url }));
+                      setGame({ ...game, cards });
+                    }}
+                  >
+                    Apply this back to all cards
+                  </button>
+                ) : null}
               </div>
             </div>
             <label className="field">Header</label>

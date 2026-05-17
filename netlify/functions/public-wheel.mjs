@@ -59,8 +59,9 @@ function toPublicFlipCard(f) {
     maxColumns: maxCol,
     brandLogoCorner: f.brandLogoCorner || "bl",
     sharedFrontImage: (f.sharedFrontImage || "").trim(),
+    sharedBackImage: (f.sharedBackImage || "").trim(),
     backgroundImage: f.backgroundImage || "",
-    backgroundColor: f.backgroundColor || "#9f2527",
+    backgroundColor: f.backgroundColor || "#ffffff",
     brandLogoUrl: f.brandLogoUrl || "",
     sounds: {
       music: f.sounds?.music || null,

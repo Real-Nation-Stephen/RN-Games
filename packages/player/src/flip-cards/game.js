@@ -47,7 +47,33 @@ function resolveFront(cfg, deckIndex) {
 
 function resolveBack(cfg, deckIndex) {
   const c = cfg.cards[deckIndex];
-  return (c?.backImage || "").trim();
+  const shared = (cfg.sharedBackImage || "").trim();
+  return (c?.backImage || "").trim() || shared || "";
+}
+
+function setFavicon(url) {
+  const u = (url || "").trim();
+  const head = document.head;
+  const link =
+    head.querySelector("link[rel='icon']") ||
+    head.querySelector("link[rel='shortcut icon']");
+  if (u) {
+    const el = link || document.createElement("link");
+    el.rel = "icon";
+    el.href = u;
+    head.appendChild(el);
+  } else if (link) link.remove();
+}
+
+/** Avoid `src=""` which browsers treat as the page URL (broken image icon). */
+function setImgSrc(img, url) {
+  if (!img) return;
+  const u = (url || "").trim();
+  if (!u) {
+    img.removeAttribute("src");
+    return;
+  }
+  img.src = u;
 }
 
 const gridSection = document.getElementById("grid-section");
@@ -442,7 +468,7 @@ function applyTheme(cfg) {
   document.documentElement.classList.add("flip-cards-root");
   document.body.classList.add("flip-cards-game");
 
-  const hex = cfg.backgroundColor || "#9f2527";
+  const hex = cfg.backgroundColor || "#ffffff";
   document.documentElement.style.setProperty("--dada-bg", hex);
   document.documentElement.style.setProperty("--flip-bg-solid", hex);
   const bg = (cfg.backgroundImage || "").trim();
@@ -552,7 +578,7 @@ function buildGrid() {
     slot.setAttribute("aria-label", `Open card ${slotIdx + 1}`);
 
     const img = document.createElement("img");
-    img.src = front || "";
+    setImgSrc(img, front);
     img.alt = "";
     img.width = 827;
     img.height = 1417;
@@ -606,8 +632,8 @@ async function openDetail(slotIndex) {
 
   detailFlipInner.style.transform = "";
 
-  detailFrontImg.src = resolveFront(liveConfig, deckIdx);
-  detailBackImg.src = resolveBack(liveConfig, deckIdx);
+  setImgSrc(detailFrontImg, resolveFront(liveConfig, deckIdx));
+  setImgSrc(detailBackImg, resolveBack(liveConfig, deckIdx));
   detailTitle.textContent = card.header || "";
   detailBody.textContent = card.body || "";
   backBtn.textContent = card.overlayButtonText || "Back";
@@ -670,6 +696,7 @@ function setupPreviewMode() {
     const cfg = e.data.config;
     if (!cfg || cfg.gameType !== "flip-cards") return;
     liveConfig = cfg;
+    if (cfg.faviconUrl) setFavicon(cfg.faviconUrl);
     applyTheme(cfg);
     void dealAndRender();
     setupGridFit();
@@ -703,6 +730,7 @@ async function bootstrap() {
   }
 
   liveConfig = data;
+  if (data.faviconUrl) setFavicon(data.faviconUrl);
   applyTheme(data);
   await dealAndRender();
   setupGridFit();
