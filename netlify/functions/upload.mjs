@@ -2,7 +2,9 @@ import { connectLambda } from "@netlify/blobs";
 import { requireAuth } from "./lib/auth.mjs";
 import { saveBinary } from "./lib/files.mjs";
 
-const MAX_BYTES = 12 * 1024 * 1024;
+/** Raw file bytes after decode (stay under Netlify ~6MB request body with base64 + JSON). */
+const MAX_BYTES = 4 * 1024 * 1024;
+const MAX_REQUEST_CHARS = 6 * 1024 * 1024;
 
 const headers = {
   "Content-Type": "application/json",
@@ -22,15 +24,41 @@ export const handler = async (event, context) => {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }), headers };
   }
 
+  if (!event.blobs) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error:
+          "Upload storage is not configured for this deploy (missing Netlify Blobs context). Redeploy the site or contact support.",
+      }),
+    };
+  }
+
+  const rawBody = event.body || "";
+  if (rawBody.length > MAX_REQUEST_CHARS) {
+    return {
+      statusCode: 413,
+      headers,
+      body: JSON.stringify({
+        error: "Upload too large. Use a smaller image (under ~3MB) or re-export as JPEG.",
+      }),
+    };
+  }
+
   try {
-    const body = JSON.parse(event.body || "{}");
+    const body = JSON.parse(rawBody || "{}");
     const { base64, contentType, filename } = body;
     if (!base64 || typeof base64 !== "string") {
       return { statusCode: 400, body: JSON.stringify({ error: "base64 required" }), headers };
     }
     const buf = Buffer.from(base64, "base64");
     if (buf.length > MAX_BYTES) {
-      return { statusCode: 400, body: JSON.stringify({ error: "File too large (max 12MB)" }), headers };
+      return {
+        statusCode: 413,
+        headers,
+        body: JSON.stringify({ error: "File too large (max 4MB). Try a smaller JPEG or PNG." }),
+      };
     }
     const id = await saveBinary(buf, contentType || "application/octet-stream");
     /** Same-origin relative URL so saved wheels keep working across domains / deploy contexts. */

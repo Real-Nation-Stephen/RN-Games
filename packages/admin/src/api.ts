@@ -1,4 +1,5 @@
 import netlifyIdentity from "netlify-identity-widget";
+import { compressImageForUpload } from "./compressImage";
 
 /** Unverified JWT shape accepted by `netlify/functions/lib/auth.mjs` when `VITE_DEV_AUTH=1`. */
 const DEV_BEARER =
@@ -13,6 +14,14 @@ function formatApiErrorBody(text: string): string {
     (t.includes("<head>") && t.includes("</body>"))
   ) {
     return "API error: got an HTML page instead of JSON (usually 404). Start Netlify dev on port 8888 so /api proxies correctly (npx netlify-cli dev).";
+  }
+  if (t.startsWith("{")) {
+    try {
+      const j = JSON.parse(t) as { error?: string };
+      if (j.error) return j.error;
+    } catch {
+      /* fall through */
+    }
   }
   if (t.length > 400) return `${t.slice(0, 400)}…`;
   return t;
@@ -78,15 +87,24 @@ export async function apiSend(path: string, method: string, body?: unknown) {
   return t ? JSON.parse(t) : null;
 }
 
+/** Max JSON body size for Netlify Functions (~6MB); base64 adds ~33% overhead. */
+const MAX_UPLOAD_BASE64_CHARS = 5_200_000;
+
 export async function uploadFile(file: File): Promise<{ id: string; url: string }> {
-  const base64 = await fileToBase64(file);
+  const prepared = file.type.startsWith("image/") ? await compressImageForUpload(file) : file;
+  const base64 = await fileToBase64(prepared);
+  if (base64.length > MAX_UPLOAD_BASE64_CHARS) {
+    throw new Error(
+      `File is too large to upload (${Math.round(prepared.size / 1024 / 1024)}MB). Use an image under ~3MB.`,
+    );
+  }
   const res = await fetch("/api/upload", {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({
       base64,
       contentType: file.type || "application/octet-stream",
-      filename: file.name,
+      filename: prepared.name,
     }),
   });
   if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));

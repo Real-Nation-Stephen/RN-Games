@@ -372,7 +372,9 @@ export default function FlipCardEditor() {
         <Link to="/">← Studio</Link>
       </p>
       <h2 style={{ marginTop: 8 }}>Edit flip cards</h2>
-      {err && <p className="muted">{err}</p>}
+      {err && (
+        <p style={{ color: "var(--rn-warn, #e8a838)", marginBottom: 12, maxWidth: "52rem" }}>{err}</p>
+      )}
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Game details</h3>
@@ -623,16 +625,16 @@ export default function FlipCardEditor() {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     try {
+                      setErr(null);
                       const { url } = await uploadFile(f);
                       void patchGame((g) => {
                         const cards = [...g.cards];
                         cards[i] = { ...cards[i], rearImage: url, backImage: url };
                         return { ...g, cards };
                       });
+                      e.target.value = "";
                     } catch (uploadErr) {
                       setErr(uploadErr instanceof Error ? uploadErr.message : "Back image upload failed");
-                    } finally {
-                      e.target.value = "";
                     }
                   }}
                 />

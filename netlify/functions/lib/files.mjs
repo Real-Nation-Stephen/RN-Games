@@ -9,8 +9,10 @@ import { blobStore } from "./store.mjs";
 export async function saveBinary(buffer, contentType) {
   const id = randomUUID();
   const st = await blobStore();
-  const u8 = buffer instanceof Buffer ? new Uint8Array(buffer) : buffer;
-  await st.set(`file:${id}`, u8);
+  const bytes = buffer instanceof Buffer ? buffer : Buffer.from(buffer);
+  /** @netlify/blobs expects string | ArrayBuffer | Blob — not Uint8Array alone. */
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  await st.set(`file:${id}`, arrayBuffer);
   await st.setJSON(`filemeta:${id}`, {
     contentType: contentType || "application/octet-stream",
   });
