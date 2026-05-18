@@ -126,7 +126,7 @@ async function startCamera() {
     video.srcObject = state.stream;
     await video.play();
   } catch {
-    setErr("Camera access denied or unavailable. Use “Upload photo” instead.");
+    setErr("Camera access denied or unavailable. Please allow camera access to take a photo.");
   }
 }
 
@@ -346,17 +346,6 @@ async function bootstrap() {
     }
     setErr("");
     openPhotoEditor(dataUrl, cfg, photoEditor);
-  });
-
-  $("pin-upload").addEventListener("change", (e) => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      setErr("");
-      openPhotoEditor(String(r.result), cfg, photoEditor);
-    };
-    r.readAsDataURL(f);
   });
 
   $("pin-editor-back").addEventListener("click", () => photoEditor.back());

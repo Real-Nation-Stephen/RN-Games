@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
 
@@ -12,6 +14,7 @@ type PinboardGame = {
   updatedAt: string;
   reportingEnabled: boolean;
   faviconUrl?: string;
+  showPoweredBy?: boolean;
   permissions: {
     enabled: boolean;
     headline: string;
@@ -29,16 +32,31 @@ type PinboardGame = {
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
-function boardUrl(slug: string) {
+function boardPublicUrl(slug: string) {
   return `${siteUrl}/pinboard/${encodeURIComponent(slug)}`;
 }
 
-function submitUrl(slug: string) {
+function submitPublicUrl(slug: string) {
   return `${siteUrl}/pinboard/${encodeURIComponent(slug)}/submit`;
 }
 
-function moderateUrl(slug: string) {
+function moderatePublicUrl(slug: string) {
   return `${siteUrl}/pinboard/${encodeURIComponent(slug)}/moderate`;
+}
+
+function publicPayload(g: PinboardGame) {
+  return {
+    gameType: "pinboard" as const,
+    id: g.id,
+    title: g.title,
+    slug: g.slug,
+    faviconUrl: g.faviconUrl || "",
+    permissions: g.permissions,
+    board: g.board,
+    mobile: g.mobile,
+    moderator: g.moderator,
+    stickies: g.stickies,
+  };
 }
 
 export default function PinboardEditor() {
@@ -54,14 +72,14 @@ export default function PinboardEditor() {
     setErr(null);
     try {
       const data = await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`);
-      if (data.gameType !== "pinboard") {
-        if (data.gameType === "flip-cards") navigate(`/flip-cards/${id}`, { replace: true });
-        else if (data.gameType === "scratcher") navigate(`/scratchers/${id}`, { replace: true });
-        else if (data.gameType === "quiz") navigate(`/quizzes/${id}`, { replace: true });
-        else navigate(`/wheels/${id}`, { replace: true });
+      if (data.gameType === "pinboard") {
+        setGame(data as PinboardGame);
         return;
       }
-      setGame(data as PinboardGame);
+      if (data.gameType === "flip-cards") navigate(`/flip-cards/${id}`, { replace: true });
+      else if (data.gameType === "scratcher") navigate(`/scratchers/${id}`, { replace: true });
+      else if (data.gameType === "quiz") navigate(`/quizzes/${id}`, { replace: true });
+      else navigate(`/wheels/${id}`, { replace: true });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
@@ -75,7 +93,21 @@ export default function PinboardEditor() {
     setGame((prev) => (prev ? fn(prev) : prev));
   };
 
-  const save = async () => {
+  const pushPreview = useCallback(() => {
+    if (!game || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: "rngames-pinboard-config", config: publicPayload(game) },
+      window.location.origin,
+    );
+  }, [game]);
+
+  useEffect(() => {
+    if (!game) return;
+    const t = window.setTimeout(() => pushPreview(), 80);
+    return () => window.clearTimeout(t);
+  }, [game, pushPreview]);
+
+  async function save() {
     if (!game) return;
     setSaving(true);
     setErr(null);
@@ -87,18 +119,66 @@ export default function PinboardEditor() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const upload = async (file: File, onUrl: (url: string) => void) => {
-    const url = await uploadFile(file, game?.slug || "pinboard");
-    onUrl(url);
-    await save();
-  };
-
-  if (!game) {
-    return <p className="muted">{err || "Loading…"}</p>;
   }
 
+  async function deleteGame() {
+    if (!game) return;
+    const ok = window.confirm(
+      "Delete this game and its public URLs?\n\nThis permanently removes the pin board and cannot be undone.\n\nClick OK to delete, or Cancel to keep it.",
+    );
+    if (!ok) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiDelete(`/api/wheels?id=${encodeURIComponent(game.id)}`);
+      navigate("/");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveWithThumbnail() {
+    if (!game) return;
+    await save();
+    pushPreview();
+    await new Promise((r) => setTimeout(r, 400));
+    const iframe = iframeRef.current;
+    const app = iframe?.contentDocument?.getElementById("app");
+    if (!app) return;
+    try {
+      const canvas = await html2canvas(app, { scale: 0.4, useCORS: true, allowTaint: false, logging: false });
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
+      if (!blob) return;
+      const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
+      const { url } = await uploadFile(file);
+      const res = await apiSend("/api/wheels", "PUT", { ...game, thumbnailUrl: url });
+      if (res?.wheel) setGame(res.wheel as PinboardGame);
+    } catch {
+      /* optional */
+    }
+  }
+
+  async function downloadPdf() {
+    const iframe = iframeRef.current;
+    const app = iframe?.contentDocument?.getElementById("app");
+    if (!app || !game) return;
+    pushPreview();
+    await new Promise((r) => setTimeout(r, 150));
+    const canvas = await html2canvas(app, { scale: 2, useCORS: true, allowTaint: false, logging: false });
+    const img = canvas.toDataURL("image/jpeg", 0.95);
+    const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });
+    pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height);
+    pdf.save(`${game.slug || "pinboard"}-preview.pdf`);
+  }
+
+  if (!game) {
+    return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
+  }
+
+  const boardFontUploads = (game.board as { fontUploads?: Record<string, { url: string; family: string }> })
+    .fontUploads;
   const b = game.board as {
     header: string;
     subhead: string;
@@ -110,6 +190,7 @@ export default function PinboardEditor() {
     brandLogoUrl: string;
     brandLogoCorner: string;
     polaroidFrames: boolean;
+    fontUploads?: Record<string, { url: string; family: string }>;
   };
   const m = game.mobile as Record<string, unknown> & {
     headline: string;
@@ -122,9 +203,6 @@ export default function PinboardEditor() {
     buttonTextHex: string;
     photoPublishMode: string;
     uniformFrameId: string;
-    photoFrames: { id: string; label: string; imageUrl: string }[];
-    photoStickers: { id: string; label: string; imageUrl: string }[];
-    stickyAssets: { id: string; label: string; imageUrl: string }[];
   };
   const mod = game.moderator as {
     headline: string;
@@ -138,51 +216,75 @@ export default function PinboardEditor() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Link to="/">← All games</Link>
+      <p>
+        <Link to="/">← Studio</Link>
       </p>
-      {err && <p style={{ color: "var(--rn-warn, #e8a838)" }}>{err}</p>}
+      <h2 style={{ marginTop: 8 }}>Edit pin board</h2>
+      {err && <p className="muted">{err}</p>}
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Game details</h2>
-        <label className="field">Title</label>
-        <input value={game.title} onChange={(e) => patch((g) => ({ ...g, title: e.target.value }))} />
-        <label className="field">Client</label>
-        <input value={game.clientName} onChange={(e) => patch((g) => ({ ...g, clientName: e.target.value }))} />
-        <label className="field">Slug</label>
-        <input value={game.slug} onChange={(e) => patch((g) => ({ ...g, slug: e.target.value }))} />
-        <label className="field">Favicon URL</label>
-        <input value={game.faviconUrl || ""} onChange={(e) => patch((g) => ({ ...g, faviconUrl: e.target.value }))} />
-        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => void apiDelete(`/api/wheels?id=${game.id}`).then(() => navigate("/"))}
-          >
-            Delete game
-          </button>
+      <div className="card">
+        <div className="grid2">
+          <div>
+            <label className="field">Title</label>
+            <input type="text" value={game.title} onChange={(e) => patch((g) => ({ ...g, title: e.target.value }))} />
+          </div>
+          <div>
+            <label className="field">Client</label>
+            <input
+              type="text"
+              value={game.clientName}
+              onChange={(e) => patch((g) => ({ ...g, clientName: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="field">Sub-URL (slug)</label>
+            <input
+              type="text"
+              value={game.slug}
+              onChange={(e) => patch((g) => ({ ...g, slug: e.target.value.trim().toLowerCase() }))}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Public URLs</h2>
-        <p className="muted" style={{ fontSize: "0.9rem" }}>
-          Board: <a href={boardUrl(game.slug)} target="_blank" rel="noreferrer">{boardUrl(game.slug)}</a>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={game.reportingEnabled}
+            onChange={(e) => patch((g) => ({ ...g, reportingEnabled: e.target.checked }))}
+          />
+          Enable reporting
+        </label>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Live board: <code>{boardPublicUrl(game.slug)}</code>
           <br />
-          Submit (QR):{" "}
-          <a href={submitUrl(game.slug)} target="_blank" rel="noreferrer">{submitUrl(game.slug)}</a>
+          Guest submit (QR): <code>{submitPublicUrl(game.slug)}</code>
           <br />
-          Moderator:{" "}
-          <a href={moderateUrl(game.slug)} target="_blank" rel="noreferrer">{moderateUrl(game.slug)}</a>
+          Moderator: <code>{moderatePublicUrl(game.slug)}</code>
+          {game.reportingEnabled && (
+            <>
+              <br />
+              Report: <code>{`${siteUrl}/${game.slug}_Report`}</code>
+            </>
+          )}
         </p>
+        <label className="field" style={{ marginTop: 12 }}>
+          Tab icon
+        </label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            patch((g) => ({ ...g, faviconUrl: url }));
+          }}
+        />
+        {game.faviconUrl ? <span className="muted"> ✓</span> : null}
       </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Permissions (optional)</h2>
-        <label className="field" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Permissions (optional)</h3>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
             type="checkbox"
             checked={game.permissions.enabled}
@@ -194,7 +296,9 @@ export default function PinboardEditor() {
         </label>
         {game.permissions.enabled && (
           <>
-            <label className="field">Headline</label>
+            <label className="field" style={{ marginTop: 12 }}>
+              Headline
+            </label>
             <input
               value={game.permissions.headline}
               onChange={(e) =>
@@ -231,9 +335,14 @@ export default function PinboardEditor() {
                 patch((g) => ({ ...g, permissions: { ...g.permissions, acceptButtonLabel: e.target.value } }))
               }
             />
-            <p className="muted" style={{ fontSize: "0.85rem" }}>Consent checkboxes</p>
+            <p className="muted" style={{ fontSize: "0.85rem", marginTop: 12 }}>
+              Consent checkboxes
+            </p>
             {game.permissions.items.map((item, i) => (
-              <div key={item.id} style={{ marginBottom: 10, padding: 10, background: "rgba(0,0,0,0.04)", borderRadius: 8 }}>
+              <div
+                key={item.id}
+                style={{ marginBottom: 10, padding: 10, border: "1px solid var(--rn-border)", borderRadius: 8 }}
+              >
                 <input
                   value={item.label}
                   onChange={(e) => {
@@ -243,7 +352,7 @@ export default function PinboardEditor() {
                   }}
                   style={{ width: "100%", marginBottom: 6 }}
                 />
-                <label style={{ fontSize: "0.85rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem" }}>
                   <input
                     type="checkbox"
                     checked={item.required}
@@ -252,7 +361,7 @@ export default function PinboardEditor() {
                       items[i] = { ...items[i], required: e.target.checked };
                       patch((g) => ({ ...g, permissions: { ...g.permissions, items } }));
                     }}
-                  />{" "}
+                  />
                   Required
                 </label>
               </div>
@@ -281,7 +390,7 @@ export default function PinboardEditor() {
 
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Live board</h2>
+          <h3 style={{ marginTop: 0 }}>Live board</h3>
           <label className="field">Header</label>
           <input value={b.header || ""} onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, header: e.target.value } }))} />
           <label className="field">Subhead</label>
@@ -289,38 +398,125 @@ export default function PinboardEditor() {
           <HexField label="Header hex" value={b.headerHex || "#ffffff"} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, headerHex: v } }))} />
           <HexField label="Subhead hex" value={b.subheadHex || "#dce8e4"} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, subheadHex: v } }))} />
           <HexField label="Background hex" value={b.backgroundHex || "#3d5a4c"} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, backgroundHex: v } }))} />
-          <label className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
             <input
               type="checkbox"
               checked={!!b.useBackgroundImage}
               onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, useBackgroundImage: e.target.checked } }))}
-            />{" "}
+            />
             Use background image
           </label>
-          <label className="field">Background image URL</label>
+          <label className="field" style={{ marginTop: 12 }}>
+            Background image
+          </label>
           <input
-            value={b.backgroundImage || ""}
-            onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, backgroundImage: e.target.value } }))}
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((g) => ({
+                ...g,
+                board: { ...g.board, backgroundImage: url, useBackgroundImage: true },
+              }));
+            }}
           />
-          <label className="field">Brand logo URL</label>
+          {b.backgroundImage ? <span className="muted"> ✓</span> : null}
+
+          <label className="field" style={{ marginTop: 12 }}>
+            Brand logo
+          </label>
           <input
-            value={b.brandLogoUrl || ""}
-            onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, brandLogoUrl: e.target.value } }))}
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((g) => ({ ...g, board: { ...g.board, brandLogoUrl: url } }));
+            }}
           />
-          <label className="field">
+          {b.brandLogoUrl ? (
+            <span className="muted">
+              {" "}
+              ✓{" "}
+              <img
+                src={b.brandLogoUrl}
+                alt=""
+                width={48}
+                height={48}
+                style={{ borderRadius: 8, verticalAlign: "middle", marginLeft: 8 }}
+              />
+            </span>
+          ) : null}
+
+          <label className="field" style={{ marginTop: 12 }}>
+            Header font (woff2 / ttf)
+          </label>
+          <input
+            type="file"
+            accept=".woff2,.woff,.ttf,font/woff2,font/woff,font/ttf"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((g) => ({
+                ...g,
+                board: {
+                  ...g.board,
+                  fontUploads: {
+                    ...(g.board as { fontUploads?: Record<string, { url: string; family: string }> }).fontUploads,
+                    heading: { url, family: "PinHeading" },
+                  },
+                },
+              }));
+            }}
+          />
+          {boardFontUploads?.heading?.url ? <span className="muted"> ✓</span> : null}
+
+          <label className="field" style={{ marginTop: 12 }}>
+            Subheader font (woff2 / ttf)
+          </label>
+          <input
+            type="file"
+            accept=".woff2,.woff,.ttf,font/woff2,font/woff,font/ttf"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((g) => ({
+                ...g,
+                board: {
+                  ...g.board,
+                  fontUploads: {
+                    ...(g.board as { fontUploads?: Record<string, { url: string; family: string }> }).fontUploads,
+                    subheading: { url, family: "PinSubhead" },
+                  },
+                },
+              }));
+            }}
+          />
+          {boardFontUploads?.subheading?.url ? <span className="muted"> ✓</span> : null}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
             <input
               type="checkbox"
               checked={b.polaroidFrames !== false}
               onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, polaroidFrames: e.target.checked } }))}
-            />{" "}
+            />
             Polaroid frames (uniform mode)
           </label>
         </div>
 
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Mobile submit</h2>
+          <h3 style={{ marginTop: 0 }}>Mobile submit</h3>
           <label className="field">Headline</label>
           <input value={m.headline || ""} onChange={(e) => patch((g) => ({ ...g, mobile: { ...g.mobile, headline: e.target.value } }))} />
+          <label className="field">Subheadline</label>
+          <input
+            value={m.subheadline || ""}
+            onChange={(e) => patch((g) => ({ ...g, mobile: { ...g.mobile, subheadline: e.target.value } }))}
+          />
           <HexField label="Background hex" value={String(m.backgroundHex || "#1a2332")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, backgroundHex: v } }))} />
           <HexField label="Text hex" value={String(m.textHex || "#f5f5f5")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, textHex: v } }))} />
           <HexField label="Button hex" value={String(m.buttonHex || "#d93ddb")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, buttonHex: v } }))} />
@@ -336,7 +532,7 @@ export default function PinboardEditor() {
         </div>
 
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Moderator</h2>
+          <h3 style={{ marginTop: 0 }}>Moderator</h3>
           <label className="field">Headline</label>
           <input value={mod.headline || ""} onChange={(e) => patch((g) => ({ ...g, moderator: { ...g.moderator, headline: e.target.value } }))} />
           <HexField label="Background hex" value={mod.backgroundHex || "#121820"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, backgroundHex: v } }))} />
@@ -344,14 +540,46 @@ export default function PinboardEditor() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Preview — live board</h2>
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Live preview</h3>
+        <p className="muted">Updates the iframe with your current settings (not saved to server until you Save).</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <button type="button" className="btn btn-primary" onClick={() => pushPreview()}>
+            Refresh preview
+          </button>
+          <button type="button" className="btn" onClick={() => void downloadPdf()}>
+            Download PDF
+          </button>
+          <button type="button" className="btn" onClick={() => window.open(boardPublicUrl(game.slug), "_blank")}>
+            Open public board
+          </button>
+        </div>
         <iframe
           ref={iframeRef}
           title="Pin board preview"
-          src={`${siteUrl}/play/pinboard-board.html?slug=${encodeURIComponent(game.slug)}`}
-          style={{ width: "100%", height: "min(70vh, 640px)", border: "1px solid #ccc", borderRadius: 8 }}
+          src={`/play/pinboard-board.html?preview=1&slug=${encodeURIComponent(game.slug)}`}
+          onLoad={() => pushPreview()}
+          style={{
+            width: "100%",
+            height: "min(420px, 52vh)",
+            border: "1px solid var(--rn-border)",
+            borderRadius: 8,
+            background: b.backgroundHex || "#3d5a4c",
+            display: "block",
+          }}
         />
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="btn" disabled={saving} onClick={() => void saveWithThumbnail()}>
+          Save + thumbnail
+        </button>
+        <button type="button" className="btn btn-danger" disabled={saving} onClick={() => void deleteGame()}>
+          Delete game
+        </button>
       </div>
     </div>
   );

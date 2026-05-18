@@ -54,13 +54,11 @@ export function applyBoardChrome(cfg: PinboardConfig) {
   root.style.setProperty("--pin-subhead-color", subheadHex);
   root.style.setProperty(
     "--pin-font-heading",
-    b.fontUploads?.heading?.family || b.fonts?.heading ? "PinHeading, system-ui, sans-serif" : "system-ui, sans-serif",
+    b.fontUploads?.heading?.url ? "PinHeading, system-ui, sans-serif" : "system-ui, sans-serif",
   );
   root.style.setProperty(
     "--pin-font-subhead",
-    b.fontUploads?.subheading?.family || b.fonts?.subheading
-      ? "PinSubhead, system-ui, sans-serif"
-      : "system-ui, sans-serif",
+    b.fontUploads?.subheading?.url ? "PinSubhead, system-ui, sans-serif" : "system-ui, sans-serif",
   );
   document.body.dataset.brandCorner = b.brandLogoCorner || "bl";
 }

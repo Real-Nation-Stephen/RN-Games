@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import type { PinboardConfig, PinboardSubmission, PinboardState } from "./types";
 import { loadConfig, getEventIdFromQuery, subscribeState, saveState, loadState } from "./store";
-import { isDemoSlug } from "./api";
+import { isDemoSlug, publicToConfig } from "./api";
 import { applyBoardChrome } from "./theme";
 import { computePlacement, type PinZone } from "./placement";
 import { resolveBoardPhoto } from "./board-photo";
@@ -175,22 +175,35 @@ function applyFavicon(url?: string) {
   link.href = url;
 }
 
-async function bootstrap() {
-  document.body.classList.add("pinboard-board");
-  const eventId = getEventIdFromQuery();
-  const cfg = await loadConfig(eventId);
-  document.title = cfg.title || document.title;
-  applyFavicon(cfg.faviconUrl);
-  applyChrome(cfg);
-  await renderQr(eventId);
+const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
+let liveCfg: PinboardConfig | null = null;
 
-  subscribeState(eventId, (state) => {
-    const zone = getPinZone();
-    if (ensurePlacements(state, zone) && isDemoSlug(eventId)) saveState(state);
-    syncBoard(cfg, state);
-  });
+function applyPreviewConfig(data: Record<string, unknown>) {
+  const slug = String(data.slug || getEventIdFromQuery());
+  liveCfg = publicToConfig(data, slug);
+  document.title = liveCfg.title || document.title;
+  applyFavicon(liveCfg.faviconUrl);
+  applyChrome(liveCfg);
+  void renderQr(slug);
+  void loadState(slug)
+    .then((state) => syncBoard(liveCfg!, state))
+    .catch(() =>
+      syncBoard(liveCfg!, { version: 1, eventId: slug, submissions: [], boardClearedAt: null }),
+    );
+}
 
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  const d = e.data;
+  if (d?.type === "rngames-pinboard-config" && d.config) {
+    applyPreviewConfig(d.config as Record<string, unknown>);
+  }
+});
+
+function bindResize(eventId: string, getCfg: () => PinboardConfig | null) {
   window.addEventListener("resize", () => {
+    const cfg = getCfg();
+    if (!cfg) return;
     void loadState(eventId).then((state) => {
       for (const sub of state.submissions) {
         if (sub.status === "approved" && sub.placement) {
@@ -200,6 +213,36 @@ async function bootstrap() {
       }
     });
   });
+}
+
+function bindStateSync(eventId: string, getCfg: () => PinboardConfig) {
+  subscribeState(eventId, (state) => {
+    const cfg = getCfg();
+    const zone = getPinZone();
+    if (ensurePlacements(state, zone) && isDemoSlug(eventId)) saveState(state);
+    syncBoard(cfg, state);
+  });
+}
+
+async function bootstrap() {
+  document.body.classList.add("pinboard-board");
+  const eventId = getEventIdFromQuery();
+
+  if (isPreview) {
+    bindStateSync(eventId, () => liveCfg ?? publicToConfig({ slug: eventId }, eventId));
+    bindResize(eventId, () => liveCfg);
+    return;
+  }
+
+  const cfg = await loadConfig(eventId);
+  liveCfg = cfg;
+  document.title = cfg.title || document.title;
+  applyFavicon(cfg.faviconUrl);
+  applyChrome(cfg);
+  await renderQr(eventId);
+
+  bindStateSync(eventId, () => cfg);
+  bindResize(eventId, () => cfg);
 }
 
 void bootstrap();
