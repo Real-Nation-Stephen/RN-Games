@@ -76,6 +76,11 @@
   to = "/.netlify/functions/report-data"
   status = 200
 
+[[redirects]]
+  from = "/api/pinboard-state"
+  to = "/.netlify/functions/pinboard-state"
+  status = 200
+
 [[headers]]
   for = "/api/quiz-session"
   [headers.values]

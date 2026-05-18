@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { connectLambda } from "@netlify/blobs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
+import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -8,6 +9,7 @@ import {
   getWheelJson,
   setWheelJson,
   deleteWheelBlob,
+  deletePinboardStateBlob,
 } from "./lib/blobs.mjs";
 import { validateSlug } from "./lib/validate.mjs";
 import { ensureWheelReportingTab, sanitizeSheetTabName } from "./lib/sheets.mjs";
@@ -297,13 +299,16 @@ export const handler = async (event, context) => {
       const isScratcher = body.gameType === "scratcher";
       const isFlipCards = body.gameType === "flip-cards";
       const isQuiz = body.gameType === "quiz";
+      const isPinboard = body.gameType === "pinboard";
       const wheel = isScratcher
         ? emptyScratcherRecord(id, slugCheck.slug)
         : isFlipCards
           ? emptyFlipCardRecord(id, slugCheck.slug)
           : isQuiz
             ? emptyQuizRecord(id, slugCheck.slug)
-          : emptyWheelRecord(id, slugCheck.slug);
+            : isPinboard
+              ? emptyPinboardRecord(id, slugCheck.slug)
+              : emptyWheelRecord(id, slugCheck.slug);
       wheel.title = body.title || wheel.title;
       wheel.clientName = body.clientName || "";
       await setWheelJson(id, wheel);
@@ -345,9 +350,14 @@ export const handler = async (event, context) => {
         existing.slug = slugCheck.slug;
       }
 
-      const isWheel = existing.gameType !== "scratcher" && existing.gameType !== "flip-cards" && existing.gameType !== "quiz";
       const isFlipCards = existing.gameType === "flip-cards";
       const isQuiz = existing.gameType === "quiz";
+      const isPinboard = existing.gameType === "pinboard";
+      const isWheel =
+        existing.gameType !== "scratcher" &&
+        existing.gameType !== "flip-cards" &&
+        existing.gameType !== "quiz" &&
+        existing.gameType !== "pinboard";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -411,6 +421,24 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         syncFlipCards(existing);
+      } else if (isPinboard) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "permissions",
+          "board",
+          "mobile",
+          "moderator",
+          "stickies",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        normalizePinboardRecord(existing);
       } else if (isWheel) {
         const assign = [
           "title",
@@ -501,6 +529,7 @@ export const handler = async (event, context) => {
         return { statusCode: 400, body: JSON.stringify({ error: "id required" }), headers };
       }
       await deleteWheelBlob(id);
+      await deletePinboardStateBlob(id);
       const list = (await readIndex()).filter((x) => x.id !== id);
       await writeIndex(list);
       return { statusCode: 204, body: "", headers };

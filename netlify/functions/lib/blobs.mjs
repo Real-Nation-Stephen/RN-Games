@@ -29,3 +29,27 @@ export async function deleteWheelBlob(id) {
   const st = await blobStore();
   await st.delete(`wheel:${id}`);
 }
+
+export async function getPinboardStateJson(wheelId) {
+  const st = await blobStore();
+  const raw = await st.get(`pinboard-state:${wheelId}`, { type: "json" });
+  if (!raw) {
+    return { version: 1, wheelId, submissions: [], boardClearedAt: null };
+  }
+  return {
+    version: 1,
+    wheelId,
+    submissions: Array.isArray(raw.submissions) ? raw.submissions : [],
+    boardClearedAt: raw.boardClearedAt ?? null,
+  };
+}
+
+export async function setPinboardStateJson(wheelId, data) {
+  const st = await blobStore();
+  await st.setJSON(`pinboard-state:${wheelId}`, data);
+}
+
+export async function deletePinboardStateBlob(wheelId) {
+  const st = await blobStore();
+  await st.delete(`pinboard-state:${wheelId}`);
+}

@@ -31,6 +31,10 @@ function isFlipCards(w: Item) {
   return w.gameType === "flip-cards";
 }
 
+function isPinboard(w: Item) {
+  return w.gameType === "pinboard";
+}
+
 function GamesTable({
   items,
   editPath,
@@ -222,6 +226,24 @@ export default function Home() {
     }
   }
 
+  async function createPinboard() {
+    const slug = `pinboard-${Date.now().toString(36)}`;
+    try {
+      const res = await apiSend("/api/wheels", "POST", {
+        gameType: "pinboard",
+        slug,
+        title: "New pin board",
+        clientName: "",
+      });
+      await load();
+      if (res?.wheel?.id) {
+        window.location.href = `/admin/pinboards/${res.wheel.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Create failed");
+    }
+  }
+
   async function createQuiz() {
     setErr(null);
     try {
@@ -245,6 +267,7 @@ export default function Home() {
   const scratchers = wheels.filter(isScratcher);
   const quizGames = wheels.filter(isQuiz);
   const flipCardGames = wheels.filter(isFlipCards);
+  const pinboardGames = wheels.filter(isPinboard);
 
   const placeholderZip = "#";
 
@@ -274,6 +297,9 @@ export default function Home() {
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void createQuiz()}>
             New quiz
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createPinboard()}>
+            New pin board
           </button>
         </div>
       </section>
@@ -330,6 +356,27 @@ export default function Home() {
               </div>
             ) : (
               <GamesTable items={flipCardGames} editPath={(w) => `/flip-cards/${w.id}`} copyLabel="Copy public URL" />
+            )}
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <SectionHeader
+              title="Your pin boards"
+              newLabel="New pin board"
+              onNew={createPinboard}
+              resourceHref={placeholderZip}
+              resourceLabel="Download pin board templates (ZIP)"
+            />
+            {pinboardGames.length === 0 ? (
+              <div className="card">
+                <p style={{ margin: 0 }}>No pin boards yet.</p>
+              </div>
+            ) : (
+              <GamesTable
+                items={pinboardGames}
+                editPath={(w) => `/pinboards/${w.id}`}
+                copyLabel="Copy board URL"
+              />
             )}
           </section>
 

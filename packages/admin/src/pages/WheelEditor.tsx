@@ -84,6 +84,10 @@ export default function WheelEditor() {
         navigate(`/flip-cards/${id}`, { replace: true });
         return;
       }
+      if (data.gameType === "pinboard") {
+        navigate(`/pinboards/${id}`, { replace: true });
+        return;
+      }
       setWheel(data);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");

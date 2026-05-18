@@ -17,10 +17,12 @@ export const RESERVED_SLUGS = new Set([
   "scratcher",
   /** Flip card game public bundle */
   "flip-cards",
+  /** Live event pin board */
+  "pinboard",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards";
+export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard";
 
 export type QuizPresentation = "frame16x9" | "responsive";
 export type QuizMotion = "static" | "videoSequences";
@@ -349,6 +351,180 @@ export interface FlipCardRecord {
   fonts: FlipCardFonts;
   shuffle: FlipCardShuffle;
   cards: FlipCardFace[];
+}
+
+export interface PinboardConsentItem {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface PinboardPermissions {
+  enabled: boolean;
+  headline: string;
+  introText: string;
+  gdprUrl: string;
+  gdprLinkLabel: string;
+  items: PinboardConsentItem[];
+  acceptButtonLabel: string;
+}
+
+export interface PinboardStickyAsset {
+  id: string;
+  label: string;
+  imageUrl: string;
+}
+
+export interface PinboardFrameAsset {
+  id: string;
+  label: string;
+  imageUrl: string;
+}
+
+export interface PinboardPhotoStickerAsset {
+  id: string;
+  label: string;
+  imageUrl: string;
+}
+
+export type PinboardPhotoPublishMode = "raw" | "uniform_frame" | "user_choice";
+
+export interface PinboardBrandingSurface {
+  backgroundHex?: string;
+  backgroundImageUrl?: string;
+  useBackgroundImage?: boolean;
+  textHex?: string;
+  buttonHex?: string;
+  buttonTextHex?: string;
+}
+
+export interface PinboardRecord {
+  id: string;
+  gameType: "pinboard";
+  title: string;
+  clientName: string;
+  slug: string;
+  updatedAt: string;
+  reportingEnabled: boolean;
+  reportingLockedAt?: string | null;
+  thumbnailUrl?: string;
+  faviconUrl?: string;
+  reportingSheetTab?: string;
+  showPoweredBy?: boolean;
+  permissions: PinboardPermissions;
+  board: {
+    header: string;
+    subhead: string;
+    headerHex: string;
+    subheadHex: string;
+    useBackgroundImage: boolean;
+    backgroundHex: string;
+    backgroundImage: string;
+    brandLogoUrl: string;
+    brandLogoCorner: "bl" | "br" | "tl" | "tr";
+    polaroidFrames: boolean;
+    fonts: { heading?: string; subheading?: string; body?: string };
+    fontUploads?: Record<string, { url: string; family: string }>;
+  };
+  mobile: PinboardBrandingSurface & {
+    headline: string;
+    subheadline: string;
+    submitLabel: string;
+    thankYouMessage: string;
+    stickyAssets: PinboardStickyAsset[];
+    photoFrames: PinboardFrameAsset[];
+    photoStickers: PinboardPhotoStickerAsset[];
+    photoPublishMode: PinboardPhotoPublishMode;
+    uniformFrameId?: string | null;
+  };
+  moderator: PinboardBrandingSurface & {
+    headline: string;
+    approveLabel: string;
+    rejectLabel: string;
+  };
+  stickies: PinboardStickyAsset[];
+}
+
+export function emptyPinboard(partial: { id: string; slug: string }): PinboardRecord {
+  const sticky = (id: string, label: string, imageUrl: string): PinboardStickyAsset => ({
+    id,
+    label,
+    imageUrl,
+  });
+  const demoSticky = sticky("yellow", "Yellow", "");
+  return {
+    id: partial.id,
+    gameType: "pinboard",
+    title: "Untitled pin board",
+    clientName: "",
+    slug: partial.slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: false,
+    permissions: {
+      enabled: false,
+      headline: "Before you continue",
+      introText: "Please read and accept the following to take part.",
+      gdprUrl: "",
+      gdprLinkLabel: "Privacy policy (GDPR)",
+      items: [
+        {
+          id: "consent-photo",
+          label: "I consent to my photo being displayed on the event pin board after moderation",
+          required: true,
+        },
+      ],
+      acceptButtonLabel: "Accept and continue",
+    },
+    board: {
+      header: "Share your moment",
+      subhead: "Scan the QR code to add a photo or note to the wall",
+      headerHex: "#ffffff",
+      subheadHex: "#dce8e4",
+      useBackgroundImage: false,
+      backgroundHex: "#3d5a4c",
+      backgroundImage: "",
+      brandLogoUrl: "",
+      brandLogoCorner: "bl",
+      polaroidFrames: true,
+      fonts: {},
+      fontUploads: {},
+    },
+    stickies: [demoSticky],
+    mobile: {
+      headline: "Add to the wall",
+      subheadline: "Take a selfie or leave a note for the host to approve",
+      submitLabel: "Submit",
+      thankYouMessage: "Thanks! Your submission is with the event team.",
+      backgroundHex: "#1a2332",
+      useBackgroundImage: false,
+      textHex: "#f5f5f5",
+      buttonHex: "#d93ddb",
+      buttonTextHex: "#ffffff",
+      stickyAssets: [demoSticky],
+      photoPublishMode: "user_choice",
+      uniformFrameId: "polaroid",
+      photoFrames: [
+        { id: "none", label: "No frame", imageUrl: "" },
+        { id: "polaroid", label: "Polaroid", imageUrl: "" },
+      ],
+      photoStickers: [],
+    },
+    moderator: {
+      headline: "Event moderation",
+      approveLabel: "Approve",
+      rejectLabel: "Reject",
+      backgroundHex: "#121820",
+      useBackgroundImage: false,
+      textHex: "#eef2f7",
+      buttonHex: "#2d6a4f",
+      buttonTextHex: "#ffffff",
+    },
+  };
 }
 
 export function emptyFlipCard(partial: { id: string; slug: string }): FlipCardRecord {

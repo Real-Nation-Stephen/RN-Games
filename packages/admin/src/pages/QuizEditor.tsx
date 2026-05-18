@@ -302,6 +302,10 @@ export default function QuizEditor() {
     setErr(null);
     try {
       const data = await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`);
+      if (data.gameType === "pinboard") {
+        navigate(`/pinboards/${id}`, { replace: true });
+        return;
+      }
       if (data.gameType !== "quiz") {
         navigate(`/wheels/${id}`, { replace: true });
         return;

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Event pin board</title>
+    <link rel="stylesheet" href="/src/pinboard/board.css" />
+  </head>
+  <body data-brand-corner="bl">
+    <div id="app">
+      <header class="pinboard-header">
+        <h1 id="pin-header">Share your moment</h1>
+        <p id="pin-subhead">Scan the QR code to add a photo or note</p>
+      </header>
+
+      <div id="pin-zone" class="pinboard-zone">
+        <div id="pin-canvas" class="pinboard-canvas" aria-live="polite"></div>
+        <p id="pin-empty" class="pinboard-empty">Waiting for the first pin…</p>
+      </div>
+
+      <div id="pin-brand" class="pinboard-brand" hidden aria-hidden="true"></div>
+
+      <div class="pinboard-qr" aria-label="Scan to contribute">
+        <img id="pin-qr-img" width="105" height="105" alt="" />
+        <span>Scan to add</span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/pinboard/board.ts"></script>
+  </body>
+</html>

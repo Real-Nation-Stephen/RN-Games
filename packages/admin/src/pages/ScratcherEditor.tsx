@@ -164,6 +164,10 @@ export default function ScratcherEditor() {
     setErr(null);
     try {
       const data = await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`);
+      if (data.gameType === "pinboard") {
+        navigate(`/pinboards/${id}`, { replace: true });
+        return;
+      }
       if (data.gameType !== "scratcher") {
         navigate(`/wheels/${id}`, { replace: true });
         return;

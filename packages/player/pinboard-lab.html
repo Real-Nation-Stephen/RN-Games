@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pin board — config lab</title>
+    <style>
+      :root {
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #1a1a1a;
+        background: #f4f6f8;
+      }
+      body {
+        margin: 0;
+        padding: 24px clamp(16px, 4vw, 40px) 48px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+      }
+      .muted {
+        color: #5a6570;
+        font-size: 0.92rem;
+        margin: 0 0 20px;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .links a {
+        padding: 10px 14px;
+        background: #2d6a4f;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      section {
+        background: #fff;
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      }
+      section h2 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 10px 0 4px;
+        color: #444;
+      }
+      input[type="text"],
+      input:not([type]),
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ccd3da;
+        border-radius: 8px;
+        font: inherit;
+        box-sizing: border-box;
+      }
+      .row-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .row-check input {
+        width: auto;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0 8px;
+      }
+      .toolbar button {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        background: #1a2332;
+        color: #fff;
+      }
+      .toolbar button.secondary {
+        background: #e8ecf0;
+        color: #1a1a1a;
+      }
+      #lab-status {
+        font-size: 0.9rem;
+        color: #2d6a4f;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Event pin board — config lab</h1>
+    <p class="muted">
+      Isolated prototype: config and submissions sync via <code>localStorage</code> per event id. Open board,
+      submit, and moderator in separate tabs/windows with the same <code>?event=</code> query.
+    </p>
+
+    <div class="links">
+      <a id="link-board" href="/play/pinboard-board.html?event=demo" target="_blank" rel="noopener">Live board</a>
+      <a id="link-submit" href="/play/pinboard-submit.html?event=demo" target="_blank" rel="noopener">Mobile submit</a>
+      <a id="link-moderate" href="/play/pinboard-moderate.html?event=demo" target="_blank" rel="noopener">Moderator</a>
+    </div>
+
+    <label for="lab-event">Event id</label>
+    <input id="lab-event" type="text" value="demo" />
+
+    <div class="toolbar">
+      <button type="button" id="lab-load" class="secondary">Load</button>
+      <button type="button" id="lab-save">Save config</button>
+      <button type="button" id="lab-reset" class="secondary">Reset defaults</button>
+    </div>
+    <p id="lab-status"></p>
+
+    <div class="grid" style="margin-top: 20px">
+      <section>
+        <h2>Game details</h2>
+        <label for="lab-title">Title</label>
+        <input id="lab-title" type="text" />
+        <label for="lab-client">Client</label>
+        <input id="lab-client" type="text" />
+        <label for="lab-slug">Slug</label>
+        <input id="lab-slug" type="text" />
+        <label for="lab-favicon">Favicon URL</label>
+        <input id="lab-favicon" type="text" placeholder="https://…" />
+      </section>
+
+      <section>
+        <h2>Live board</h2>
+        <label for="lab-board-header">Header</label>
+        <input id="lab-board-header" type="text" />
+        <label for="lab-board-subhead">Subhead</label>
+        <input id="lab-board-subhead" type="text" />
+        <label for="lab-board-header-color">Header colour</label>
+        <input id="lab-board-header-color" type="text" placeholder="#ffffff" />
+        <label for="lab-board-subhead-color">Subhead colour</label>
+        <input id="lab-board-subhead-color" type="text" placeholder="rgba(255,255,255,0.88)" />
+        <div class="row-check">
+          <input id="lab-board-use-bg-image" type="checkbox" />
+          <label for="lab-board-use-bg-image" style="margin: 0">Use background image</label>
+        </div>
+        <label for="lab-board-bg-color">Background colour</label>
+        <input id="lab-board-bg-color" type="text" />
+        <label for="lab-board-bg-image">Background image URL</label>
+        <input id="lab-board-bg-image" type="text" placeholder="https://…" />
+        <label for="lab-board-logo">Brand logo URL (bottom left)</label>
+        <input id="lab-board-logo" type="text" />
+        <label for="lab-board-logo-corner">Logo corner</label>
+        <select id="lab-board-logo-corner">
+          <option value="bl">Bottom left</option>
+          <option value="br">Bottom right</option>
+          <option value="tl">Top left</option>
+          <option value="tr">Top right</option>
+        </select>
+        <div class="row-check">
+          <input id="lab-board-polaroid" type="checkbox" checked />
+          <label for="lab-board-polaroid" style="margin: 0">Polaroid frames on photos</label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Mobile submit</h2>
+        <label for="lab-mobile-headline">Headline</label>
+        <input id="lab-mobile-headline" type="text" />
+        <label for="lab-mobile-subhead">Subhead</label>
+        <input id="lab-mobile-subhead" type="text" />
+        <label for="lab-mobile-submit">Submit button</label>
+        <input id="lab-mobile-submit" type="text" />
+        <label for="lab-mobile-thanks">Thank you message</label>
+        <input id="lab-mobile-thanks" type="text" />
+        <div class="row-check">
+          <input id="lab-mobile-use-bg-image" type="checkbox" />
+          <label for="lab-mobile-use-bg-image" style="margin: 0">Use background image</label>
+        </div>
+        <label for="lab-mobile-bg">Background colour</label>
+        <input id="lab-mobile-bg" type="text" />
+        <label for="lab-mobile-bg-image">Background image URL</label>
+        <input id="lab-mobile-bg-image" type="text" />
+        <label for="lab-mobile-text">Text colour</label>
+        <input id="lab-mobile-text" type="text" />
+        <label for="lab-mobile-btn">Button colour</label>
+        <input id="lab-mobile-btn" type="text" />
+        <label for="lab-mobile-btn-text">Button text colour</label>
+        <input id="lab-mobile-btn-text" type="text" />
+        <label for="lab-photo-publish-mode">Photo on live board (studio setting)</label>
+        <select id="lab-photo-publish-mode">
+          <option value="user_choice">Guest’s frame &amp; stickers (flattened)</option>
+          <option value="raw">Photo only (no frame)</option>
+          <option value="uniform_frame">Uniform frame for everyone</option>
+        </select>
+        <label for="lab-uniform-frame-id">Uniform frame id (when mode is uniform)</label>
+        <input id="lab-uniform-frame-id" type="text" placeholder="polaroid" />
+        <p class="muted" style="font-size: 0.82rem; margin: 8px 0 0">
+          Demo frames: <code>none</code>, <code>polaroid</code>, <code>gold</code>. Custom frame/sticker assets are configured in studio when integrated.
+        </p>
+      </section>
+
+      <section>
+        <h2>Moderator</h2>
+        <label for="lab-mod-headline">Headline</label>
+        <input id="lab-mod-headline" type="text" />
+        <label for="lab-mod-approve">Approve label</label>
+        <input id="lab-mod-approve" type="text" />
+        <label for="lab-mod-reject">Reject label</label>
+        <input id="lab-mod-reject" type="text" />
+        <label for="lab-mod-bg">Background colour</label>
+        <input id="lab-mod-bg" type="text" />
+        <label for="lab-mod-text">Text colour</label>
+        <input id="lab-mod-text" type="text" />
+        <label for="lab-mod-btn">Button colour</label>
+        <input id="lab-mod-btn" type="text" />
+        <label for="lab-mod-btn-text">Button text colour</label>
+        <input id="lab-mod-btn-text" type="text" />
+      </section>
+    </div>
+
+    <script type="module" src="/src/pinboard/lab.ts"></script>
+  </body>
+</html>

@@ -391,6 +391,10 @@ async function bootstrap() {
     window.location.replace(`/play/flip-cards.html?slug=${encodeURIComponent(wheelSlug)}`);
     return;
   }
+  if (config.gameType === "pinboard") {
+    window.location.replace(`/play/pinboard-board.html?slug=${encodeURIComponent(wheelSlug)}`);
+    return;
+  }
   applyLoadedConfig();
 }
 

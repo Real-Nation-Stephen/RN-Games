@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Event moderation</title>
+    <link rel="stylesheet" href="/src/pinboard/moderate.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="pin-mod-head">
+        <h1 id="pin-mod-title">Event moderation</h1>
+        <button type="button" id="pin-clear-board" class="pin-btn pin-btn--danger">Clear board</button>
+      </div>
+
+      <div class="pin-mod-tabs" role="tablist">
+        <button type="button" data-tab="queue" class="is-active">Queue (<span id="pin-count-queue">0</span>)</button>
+        <button type="button" data-tab="board">On board (<span id="pin-count-board">0</span>)</button>
+      </div>
+
+      <div class="pin-mod-layout">
+        <div id="pin-mod-preview-wrap">
+          <div id="pin-mod-preview" class="pin-mod-preview">
+            <p class="muted">Select a submission</p>
+          </div>
+        </div>
+
+        <aside>
+          <div id="pin-queue-actions" class="pin-mod-actions">
+            <button type="button" id="pin-approve" class="pin-btn">Approve</button>
+            <button type="button" id="pin-reject" class="pin-btn pin-btn--reject">Reject</button>
+          </div>
+          <div id="pin-mod-list" class="pin-mod-list" style="margin-top: 16px"></div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="pin-clear-dialog" class="pin-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="pin-clear-title">
+      <div class="pin-dialog__card">
+        <h2 id="pin-clear-title">Clear the board?</h2>
+        <p>
+          Are you sure you want to permanently clear all images from the board? This action cannot be undone.
+        </p>
+        <div class="pin-dialog__actions">
+          <button type="button" id="pin-clear-cancel" class="pin-btn pin-btn--reject">Cancel</button>
+          <button type="button" id="pin-clear-confirm" class="pin-btn pin-btn--danger">Clear all</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/pinboard/moderate.ts"></script>
+  </body>
+</html>

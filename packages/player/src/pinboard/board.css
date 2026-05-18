@@ -1,0 +1,227 @@
+:root {
+  --pin-board-bg-solid: #3d5a4c;
+  --pin-board-bg-image: none;
+  --pin-header-color: #fff;
+  --pin-subhead-color: rgba(255, 255, 255, 0.88);
+  --pin-font-heading: system-ui, sans-serif;
+  --pin-font-subhead: system-ui, sans-serif;
+  --brand-inset-x: max(28px, env(safe-area-inset-left));
+  --brand-inset-y: max(22px, env(safe-area-inset-bottom));
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body.pinboard-board {
+  color: var(--pin-header-color);
+}
+
+body.pinboard-board::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--pin-board-bg-solid);
+  background-image: var(--pin-board-bg-image, none);
+  background-size: cover;
+  background-position: center;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.pinboard-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  text-align: center;
+  padding: clamp(20px, 4vh, 48px) clamp(120px, 18vw, 280px) clamp(12px, 2vh, 24px);
+  pointer-events: none;
+}
+
+.pinboard-header h1 {
+  margin: 0 0 0.35em;
+  font-family: var(--pin-font-heading);
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--pin-header-color);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.pinboard-header p {
+  margin: 0;
+  font-family: var(--pin-font-subhead);
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  color: var(--pin-subhead-color);
+  max-width: 42ch;
+  margin-inline: auto;
+  line-height: 1.45;
+}
+
+.pinboard-zone {
+  position: absolute;
+  inset: clamp(100px, 16vh, 160px) clamp(24px, 4vw, 48px) clamp(88px, 12vh, 120px);
+  z-index: 1;
+}
+
+.pinboard-canvas {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.pin-item {
+  position: absolute;
+  transform-origin: center center;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
+}
+
+.pin-item--enter {
+  animation: pin-drop 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(var(--rot, 0deg));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(var(--rot, 0deg));
+  }
+}
+
+.pin-item__inner {
+  position: relative;
+  display: block;
+  max-width: 100%;
+}
+
+.pin-item--photo.pin-item--polaroid .pin-item__inner {
+  background: #fafafa;
+  padding: 10px 10px 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pin-item--photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.pin-item__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.pin-item--note img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pinboard-brand {
+  position: absolute;
+  z-index: 30;
+  max-width: min(200px, 28vw);
+  max-height: 72px;
+  pointer-events: none;
+}
+
+.pinboard-brand img {
+  display: block;
+  max-width: 100%;
+  max-height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+body[data-brand-corner="bl"] .pinboard-brand {
+  left: var(--brand-inset-x);
+  bottom: var(--brand-inset-y);
+}
+
+body[data-brand-corner="br"] .pinboard-brand {
+  right: var(--brand-inset-x);
+  bottom: var(--brand-inset-y);
+}
+
+body[data-brand-corner="tl"] .pinboard-brand {
+  left: var(--brand-inset-x);
+  top: max(22px, env(safe-area-inset-top));
+}
+
+body[data-brand-corner="tr"] .pinboard-brand {
+  right: var(--brand-inset-x);
+  top: max(22px, env(safe-area-inset-top));
+}
+
+.pinboard-qr {
+  position: absolute;
+  right: var(--brand-inset-x);
+  bottom: var(--brand-inset-y);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 6px;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.pinboard-qr img {
+  display: block;
+  width: clamp(75px, 9vw, 105px);
+  height: auto;
+}
+
+.pinboard-qr span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #333;
+}
+
+.pinboard-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+.pinboard-zone.has-pins .pinboard-empty,
+.pinboard-empty[hidden] {
+  display: none !important;
+}

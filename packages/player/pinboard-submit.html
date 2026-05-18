@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Add to the wall</title>
+    <link rel="stylesheet" href="/src/pinboard/submit.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="pin-submit-brand">
+        <h1 id="pin-title">Add to the wall</h1>
+        <p id="pin-sub">Take a selfie or leave a note</p>
+      </div>
+
+      <div id="pin-consent" class="pin-consent" hidden>
+        <h2 id="pin-consent-title">Before you continue</h2>
+        <p id="pin-consent-intro"></p>
+        <p id="pin-consent-gdpr-wrap" class="pin-consent-gdpr" hidden>
+          <a id="pin-consent-gdpr-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </p>
+        <div id="pin-consent-items" class="pin-consent-items"></div>
+        <button type="button" id="pin-consent-accept" class="pin-btn" disabled>Accept and continue</button>
+      </div>
+
+      <div id="pin-form">
+        <div class="pin-tabs" role="tablist">
+          <button type="button" data-tab="photo">Photo</button>
+          <button type="button" data-tab="note">Note</button>
+        </div>
+
+        <div id="pin-panel-photo" class="pin-panel">
+          <div class="pin-camera-wrap">
+            <video id="pin-video" playsinline muted autoplay></video>
+          </div>
+          <div class="pin-actions">
+            <button type="button" id="pin-capture" class="pin-btn">Take photo</button>
+            <label class="pin-btn pin-btn--ghost" style="text-align: center; cursor: pointer">
+              Upload photo
+              <input id="pin-upload" type="file" accept="image/*" capture="user" hidden />
+            </label>
+            <p class="pin-hint">After capture you can add frames and stickers, or skip them.</p>
+          </div>
+        </div>
+
+        <div id="pin-panel-note" class="pin-panel">
+          <div id="pin-sticky-picker" class="pin-sticky-picker" aria-label="Sticky colour"></div>
+          <div class="pin-note-modes">
+            <button type="button" data-mode="type" class="is-active">Type</button>
+            <button type="button" data-mode="draw">Draw</button>
+          </div>
+          <div id="pin-type-wrap">
+            <textarea id="pin-note-text" class="pin-type-input" placeholder="Write your note…" maxlength="280"></textarea>
+          </div>
+          <div id="pin-draw-wrap" hidden>
+            <canvas id="pin-draw" class="pin-draw-canvas"></canvas>
+          </div>
+        </div>
+
+        <p id="pin-err" class="pin-err" hidden></p>
+        <button type="button" id="pin-submit" class="pin-btn" style="width: 100%; margin-top: 16px">Submit</button>
+      </div>
+
+      <div id="pin-photo-editor" class="pin-photo-editor" hidden>
+        <h2 id="pin-editor-title" class="pin-editor-title">Style your photo</h2>
+        <div id="pin-editor-stage" class="pin-editor-stage">
+          <div id="pin-editor-photo" class="pin-editor-photo"></div>
+          <div id="pin-editor-frame" class="pin-editor-frame" aria-hidden="true"></div>
+          <div id="pin-editor-stickers" class="pin-editor-stickers"></div>
+        </div>
+        <div class="pin-editor-section">
+          <span class="pin-editor-label">Frame</span>
+          <div id="pin-editor-frames" class="pin-editor-picker"></div>
+        </div>
+        <div class="pin-editor-section">
+          <span class="pin-editor-label">Stickers <span class="pin-editor-optional">(optional)</span></span>
+          <div id="pin-editor-sticker-tray" class="pin-editor-picker pin-editor-picker--stickers"></div>
+          <p class="pin-hint">Tap a sticker, then drag to move. Pinch to resize, twist to rotate.</p>
+        </div>
+        <p id="pin-editor-err" class="pin-err" hidden></p>
+        <div class="pin-editor-actions">
+          <button type="button" id="pin-editor-back" class="pin-btn pin-btn--ghost">Back</button>
+          <button type="button" id="pin-editor-done" class="pin-btn">Submit photo</button>
+        </div>
+      </div>
+
+      <div id="pin-thanks" class="pin-thanks" hidden>
+        <h2>Thank you</h2>
+        <p id="pin-thanks-msg"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/pinboard/submit.ts"></script>
+  </body>
+</html>

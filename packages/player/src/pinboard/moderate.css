@@ -1,0 +1,237 @@
+:root {
+  --pin-text: #eef2f7;
+  --pin-surface-bg: #121820;
+  --pin-surface-bg-image: none;
+  --pin-btn-bg: #2d6a4f;
+  --pin-btn-text: #fff;
+  --pin-danger: #c44536;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--pin-text);
+  background: var(--pin-surface-bg);
+}
+
+body.pinboard-moderate::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--pin-surface-bg);
+  background-image: var(--pin-surface-bg-image, none);
+  background-size: cover;
+}
+
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px clamp(16px, 4vw, 32px) 40px;
+}
+
+.pin-mod-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pin-mod-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.pin-mod-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pin-mod-tabs button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pin-mod-tabs button.is-active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.pin-mod-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .pin-mod-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pin-mod-preview {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  padding: 20px;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-mod-preview img {
+  max-width: 100%;
+  max-height: min(60vh, 480px);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+.pin-mod-preview .muted {
+  opacity: 0.6;
+}
+
+.pin-mod-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pin-btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--pin-btn-bg);
+  color: var(--pin-btn-text);
+}
+
+.pin-btn--reject {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--pin-text);
+}
+
+.pin-btn--danger {
+  background: var(--pin-danger);
+  color: #fff;
+}
+
+.pin-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pin-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.pin-mod-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pin-mod-list button.is-active {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pin-mod-list button img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.pin-mod-list .meta {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.pin-mod-board-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pin-mod-board-item img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.pin-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.pin-dialog[hidden] {
+  display: none;
+}
+
+.pin-dialog__card {
+  max-width: 420px;
+  width: 100%;
+  padding: 24px;
+  border-radius: 14px;
+  background: #1e2836;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.pin-dialog__card h2 {
+  margin: 0 0 0.5em;
+  font-size: 1.2rem;
+}
+
+.pin-dialog__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pin-dialog__actions .pin-btn {
+  flex: 1;
+}

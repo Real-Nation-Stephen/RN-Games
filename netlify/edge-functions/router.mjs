@@ -14,11 +14,28 @@ const RESERVED = new Set([
   /** Scratch ticket prototype / future public route */
   "scratcher",
   "flip-cards",
+  "pinboard",
 ]);
 
 export default async (request, context) => {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // Pin board: /pinboard/:slug, /pinboard/:slug/submit, /pinboard/:slug/moderate
+  if (path === "/pinboard" || path.startsWith("/pinboard/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "pinboard") {
+      const slug = seg[1];
+      const surface = seg[2] || "board";
+      if (surface === "submit") {
+        return fetch(new URL(`/play/pinboard-submit.html?slug=${encodeURIComponent(slug)}`, url));
+      }
+      if (surface === "moderate") {
+        return fetch(new URL(`/play/pinboard-moderate.html?slug=${encodeURIComponent(slug)}`, url));
+      }
+      return fetch(new URL(`/play/pinboard-board.html?slug=${encodeURIComponent(slug)}`, url));
+    }
+  }
 
   // Quiz public routes (host/join/leaderboard) are served from the player bundle under /play/.
   if (path === "/quiz" || path.startsWith("/quiz/")) {
