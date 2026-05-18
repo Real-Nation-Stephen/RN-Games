@@ -307,15 +307,19 @@ async function bootstrap() {
     },
     onDone: (result) => {
       void (async () => {
-        await addSubmission(eventId, {
-          type: "photo",
-          imageDataUrl: result.compositeDataUrl,
-          photoRawDataUrl: result.rawDataUrl,
-          photoFrameId: result.frameId,
-          photoStickers: result.stickers,
-        });
-        photoEditor.close();
-        showThanks(cfg);
+        try {
+          await addSubmission(eventId, {
+            type: "photo",
+            imageDataUrl: result.compositeDataUrl,
+            photoRawDataUrl: result.rawDataUrl,
+            photoFrameId: result.frameId,
+            photoStickers: result.stickers,
+          });
+          photoEditor.close();
+          showThanks(cfg);
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : "Submit failed");
+        }
       })();
     },
   });

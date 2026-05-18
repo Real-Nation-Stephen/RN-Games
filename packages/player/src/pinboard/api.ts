@@ -2,11 +2,20 @@ import type { PinboardConfig, PinboardState, PinboardSubmission } from "./types"
 
 const API = "/api";
 
+/** Slug from ?slug= / ?event= or clean URLs like /pinboard/:slug(/submit|/moderate). */
 export function getGameSlug(): string {
-  const q = new URLSearchParams(window.location.search).get("slug")?.trim();
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get("slug")?.trim();
   if (q) return q;
-  const legacy = new URLSearchParams(window.location.search).get("event")?.trim();
+  const legacy = params.get("event")?.trim();
   if (legacy) return legacy;
+
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts[0] === "pinboard" && parts[1]) {
+    const slug = decodeURIComponent(parts[1]);
+    const surface = parts[2];
+    if (!surface || surface === "submit" || surface === "moderate") return slug;
+  }
   return "";
 }
 
@@ -89,14 +98,15 @@ export function publicToConfig(data: Record<string, unknown>, slug: string): Pin
       acceptButtonLabel: "Accept and continue",
     },
     board: {
-      ...board,
+      ...(board as PinboardConfig["board"]),
       headerColor: String(b.headerHex || b.headerColor || "#ffffff"),
       subheadColor: String(b.subheadHex || b.subheadColor || "#dce8e4"),
       backgroundColor: String(b.backgroundHex || b.backgroundColor || "#3d5a4c"),
       headerHex: String(b.headerHex || b.headerColor || "#ffffff"),
       subheadHex: String(b.subheadHex || b.subheadColor || "#dce8e4"),
       backgroundHex: String(b.backgroundHex || b.backgroundColor || "#3d5a4c"),
-    } as PinboardConfig["board"],
+      fontUploads: (b.fontUploads as PinboardConfig["board"]["fontUploads"]) || undefined,
+    },
     mobile: data.mobile as PinboardConfig["mobile"],
     moderator: data.moderator as PinboardConfig["moderator"],
     stickies: (data.stickies as PinboardConfig["stickies"]) || [],

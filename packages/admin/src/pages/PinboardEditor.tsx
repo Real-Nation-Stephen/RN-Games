@@ -553,6 +553,9 @@ export default function PinboardEditor() {
           <button type="button" className="btn" onClick={() => window.open(boardPublicUrl(game.slug), "_blank")}>
             Open public board
           </button>
+          <button type="button" className="btn" onClick={() => window.open(moderatePublicUrl(game.slug), "_blank")}>
+            Open moderator view
+          </button>
         </div>
         <iframe
           ref={iframeRef}
