@@ -56,6 +56,7 @@ export function emptyPinboardRecord(id, slug) {
       subheadline: "Take a selfie or leave a note for the host to approve",
       submitLabel: "Submit",
       thankYouMessage: "Thanks! Your submission is with the event team.",
+      guestSubmit: { allowPhotos: true, allowTypedNotes: true, allowDrawnNotes: true },
       backgroundHex: "#1a2332",
       useBackgroundImage: false,
       textHex: "#f5f5f5",

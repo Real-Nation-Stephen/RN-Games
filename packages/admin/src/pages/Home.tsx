@@ -35,14 +35,24 @@ function isPinboard(w: Item) {
   return w.gameType === "pinboard";
 }
 
+function editorPath(w: Item) {
+  if (isQuiz(w)) return `/quizzes/${w.id}`;
+  if (isScratcher(w)) return `/scratchers/${w.id}`;
+  if (isFlipCards(w)) return `/flip-cards/${w.id}`;
+  if (isPinboard(w)) return `/pinboards/${w.id}`;
+  return `/wheels/${w.id}`;
+}
+
 function GamesTable({
   items,
   editPath,
   copyLabel = "Copy public URL",
+  onDuplicate,
 }: {
   items: Item[];
   editPath: (w: Item) => string;
   copyLabel?: string;
+  onDuplicate?: (w: Item) => void | Promise<void>;
 }) {
   function copy(text: string) {
     void navigator.clipboard.writeText(text);
@@ -78,24 +88,38 @@ function GamesTable({
             <td>{w.clientName || "—"}</td>
             <td className="muted">{new Date(w.updatedAt).toLocaleString()}</td>
             <td>
-              <button
-                type="button"
-                className="btn"
-                style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                onClick={() => copy(`${siteUrl}/${w.slug}`)}
-              >
-                {copyLabel}
-              </button>
-              {w.reportingEnabled && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <button
                   type="button"
                   className="btn"
-                  style={{ padding: "6px 12px", fontSize: "0.8rem", marginLeft: 8 }}
-                  onClick={() => copy(`${siteUrl}/${w.slug}_Report`)}
+                  style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                  onClick={() => copy(`${siteUrl}/${w.slug}`)}
                 >
-                  Copy report URL
+                  {copyLabel}
                 </button>
-              )}
+                {w.reportingEnabled && (
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                    onClick={() => copy(`${siteUrl}/${w.slug}_Report`)}
+                  >
+                    Copy report URL
+                  </button>
+                )}
+                {onDuplicate ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    title="Duplicate game"
+                    aria-label={`Duplicate ${w.title || "game"}`}
+                    style={{ padding: "6px 10px", fontSize: "0.85rem", lineHeight: 1 }}
+                    onClick={() => void onDuplicate(w)}
+                  >
+                    ⧉
+                  </button>
+                ) : null}
+              </div>
             </td>
           </tr>
         ))}
@@ -263,6 +287,43 @@ export default function Home() {
     }
   }
 
+  async function duplicateGame(w: Item) {
+    setErr(null);
+    try {
+      const full = await apiGet(`/api/wheels?id=${encodeURIComponent(w.id)}`);
+      const baseSlug = String(full.slug || "game")
+        .replace(/-copy\d*$/i, "")
+        .toLowerCase();
+      const baseTitle = String(full.title || "Untitled").replace(/\s*\(copy\)\d*$/i, "").trim();
+      const { id: _id, updatedAt: _u, ...clone } = full as Record<string, unknown>;
+      let n = 0;
+      for (;;) {
+        const suffix = n === 0 ? "-copy" : `-copy${n + 1}`;
+        const titleSuffix = n === 0 ? " (copy)" : ` (copy ${n + 1})`;
+        try {
+          const res = await apiSend("/api/wheels", "POST", {
+            ...clone,
+            gameType: full.gameType || w.gameType,
+            title: `${baseTitle}${titleSuffix}`,
+            slug: `${baseSlug}${suffix}`,
+            clientName: full.clientName || "",
+          });
+          await load();
+          if (res?.wheel?.id) {
+            window.location.href = `/admin${editorPath(res.wheel as Item)}`;
+          }
+          return;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "";
+          if (!msg.toLowerCase().includes("slug") || n > 15) throw e;
+          n += 1;
+        }
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Duplicate failed");
+    }
+  }
+
   const spinningWheels = wheels.filter(isSpinningWheel);
   const scratchers = wheels.filter(isScratcher);
   const quizGames = wheels.filter(isQuiz);
@@ -321,7 +382,12 @@ export default function Home() {
                 <p style={{ margin: 0 }}>No spinning wheels yet.</p>
               </div>
             ) : (
-              <GamesTable items={spinningWheels} editPath={(w) => `/wheels/${w.id}`} copyLabel="Copy public URL" />
+              <GamesTable
+                items={spinningWheels}
+                editPath={(w) => `/wheels/${w.id}`}
+                copyLabel="Copy public URL"
+                onDuplicate={duplicateGame}
+              />
             )}
           </section>
 
@@ -338,7 +404,12 @@ export default function Home() {
                 <p style={{ margin: 0 }}>No scratchers yet.</p>
               </div>
             ) : (
-              <GamesTable items={scratchers} editPath={(w) => `/scratchers/${w.id}`} copyLabel="Copy public URL" />
+              <GamesTable
+                items={scratchers}
+                editPath={(w) => `/scratchers/${w.id}`}
+                copyLabel="Copy public URL"
+                onDuplicate={duplicateGame}
+              />
             )}
           </section>
 
@@ -355,7 +426,12 @@ export default function Home() {
                 <p style={{ margin: 0 }}>No flip card games yet.</p>
               </div>
             ) : (
-              <GamesTable items={flipCardGames} editPath={(w) => `/flip-cards/${w.id}`} copyLabel="Copy public URL" />
+              <GamesTable
+                items={flipCardGames}
+                editPath={(w) => `/flip-cards/${w.id}`}
+                copyLabel="Copy public URL"
+                onDuplicate={duplicateGame}
+              />
             )}
           </section>
 
@@ -376,6 +452,7 @@ export default function Home() {
                 items={pinboardGames}
                 editPath={(w) => `/pinboards/${w.id}`}
                 copyLabel="Copy board URL"
+                onDuplicate={duplicateGame}
               />
             )}
           </section>
@@ -393,7 +470,12 @@ export default function Home() {
                 <p style={{ margin: 0 }}>No quizzes yet.</p>
               </div>
             ) : (
-              <GamesTable items={quizGames} editPath={(w) => `/quizzes/${w.id}`} copyLabel="Copy host URL" />
+              <GamesTable
+                items={quizGames}
+                editPath={(w) => `/quizzes/${w.id}`}
+                copyLabel="Copy host URL"
+                onDuplicate={duplicateGame}
+              />
             )}
           </section>
         </>

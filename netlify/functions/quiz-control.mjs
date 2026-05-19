@@ -76,7 +76,7 @@ export const handler = async (event) => {
       // For play-along, do NOT auto-open questions on navigation.
       // Host explicitly starts the timer (and unlocks answers) via action === "open".
       if (s?.type === "question") {
-        session.phase = "closed";
+        session.phase = "waiting";
         session.openedAt = null;
         session.closesAt = null;
       } else {
@@ -98,7 +98,7 @@ export const handler = async (event) => {
       session.bonus = null;
       const s = seqs[session.currentSequenceIndex];
       if (s?.type === "question") {
-        session.phase = "closed";
+        session.phase = "waiting";
         session.openedAt = null;
         session.closesAt = null;
       } else {

@@ -431,6 +431,11 @@ export interface PinboardRecord {
     subheadline: string;
     submitLabel: string;
     thankYouMessage: string;
+    guestSubmit?: {
+      allowPhotos: boolean;
+      allowTypedNotes: boolean;
+      allowDrawnNotes: boolean;
+    };
     stickyAssets: PinboardStickyAsset[];
     photoFrames: PinboardFrameAsset[];
     photoStickers: PinboardPhotoStickerAsset[];
@@ -503,6 +508,7 @@ export function emptyPinboard(partial: { id: string; slug: string }): PinboardRe
       subheadline: "Take a selfie or leave a note for the host to approve",
       submitLabel: "Submit",
       thankYouMessage: "Thanks! Your submission is with the event team.",
+      guestSubmit: { allowPhotos: true, allowTypedNotes: true, allowDrawnNotes: true },
       backgroundHex: "#1a2332",
       useBackgroundImage: false,
       textHex: "#f5f5f5",

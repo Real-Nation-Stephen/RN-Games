@@ -93,6 +93,7 @@ export const DEFAULT_PINBOARD_CONFIG: PinboardConfig = {
     subheadline: "Take a selfie or leave a note for the host to approve",
     submitLabel: "Submit",
     thankYouMessage: "Thanks! Your submission is with the event team.",
+    guestSubmit: { allowPhotos: true, allowTypedNotes: true, allowDrawnNotes: true },
     backgroundHex: "#1a2332",
     useBackgroundImage: false,
     textHex: "#f5f5f5",
@@ -144,11 +145,21 @@ export function withPinboardDefaults(cfg: PinboardConfig): PinboardConfig {
   }
   const stickies = (cfg.stickies || []).filter((s) => s.imageUrl?.trim());
   const resolvedTopStickies = stickies.length ? stickies : resolvedStickies;
+  const guestSubmit = cfg.mobile.guestSubmit || {
+    allowPhotos: true,
+    allowTypedNotes: true,
+    allowDrawnNotes: true,
+  };
   return {
     ...cfg,
     stickies: resolvedTopStickies,
     mobile: {
       ...cfg.mobile,
+      guestSubmit: {
+        allowPhotos: guestSubmit.allowPhotos !== false,
+        allowTypedNotes: guestSubmit.allowTypedNotes !== false,
+        allowDrawnNotes: guestSubmit.allowDrawnNotes !== false,
+      },
       stickyAssets: resolvedStickies,
       photoFrames,
       photoStickers: resolvedStickers,

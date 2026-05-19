@@ -134,6 +134,12 @@ export interface PinboardConfig {
     subheadline: string;
     submitLabel: string;
     thankYouMessage: string;
+    /** Which guest submission types are enabled (any combination). */
+    guestSubmit?: {
+      allowPhotos: boolean;
+      allowTypedNotes: boolean;
+      allowDrawnNotes: boolean;
+    };
     stickyAssets: PinboardStickyAsset[];
     /** Guest photo editor frames (include id `none` for no frame). */
     photoFrames: PinboardFrameAsset[];

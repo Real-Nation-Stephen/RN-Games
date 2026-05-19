@@ -210,7 +210,7 @@ export type QuizConfig = {
   tracks: QuizTrack[];
 };
 
-export type SessionPhase = "lobby" | "open" | "closed" | "bonus" | "reveal" | "ended";
+export type SessionPhase = "lobby" | "waiting" | "open" | "closed" | "bonus" | "reveal" | "ended";
 
 export type SessionState = {
   revision: number;

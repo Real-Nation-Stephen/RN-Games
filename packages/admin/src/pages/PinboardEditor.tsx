@@ -221,6 +221,12 @@ export default function PinboardEditor() {
     buttonTextHex: string;
     photoPublishMode: string;
     uniformFrameId: string;
+    guestSubmit?: { allowPhotos?: boolean; allowTypedNotes?: boolean; allowDrawnNotes?: boolean };
+  };
+  const guestSubmit = {
+    allowPhotos: m.guestSubmit?.allowPhotos !== false,
+    allowTypedNotes: m.guestSubmit?.allowTypedNotes !== false,
+    allowDrawnNotes: m.guestSubmit?.allowDrawnNotes !== false,
   };
   const mod = game.moderator as {
     headline: string;
@@ -565,6 +571,57 @@ export default function PinboardEditor() {
           <HexField label="Background hex" value={String(m.backgroundHex || "#1a2332")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, backgroundHex: v } }))} />
           <HexField label="Text hex" value={String(m.textHex || "#f5f5f5")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, textHex: v } }))} />
           <HexField label="Button hex" value={String(m.buttonHex || "#d93ddb")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, buttonHex: v } }))} />
+          <p className="muted" style={{ marginTop: 16, marginBottom: 8, fontSize: "0.85rem" }}>
+            Guest submission types
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={guestSubmit.allowPhotos}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  mobile: {
+                    ...g.mobile,
+                    guestSubmit: { ...guestSubmit, allowPhotos: e.target.checked },
+                  },
+                }))
+              }
+            />
+            Allow photos
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={guestSubmit.allowTypedNotes}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  mobile: {
+                    ...g.mobile,
+                    guestSubmit: { ...guestSubmit, allowTypedNotes: e.target.checked },
+                  },
+                }))
+              }
+            />
+            Allow typed notes
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={guestSubmit.allowDrawnNotes}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  mobile: {
+                    ...g.mobile,
+                    guestSubmit: { ...guestSubmit, allowDrawnNotes: e.target.checked },
+                  },
+                }))
+              }
+            />
+            Allow drawn notes
+          </label>
           <label className="field">Photo on board</label>
           <select
             value={String(m.photoPublishMode || "user_choice")}

@@ -317,8 +317,10 @@ async function main() {
       renderParticipants(state.participants);
       updateLobbyUi(state);
 
-      const isQuestion = state.current?.type === "question";
-      const canStart = isQuestion && state.phase !== "open" && !navBusy;
+      const isQuestion =
+        state.current?.type === "question" || (seq && (seq as { type?: string }).type === "question");
+      const phase = state.phase || "waiting";
+      const canStart = isQuestion && (phase === "waiting" || phase === "closed") && !navBusy;
       el.startTimer.disabled = !canStart;
 
       const revealIds = (seq as any)?.type === "reveal" ? ((seq as any).referencesQuestionIds as string[] | undefined) : undefined;

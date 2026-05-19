@@ -309,9 +309,11 @@ async function main() {
       }
       playWait.textContent = canAnswer
         ? mobileCopy.pickAnswerText || "Pick an answer."
-        : state.phase === "closed"
-          ? mobileCopy.answersLockedText || "Time’s up — answers are closed."
-          : mobileCopy.answersLockedText || "Answers are locked. Wait for the next question.";
+        : state.phase === "waiting"
+          ? mobileCopy.waitingForTimerText || "Wait for the host to start the timer."
+          : state.phase === "closed"
+            ? mobileCopy.answersLockedText || "Time’s up — answers are closed."
+            : mobileCopy.answersLockedText || "Answers are locked. Wait for the next question.";
 
       playSubmit.disabled = !canAnswer || !selectedChoiceId;
     };

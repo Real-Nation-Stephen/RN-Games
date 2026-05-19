@@ -13,6 +13,22 @@ const state = {
   stream: null as MediaStream | null,
 };
 
+let activeCfg: PinboardConfig | null = null;
+
+function guestModes(cfg: PinboardConfig) {
+  const g = cfg.mobile.guestSubmit;
+  return {
+    photos: g?.allowPhotos !== false,
+    typed: g?.allowTypedNotes !== false,
+    drawn: g?.allowDrawnNotes !== false,
+  };
+}
+
+function notesEnabled(cfg: PinboardConfig) {
+  const m = guestModes(cfg);
+  return m.typed || m.drawn;
+}
+
 function $(id: string) {
   return document.getElementById(id)!;
 }
@@ -214,7 +230,48 @@ function renderStickyPicker(stickies: PinboardStickyAsset[]) {
   }
 }
 
+function applyGuestModeChrome(cfg: PinboardConfig) {
+  const modes = guestModes(cfg);
+  const notesOn = notesEnabled(cfg);
+  const photoBtn = document.querySelector('.pin-tabs button[data-tab="photo"]') as HTMLButtonElement | null;
+  const noteBtn = document.querySelector('.pin-tabs button[data-tab="note"]') as HTMLButtonElement | null;
+  const tabs = document.querySelector(".pin-tabs") as HTMLElement | null;
+  if (photoBtn) photoBtn.hidden = !modes.photos;
+  if (noteBtn) noteBtn.hidden = !notesOn;
+  if (tabs) tabs.hidden = !modes.photos && !notesOn;
+
+  const noteModesEl = document.querySelector(".pin-note-modes") as HTMLElement | null;
+  if (noteModesEl) {
+    noteModesEl.hidden = !notesOn;
+    const typeBtn = noteModesEl.querySelector('[data-mode="type"]') as HTMLButtonElement | null;
+    const drawBtn = noteModesEl.querySelector('[data-mode="draw"]') as HTMLButtonElement | null;
+    if (typeBtn) typeBtn.hidden = !modes.typed;
+    if (drawBtn) drawBtn.hidden = !modes.drawn;
+  }
+
+  if (modes.typed && !modes.drawn) state.noteMode = "type";
+  else if (modes.drawn && !modes.typed) state.noteMode = "draw";
+
+  $("pin-type-wrap").hidden = state.noteMode !== "type";
+  $("pin-draw-wrap").hidden = state.noteMode !== "draw";
+  document.querySelectorAll(".pin-note-modes button").forEach((b) => {
+    b.classList.toggle("is-active", b.getAttribute("data-mode") === state.noteMode);
+  });
+}
+
+function defaultTab(cfg: PinboardConfig): Tab {
+  const modes = guestModes(cfg);
+  if (modes.photos) return "photo";
+  if (notesEnabled(cfg)) return "note";
+  return "photo";
+}
+
 function setTab(tab: Tab) {
+  const cfg = activeCfg;
+  if (!cfg) return;
+  const modes = guestModes(cfg);
+  if (tab === "photo" && !modes.photos) tab = "note";
+  if (tab === "note" && !notesEnabled(cfg)) tab = "photo";
   state.tab = tab;
   document.querySelectorAll(".pin-tabs button").forEach((b) => {
     b.classList.toggle("is-active", b.getAttribute("data-tab") === tab);
@@ -227,6 +284,19 @@ function setTab(tab: Tab) {
 }
 
 async function submitNote(eventId: string, cfg: PinboardConfig) {
+  const modes = guestModes(cfg);
+  if (!notesEnabled(cfg)) {
+    setErr("Notes are not enabled for this event.");
+    return;
+  }
+  if (state.noteMode === "type" && !modes.typed) {
+    setErr("Typed notes are not enabled for this event.");
+    return;
+  }
+  if (state.noteMode === "draw" && !modes.drawn) {
+    setErr("Drawn notes are not enabled for this event.");
+    return;
+  }
   const sticky =
     cfg.mobile.stickyAssets.find((s) => s.id === state.stickyId) ||
     cfg.stickies.find((s) => s.id === state.stickyId) ||
@@ -273,6 +343,7 @@ async function bootstrap() {
   document.body.classList.add("pinboard-submit");
   const eventId = getEventIdFromQuery();
   const cfg = await loadConfig(eventId);
+  activeCfg = cfg;
   document.title = cfg.title || document.title;
   applyFavicon(cfg.faviconUrl);
   injectFontFaces(cfg);
@@ -324,6 +395,7 @@ async function bootstrap() {
 
   renderStickyPicker(cfg.mobile.stickyAssets);
   setupDrawCanvas();
+  applyGuestModeChrome(cfg);
 
   document.querySelectorAll(".pin-tabs button").forEach((b) => {
     b.addEventListener("click", () => setTab(b.getAttribute("data-tab") as Tab));
@@ -367,7 +439,7 @@ async function bootstrap() {
     }
   });
 
-  setupConsent(cfg, eventId, () => setTab("photo"));
+  setupConsent(cfg, eventId, () => setTab(defaultTab(cfg)));
 }
 
 void bootstrap();
