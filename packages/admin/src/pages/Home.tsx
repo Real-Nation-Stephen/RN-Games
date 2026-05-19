@@ -295,15 +295,13 @@ export default function Home() {
         .replace(/-copy\d*$/i, "")
         .toLowerCase();
       const baseTitle = String(full.title || "Untitled").replace(/\s*\(copy\)\d*$/i, "").trim();
-      const { id: _id, updatedAt: _u, ...clone } = full as Record<string, unknown>;
       let n = 0;
       for (;;) {
         const suffix = n === 0 ? "-copy" : `-copy${n + 1}`;
         const titleSuffix = n === 0 ? " (copy)" : ` (copy ${n + 1})`;
         try {
           const res = await apiSend("/api/wheels", "POST", {
-            ...clone,
-            gameType: full.gameType || w.gameType,
+            sourceId: w.id,
             title: `${baseTitle}${titleSuffix}`,
             slug: `${baseSlug}${suffix}`,
             clientName: full.clientName || "",

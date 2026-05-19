@@ -303,6 +303,26 @@ async function main() {
       el.lobbyHint.textContent = open ? "Players can still join." : "No new players can join this room.";
     };
 
+    /** Treat expired timers as closed on the host before the next poll lands. */
+    const effectivePhase = (state: SessionState): string => {
+      const phase = state.phase || "waiting";
+      if (phase === "open" && typeof state.closesAt === "number" && Date.now() >= state.closesAt) {
+        return "closed";
+      }
+      return phase;
+    };
+
+    const syncStartTimerButton = (state?: SessionState) => {
+      const st = state || ((window as unknown as { __rngamesHostState?: SessionState }).__rngamesHostState);
+      if (!st) return;
+      const seq = seqs[i];
+      const isQuestion =
+        st.current?.type === "question" || (seq && (seq as { type?: string }).type === "question");
+      const phase = effectivePhase(st);
+      const canStart = isQuestion && (phase === "waiting" || phase === "closed") && !navBusy;
+      el.startTimer.disabled = !canStart;
+    };
+
     const applyServerState = (state: SessionState) => {
       // Expose latest state for the lightweight timer tick.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -317,12 +337,10 @@ async function main() {
       renderParticipants(state.participants);
       updateLobbyUi(state);
 
+      syncStartTimerButton(state);
+
       const isQuestion =
         state.current?.type === "question" || (seq && (seq as { type?: string }).type === "question");
-      const phase = state.phase || "waiting";
-      const canStart = isQuestion && (phase === "waiting" || phase === "closed") && !navBusy;
-      el.startTimer.disabled = !canStart;
-
       const revealIds = (seq as any)?.type === "reveal" ? ((seq as any).referencesQuestionIds as string[] | undefined) : undefined;
       const canReveal = playMode === "playAlong" && Array.isArray(revealIds) && revealIds.filter(Boolean).length > 0;
       if (canReveal) el.revealNext.removeAttribute("hidden");
@@ -375,20 +393,29 @@ async function main() {
         /* ignore */
       }
     };
+    let lastExpiredPollAt = 0;
     const tickTimer = () => {
       try {
-        // rev/phase are updated via polling; we only render remaining time here.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const stAny = (window as any).__rngamesHostState as SessionState | undefined;
-        const st = stAny;
+        const st = (window as any).__rngamesHostState as SessionState | undefined;
         if (st?.phase === "open" && typeof st.closesAt === "number") {
           const ms = Math.max(0, st.closesAt - Date.now());
-          const s = Math.ceil(ms / 1000);
-          el.timer.textContent = `⏱ ${s}s`;
-          el.timer.hidden = false;
-          if (s > 0 && s <= 5 && s !== lastBeepSecond) {
-            lastBeepSecond = s;
-            beep(s <= 2 ? 1040 : 880, 75);
+          if (ms <= 0) {
+            el.timer.hidden = true;
+            lastBeepSecond = -1;
+            syncStartTimerButton(st);
+            if (Date.now() - lastExpiredPollAt > 400) {
+              lastExpiredPollAt = Date.now();
+              void pollOnce();
+            }
+          } else {
+            const s = Math.ceil(ms / 1000);
+            el.timer.textContent = `⏱ ${s}s`;
+            el.timer.hidden = false;
+            if (s > 0 && s <= 5 && s !== lastBeepSecond) {
+              lastBeepSecond = s;
+              beep(s <= 2 ? 1040 : 880, 75);
+            }
           }
         } else {
           el.timer.hidden = true;
@@ -499,6 +526,7 @@ async function main() {
           el.prev.disabled = i <= 0;
           el.next.disabled = i >= seqs.length - 1;
         }
+        syncStartTimerButton();
       }
     });
 
@@ -524,6 +552,7 @@ async function main() {
           el.prev.disabled = i <= 0;
           el.next.disabled = i >= seqs.length - 1;
         }
+        syncStartTimerButton();
       }
     });
 

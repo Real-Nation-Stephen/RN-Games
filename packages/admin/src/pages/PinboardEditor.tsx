@@ -6,6 +6,36 @@ import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
 import { PinboardAssetList, type PinboardAssetItem } from "../components/PinboardAssetList";
 
+/** html2canvas cannot see `body::before`; apply board BG on the cloned `#app` (thumbnails/PDF). */
+function getPinboardHtml2CanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  if (!idoc || !idwin) {
+    return { useCORS: true, allowTaint: false, logging: false };
+  }
+  const root = idoc.documentElement;
+  const bgSolid =
+    idwin.getComputedStyle(root).getPropertyValue("--pin-board-bg-solid").trim() || "#3d5a4c";
+  const bgImage = idwin.getComputedStyle(root).getPropertyValue("--pin-board-bg-image").trim();
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid,
+    onclone: (doc: Document) => {
+      const app = doc.getElementById("app");
+      if (!app) return;
+      app.style.backgroundColor = bgSolid;
+      if (bgImage && bgImage !== "none") {
+        app.style.backgroundImage = bgImage;
+        app.style.backgroundSize = "cover";
+        app.style.backgroundPosition = "center";
+        app.style.backgroundRepeat = "no-repeat";
+      }
+    },
+  };
+}
+
 type PinboardGame = {
   id: string;
   gameType: "pinboard";
@@ -166,7 +196,10 @@ export default function PinboardEditor() {
     const app = iframe?.contentDocument?.getElementById("app");
     if (!app) return;
     try {
-      const canvas = await html2canvas(app, { scale: 0.4, useCORS: true, allowTaint: false, logging: false });
+      const canvas = await html2canvas(app, {
+        scale: 0.4,
+        ...getPinboardHtml2CanvasOptions(iframe),
+      });
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
       if (!blob) return;
       const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
@@ -184,7 +217,10 @@ export default function PinboardEditor() {
     if (!app || !game) return;
     pushPreview();
     await new Promise((r) => setTimeout(r, 150));
-    const canvas = await html2canvas(app, { scale: 2, useCORS: true, allowTaint: false, logging: false });
+    const canvas = await html2canvas(app, {
+      scale: 2,
+      ...getPinboardHtml2CanvasOptions(iframe),
+    });
     const img = canvas.toDataURL("image/jpeg", 0.95);
     const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width, canvas.height] });
     pdf.addImage(img, "JPEG", 0, 0, canvas.width, canvas.height);

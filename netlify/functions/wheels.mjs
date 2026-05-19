@@ -296,21 +296,46 @@ export const handler = async (event, context) => {
         return { statusCode: 409, body: JSON.stringify({ error: "Slug already in use" }), headers };
       }
       const id = randomUUID();
-      const isScratcher = body.gameType === "scratcher";
-      const isFlipCards = body.gameType === "flip-cards";
-      const isQuiz = body.gameType === "quiz";
-      const isPinboard = body.gameType === "pinboard";
-      const wheel = isScratcher
-        ? emptyScratcherRecord(id, slugCheck.slug)
-        : isFlipCards
-          ? emptyFlipCardRecord(id, slugCheck.slug)
-          : isQuiz
-            ? emptyQuizRecord(id, slugCheck.slug)
-            : isPinboard
-              ? emptyPinboardRecord(id, slugCheck.slug)
-              : emptyWheelRecord(id, slugCheck.slug);
-      wheel.title = body.title || wheel.title;
-      wheel.clientName = body.clientName || "";
+      const sourceId = String(body.sourceId || "").trim();
+      let wheel;
+      if (sourceId) {
+        const source = await getWheelJson(sourceId);
+        if (!source) {
+          return { statusCode: 404, body: JSON.stringify({ error: "Source game not found" }), headers };
+        }
+        wheel = JSON.parse(JSON.stringify(source));
+        wheel.id = id;
+        wheel.slug = slugCheck.slug;
+        wheel.title = body.title || source.title || "Untitled";
+        wheel.clientName = body.clientName ?? source.clientName ?? "";
+        wheel.updatedAt = new Date().toISOString();
+        if (wheel.gameType === "flip-cards") syncFlipCards(wheel);
+        else if (wheel.gameType === "pinboard") normalizePinboardRecord(wheel);
+        else if (
+          wheel.gameType !== "scratcher" &&
+          wheel.gameType !== "flip-cards" &&
+          wheel.gameType !== "quiz" &&
+          wheel.gameType !== "pinboard"
+        ) {
+          syncSegmentArrays(wheel);
+        }
+      } else {
+        const isScratcher = body.gameType === "scratcher";
+        const isFlipCards = body.gameType === "flip-cards";
+        const isQuiz = body.gameType === "quiz";
+        const isPinboard = body.gameType === "pinboard";
+        wheel = isScratcher
+          ? emptyScratcherRecord(id, slugCheck.slug)
+          : isFlipCards
+            ? emptyFlipCardRecord(id, slugCheck.slug)
+            : isQuiz
+              ? emptyQuizRecord(id, slugCheck.slug)
+              : isPinboard
+                ? emptyPinboardRecord(id, slugCheck.slug)
+                : emptyWheelRecord(id, slugCheck.slug);
+        wheel.title = body.title || wheel.title;
+        wheel.clientName = body.clientName || "";
+      }
       await setWheelJson(id, wheel);
       const entry = {
         id,
