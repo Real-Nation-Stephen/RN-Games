@@ -1,5 +1,12 @@
 /** Pin board — record helpers for wheels API + public payload. */
 
+import {
+  PINBOARD_DEFAULT_STICKIES,
+  PINBOARD_DEFAULT_FRAMES,
+  PINBOARD_DEFAULT_PHOTO_STICKERS,
+  ensurePinboardGuestAssets,
+} from "./pinboard-defaults.mjs";
+
 export function emptyPinboardRecord(id, slug) {
   return {
     id,
@@ -43,7 +50,7 @@ export function emptyPinboardRecord(id, slug) {
       fonts: {},
       fontUploads: {},
     },
-    stickies: [],
+    stickies: PINBOARD_DEFAULT_STICKIES.map((s) => ({ ...s })),
     mobile: {
       headline: "Add to the wall",
       subheadline: "Take a selfie or leave a note for the host to approve",
@@ -54,14 +61,11 @@ export function emptyPinboardRecord(id, slug) {
       textHex: "#f5f5f5",
       buttonHex: "#d93ddb",
       buttonTextHex: "#ffffff",
-      stickyAssets: [],
+      stickyAssets: PINBOARD_DEFAULT_STICKIES.map((s) => ({ ...s })),
       photoPublishMode: "user_choice",
       uniformFrameId: "polaroid",
-      photoFrames: [
-        { id: "none", label: "No frame", imageUrl: "" },
-        { id: "polaroid", label: "Polaroid", imageUrl: "" },
-      ],
-      photoStickers: [],
+      photoFrames: PINBOARD_DEFAULT_FRAMES.map((f) => ({ ...f })),
+      photoStickers: PINBOARD_DEFAULT_PHOTO_STICKERS.map((s) => ({ ...s })),
     },
     moderator: {
       headline: "Event moderation",
@@ -101,7 +105,7 @@ export function normalizePinboardRecord(doc) {
   if (!Array.isArray(doc.mobile.photoStickers)) doc.mobile.photoStickers = [];
   if (!Array.isArray(doc.mobile.stickyAssets)) doc.mobile.stickyAssets = doc.stickies || [];
   if (!Array.isArray(doc.stickies)) doc.stickies = doc.mobile.stickyAssets;
-  return doc;
+  return ensurePinboardGuestAssets(doc);
 }
 
 /** Public config for player surfaces (no moderation secrets). */

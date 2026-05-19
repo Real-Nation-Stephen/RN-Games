@@ -127,3 +127,31 @@ export const DEFAULT_PINBOARD_CONFIG: PinboardConfig = {
     buttonTextHex: "#ffffff",
   },
 };
+
+const DEFAULT_STICKIES = DEFAULT_PINBOARD_CONFIG.mobile.stickyAssets;
+const DEFAULT_FRAMES = DEFAULT_PINBOARD_CONFIG.mobile.photoFrames;
+const DEFAULT_PHOTO_STICKERS = DEFAULT_PINBOARD_CONFIG.mobile.photoStickers;
+
+/** Ensure guest-facing asset lists are never empty (studio games created before defaults existed). */
+export function withPinboardDefaults(cfg: PinboardConfig): PinboardConfig {
+  const stickyAssets = (cfg.mobile.stickyAssets || []).filter((s) => s.imageUrl?.trim());
+  const resolvedStickies = stickyAssets.length ? stickyAssets : [...DEFAULT_STICKIES];
+  const photoStickers = (cfg.mobile.photoStickers || []).filter((s) => s.imageUrl?.trim());
+  const resolvedStickers = photoStickers.length ? photoStickers : [...DEFAULT_PHOTO_STICKERS];
+  let photoFrames = cfg.mobile.photoFrames?.length ? [...cfg.mobile.photoFrames] : [...DEFAULT_FRAMES];
+  if (!photoFrames.some((f) => f.id === "none")) {
+    photoFrames = [{ id: "none", label: "No frame", imageUrl: "" }, ...photoFrames];
+  }
+  const stickies = (cfg.stickies || []).filter((s) => s.imageUrl?.trim());
+  const resolvedTopStickies = stickies.length ? stickies : resolvedStickies;
+  return {
+    ...cfg,
+    stickies: resolvedTopStickies,
+    mobile: {
+      ...cfg.mobile,
+      stickyAssets: resolvedStickies,
+      photoFrames,
+      photoStickers: resolvedStickers,
+    },
+  };
+}

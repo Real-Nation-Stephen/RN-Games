@@ -4,6 +4,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
+import { PinboardAssetList, type PinboardAssetItem } from "../components/PinboardAssetList";
 
 type PinboardGame = {
   id: string;
@@ -42,6 +43,23 @@ function submitPublicUrl(slug: string) {
 
 function moderatePublicUrl(slug: string) {
   return `${siteUrl}/pinboard/${encodeURIComponent(slug)}/moderate`;
+}
+
+function mobileAssets(g: PinboardGame) {
+  const m = g.mobile as {
+    stickyAssets?: PinboardAssetItem[];
+    photoFrames?: PinboardAssetItem[];
+    photoStickers?: PinboardAssetItem[];
+  };
+  return {
+    stickyAssets: m.stickyAssets?.length ? m.stickyAssets : g.stickies || [],
+    photoFrames: m.photoFrames || [],
+    photoStickers: m.photoStickers || [],
+  };
+}
+
+function setStickyAssets(g: PinboardGame, stickyAssets: PinboardAssetItem[]) {
+  return { ...g, stickies: stickyAssets, mobile: { ...g.mobile, stickyAssets } };
 }
 
 function publicPayload(g: PinboardGame) {
@@ -213,6 +231,7 @@ export default function PinboardEditor() {
     buttonHex: string;
     buttonTextHex: string;
   };
+  const assets = mobileAssets(game);
 
   return (
     <div>
@@ -388,6 +407,32 @@ export default function PinboardEditor() {
         )}
       </div>
 
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Guest assets</h3>
+        <p className="muted" style={{ marginBottom: 4 }}>
+          Upload images guests can pick when leaving a note or styling a photo (same pattern as quiz player icons).
+        </p>
+        <PinboardAssetList
+          title="Sticky notes"
+          hint="PNG recommended — square notes work best. Guests choose one before typing or drawing."
+          items={assets.stickyAssets}
+          onChange={(stickyAssets) => patch((g) => setStickyAssets(g, stickyAssets))}
+        />
+        <PinboardAssetList
+          title="Photo frames"
+          hint="Overlay frames for the photo editor. Use “Add no frame slot” for a frameless option."
+          items={assets.photoFrames}
+          allowEmptyImage
+          onChange={(photoFrames) => patch((g) => ({ ...g, mobile: { ...g.mobile, photoFrames } }))}
+        />
+        <PinboardAssetList
+          title="Photo stickers"
+          hint="Optional stickers guests can place on photos before submit."
+          items={assets.photoStickers}
+          onChange={(photoStickers) => patch((g) => ({ ...g, mobile: { ...g.mobile, photoStickers } }))}
+        />
+      </div>
+
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Live board</h3>
@@ -536,7 +581,9 @@ export default function PinboardEditor() {
           <label className="field">Headline</label>
           <input value={mod.headline || ""} onChange={(e) => patch((g) => ({ ...g, moderator: { ...g.moderator, headline: e.target.value } }))} />
           <HexField label="Background hex" value={mod.backgroundHex || "#121820"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, backgroundHex: v } }))} />
+          <HexField label="Text hex" value={mod.textHex || "#eef2f7"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, textHex: v } }))} />
           <HexField label="Button hex" value={mod.buttonHex || "#2d6a4f"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonHex: v } }))} />
+          <HexField label="Button text hex" value={mod.buttonTextHex || "#ffffff"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonTextHex: v } }))} />
         </div>
       </div>
 

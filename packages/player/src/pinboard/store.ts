@@ -1,5 +1,5 @@
 import type { PinboardConfig, PinboardState, PinboardSubmission } from "./types";
-import { DEFAULT_PINBOARD_CONFIG } from "./config-default";
+import { DEFAULT_PINBOARD_CONFIG, withPinboardDefaults } from "./config-default";
 import {
   fetchPublicConfig,
   fetchState,
@@ -25,18 +25,22 @@ function loadLocalConfig(eventId: string): PinboardConfig {
     const raw = localStorage.getItem(`${CONFIG_KEY}:${eventId}`);
     if (raw) {
       const parsed = JSON.parse(raw) as PinboardConfig;
-      return { ...DEFAULT_PINBOARD_CONFIG, ...parsed, eventId: parsed.eventId || eventId };
+      return withPinboardDefaults({
+        ...DEFAULT_PINBOARD_CONFIG,
+        ...parsed,
+        eventId: parsed.eventId || eventId,
+      });
     }
   } catch {
     /* ignore */
   }
-  return { ...DEFAULT_PINBOARD_CONFIG, eventId };
+  return withPinboardDefaults({ ...DEFAULT_PINBOARD_CONFIG, eventId });
 }
 
 export async function loadConfig(eventId: string): Promise<PinboardConfig> {
   if (!isDemoSlug(eventId)) {
     const remote = await fetchPublicConfig(eventId);
-    if (remote) return remote;
+    if (remote) return withPinboardDefaults(remote);
   }
   return loadLocalConfig(eventId);
 }

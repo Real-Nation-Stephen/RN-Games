@@ -34,10 +34,37 @@ body.pinboard-submit::before {
 }
 
 #app {
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
+  min-height: 100svh;
   padding: clamp(16px, 4vw, 28px);
+  padding-bottom: 0;
   max-width: 480px;
   margin: 0 auto;
+  width: 100%;
+}
+
+.pin-form-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pin-form-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+}
+
+.pin-form-footer {
+  flex-shrink: 0;
+  padding-top: 12px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  background: linear-gradient(to top, var(--pin-surface-bg) 70%, transparent);
 }
 
 .pin-submit-brand {
@@ -93,18 +120,23 @@ body.pinboard-submit::before {
 .pin-camera-wrap {
   position: relative;
   aspect-ratio: 3/4;
-  max-height: 52vh;
+  width: 100%;
+  max-width: min(100%, 340px);
+  max-height: min(52vh, 480px);
+  margin: 0 auto 12px;
   background: #000;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 12px;
 }
 
 .pin-camera-wrap video,
 .pin-camera-wrap img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
+  transform: scaleX(-1);
 }
 
 .pin-sticky-picker {
@@ -202,6 +234,11 @@ body.pinboard-submit::before {
 .pin-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.pin-submit-btn {
+  width: 100%;
+  margin-top: 0;
 }
 
 .pin-btn--ghost {

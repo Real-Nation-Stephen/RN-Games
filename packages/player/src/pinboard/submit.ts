@@ -1,6 +1,6 @@
 import { renderStickyNote } from "./sticky-render";
 import { loadConfig, getEventIdFromQuery, addSubmission } from "./store";
-import { applySurface, injectFontFaces } from "./theme";
+import { applyBranding, injectFontFaces } from "./theme";
 import { createPhotoEditor } from "./photo-editor";
 import type { PinboardConfig, PinboardStickyAsset } from "./types";
 
@@ -276,13 +276,11 @@ async function bootstrap() {
   document.title = cfg.title || document.title;
   applyFavicon(cfg.faviconUrl);
   injectFontFaces(cfg);
-  const root = $("app");
-  applySurface(root, {
+  applyBranding({
     ...cfg.mobile,
     backgroundImageUrl: cfg.mobile.backgroundImageUrl,
     useBackgroundImage: cfg.mobile.useBackgroundImage ?? false,
   });
-  if (cfg.mobile.textHex) document.documentElement.style.setProperty("--pin-text", cfg.mobile.textHex);
 
   $("pin-title").textContent = cfg.mobile.headline;
   $("pin-sub").textContent = cfg.mobile.subheadline;

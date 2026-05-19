@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import type { PinboardConfig, PinboardSubmission, PinboardState } from "./types";
 import { loadConfig, getEventIdFromQuery, subscribeState, saveState, loadState } from "./store";
 import { isDemoSlug, publicToConfig } from "./api";
+import { withPinboardDefaults } from "./config-default";
 import { applyBoardChrome } from "./theme";
 import { computePlacement, type PinZone } from "./placement";
 import { resolveBoardPhoto } from "./board-photo";
@@ -180,7 +181,7 @@ let liveCfg: PinboardConfig | null = null;
 
 function applyPreviewConfig(data: Record<string, unknown>) {
   const slug = String(data.slug || getEventIdFromQuery());
-  liveCfg = publicToConfig(data, slug);
+  liveCfg = withPinboardDefaults(publicToConfig(data, slug));
   document.title = liveCfg.title || document.title;
   applyFavicon(liveCfg.faviconUrl);
   applyChrome(liveCfg);

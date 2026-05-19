@@ -1,4 +1,5 @@
 import type { PinboardConfig, PinboardState, PinboardSubmission } from "./types";
+import { withPinboardDefaults } from "./config-default";
 
 const API = "/api";
 
@@ -28,7 +29,7 @@ export async function fetchPublicConfig(slug: string): Promise<PinboardConfig | 
   if (!res.ok) return null;
   const data = await res.json();
   if (data.gameType !== "pinboard") return null;
-  return publicToConfig(data, slug);
+  return withPinboardDefaults(publicToConfig(data, slug));
 }
 
 export async function fetchState(slug: string): Promise<PinboardState> {

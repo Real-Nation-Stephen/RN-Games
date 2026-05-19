@@ -445,13 +445,16 @@ export interface PinboardRecord {
   stickies: PinboardStickyAsset[];
 }
 
+import {
+  PINBOARD_DEFAULT_STICKIES,
+  PINBOARD_DEFAULT_FRAMES,
+  PINBOARD_DEFAULT_PHOTO_STICKERS,
+} from "./pinboard-defaults";
+
+export { PINBOARD_DEFAULT_STICKIES, PINBOARD_DEFAULT_FRAMES, PINBOARD_DEFAULT_PHOTO_STICKERS };
+
 export function emptyPinboard(partial: { id: string; slug: string }): PinboardRecord {
-  const sticky = (id: string, label: string, imageUrl: string): PinboardStickyAsset => ({
-    id,
-    label,
-    imageUrl,
-  });
-  const demoSticky = sticky("yellow", "Yellow", "");
+  const defaultStickies = PINBOARD_DEFAULT_STICKIES;
   return {
     id: partial.id,
     gameType: "pinboard",
@@ -494,7 +497,7 @@ export function emptyPinboard(partial: { id: string; slug: string }): PinboardRe
       fonts: {},
       fontUploads: {},
     },
-    stickies: [demoSticky],
+    stickies: [...defaultStickies],
     mobile: {
       headline: "Add to the wall",
       subheadline: "Take a selfie or leave a note for the host to approve",
@@ -505,14 +508,11 @@ export function emptyPinboard(partial: { id: string; slug: string }): PinboardRe
       textHex: "#f5f5f5",
       buttonHex: "#d93ddb",
       buttonTextHex: "#ffffff",
-      stickyAssets: [demoSticky],
+      stickyAssets: [...defaultStickies],
       photoPublishMode: "user_choice",
       uniformFrameId: "polaroid",
-      photoFrames: [
-        { id: "none", label: "No frame", imageUrl: "" },
-        { id: "polaroid", label: "Polaroid", imageUrl: "" },
-      ],
-      photoStickers: [],
+      photoFrames: [...PINBOARD_DEFAULT_FRAMES],
+      photoStickers: [...PINBOARD_DEFAULT_PHOTO_STICKERS],
     },
     moderator: {
       headline: "Event moderation",

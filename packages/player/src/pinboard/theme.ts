@@ -21,6 +21,11 @@ export function injectFontFaces(cfg: PinboardConfig) {
   el.textContent = parts.join("\n");
 }
 
+/** Apply surface colours to the full page (body + ::before backgrounds). */
+export function applyBranding(surface: PinboardBrandingSurface) {
+  applySurface(document.documentElement, surface);
+}
+
 export function applySurface(root: HTMLElement, surface: PinboardBrandingSurface) {
   const bg = surface.backgroundHex || "#121820";
   root.style.setProperty("--pin-surface-bg", bg);

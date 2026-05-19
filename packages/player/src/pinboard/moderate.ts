@@ -8,7 +8,7 @@ import {
   removeFromBoard,
   loadState,
 } from "./store";
-import { applySurface } from "./theme";
+import { applyBranding } from "./theme";
 import { computePlacement } from "./placement";
 
 type ModTab = "queue" | "board";
@@ -143,7 +143,7 @@ async function bootstrap() {
   const cfg = await loadConfig(eventId);
   document.title = `${cfg.moderator.headline} · ${cfg.title}`;
   applyFavicon(cfg.faviconUrl);
-  applySurface($("app"), cfg.moderator);
+  applyBranding(cfg.moderator);
 
   $("pin-mod-title").textContent = cfg.moderator.headline;
   $("pin-approve").textContent = cfg.moderator.approveLabel;

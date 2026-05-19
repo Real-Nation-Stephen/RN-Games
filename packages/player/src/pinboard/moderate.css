@@ -69,7 +69,9 @@ body.pinboard-moderate::before {
 }
 
 .pin-mod-tabs button.is-active {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--pin-btn-bg);
+  border-color: transparent;
+  color: var(--pin-btn-text);
 }
 
 .pin-mod-layout {

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Add to the wall</title>
     <link rel="stylesheet" href="/src/pinboard/submit.css" />
   </head>
@@ -23,38 +23,42 @@
         <button type="button" id="pin-consent-accept" class="pin-btn" disabled>Accept and continue</button>
       </div>
 
-      <div id="pin-form">
-        <div class="pin-tabs" role="tablist">
-          <button type="button" data-tab="photo">Photo</button>
-          <button type="button" data-tab="note">Note</button>
+      <div id="pin-form" class="pin-form-shell">
+        <div class="pin-form-scroll">
+          <div class="pin-tabs" role="tablist">
+            <button type="button" data-tab="photo">Photo</button>
+            <button type="button" data-tab="note">Note</button>
+          </div>
+
+          <div id="pin-panel-photo" class="pin-panel is-active">
+            <div class="pin-camera-wrap">
+              <video id="pin-video" playsinline muted autoplay></video>
+            </div>
+            <div class="pin-actions">
+              <button type="button" id="pin-capture" class="pin-btn">Take photo</button>
+              <p class="pin-hint">After capture you can add frames and stickers, or skip them.</p>
+            </div>
+          </div>
+
+          <div id="pin-panel-note" class="pin-panel">
+            <div id="pin-sticky-picker" class="pin-sticky-picker" aria-label="Sticky colour"></div>
+            <div class="pin-note-modes">
+              <button type="button" data-mode="type" class="is-active">Type</button>
+              <button type="button" data-mode="draw">Draw</button>
+            </div>
+            <div id="pin-type-wrap">
+              <textarea id="pin-note-text" class="pin-type-input" placeholder="Write your note…" maxlength="280"></textarea>
+            </div>
+            <div id="pin-draw-wrap" hidden>
+              <canvas id="pin-draw" class="pin-draw-canvas"></canvas>
+            </div>
+          </div>
         </div>
 
-        <div id="pin-panel-photo" class="pin-panel">
-          <div class="pin-camera-wrap">
-            <video id="pin-video" playsinline muted autoplay></video>
-          </div>
-          <div class="pin-actions">
-            <button type="button" id="pin-capture" class="pin-btn">Take photo</button>
-            <p class="pin-hint">After capture you can add frames and stickers, or skip them.</p>
-          </div>
+        <div class="pin-form-footer">
+          <p id="pin-err" class="pin-err" hidden></p>
+          <button type="button" id="pin-submit" class="pin-btn pin-submit-btn">Submit</button>
         </div>
-
-        <div id="pin-panel-note" class="pin-panel">
-          <div id="pin-sticky-picker" class="pin-sticky-picker" aria-label="Sticky colour"></div>
-          <div class="pin-note-modes">
-            <button type="button" data-mode="type" class="is-active">Type</button>
-            <button type="button" data-mode="draw">Draw</button>
-          </div>
-          <div id="pin-type-wrap">
-            <textarea id="pin-note-text" class="pin-type-input" placeholder="Write your note…" maxlength="280"></textarea>
-          </div>
-          <div id="pin-draw-wrap" hidden>
-            <canvas id="pin-draw" class="pin-draw-canvas"></canvas>
-          </div>
-        </div>
-
-        <p id="pin-err" class="pin-err" hidden></p>
-        <button type="button" id="pin-submit" class="pin-btn" style="width: 100%; margin-top: 16px">Submit</button>
       </div>
 
       <div id="pin-photo-editor" class="pin-photo-editor" hidden>
