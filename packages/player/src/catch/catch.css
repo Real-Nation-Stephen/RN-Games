@@ -13,7 +13,7 @@ body.catch-game::before {
   z-index: -2;
   background-color: var(--catch-bg-solid, #1a2a3a);
   background-image: var(--catch-bg-image, none);
-  background-size: auto 100%;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
@@ -32,13 +32,18 @@ body.catch-game::before {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  width: calc(var(--catch-design-w, 1080) * var(--catch-scale, 1) * 1px);
+  height: calc(var(--catch-design-h, 1920) * var(--catch-scale, 1) * 1px);
 }
 
 #stage {
-  width: calc(var(--catch-design-w) * 1px);
-  height: calc(var(--catch-design-h) * 1px);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--catch-design-w, 1080) * 1px);
+  height: calc(var(--catch-design-h, 1920) * 1px);
+  transform: scale(var(--catch-scale, 1));
   transform-origin: 0 0;
-  position: relative;
   line-height: normal;
 }
 
@@ -46,8 +51,8 @@ body.catch-game::before {
   position: absolute;
   left: 0;
   top: 0;
-  width: calc(var(--catch-design-w) * 1px);
-  height: calc(var(--catch-design-h) * 1px);
+  width: calc(var(--catch-design-w, 1080) * 1px);
+  height: calc(var(--catch-design-h, 1920) * 1px);
   display: block;
   touch-action: none;
 }
@@ -140,7 +145,8 @@ body.catch-game::before {
 }
 
 .catch-overlay[hidden],
-.catch-swipe-hint[hidden] {
+.catch-swipe-hint[hidden],
+.catch-intro[hidden] {
   display: none !important;
 }
 
@@ -168,7 +174,7 @@ body.catch-game::before {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 48px;
+  bottom: 232px;
   z-index: 6;
   text-align: center;
   pointer-events: none;
@@ -176,10 +182,8 @@ body.catch-game::before {
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-.catch-swipe-hint[hidden] {
-  display: none !important;
+  padding: 0 24px;
+  box-sizing: border-box;
 }
 
 .catch-swipe-hint__anim {
@@ -220,6 +224,77 @@ body.catch-game::before {
   }
 }
 
+.catch-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  box-sizing: border-box;
+  background: rgba(8, 14, 22, 0.88);
+}
+
+.catch-intro__card {
+  width: 100%;
+  max-width: 760px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.catch-intro__row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 36px;
+  width: 100%;
+}
+
+.catch-intro__sprite {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  margin-bottom: 16px;
+}
+
+.catch-intro__sprite--placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.catch-intro__sprite--positive {
+  background: #3ecf8e;
+}
+
+.catch-intro__sprite--negative {
+  background: #e05d5d;
+}
+
+.catch-intro__text {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.35;
+  color: #eef2f7;
+  max-width: 640px;
+}
+
+.catch-intro__btn {
+  margin-top: 12px;
+  padding: 16px 40px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--catch-end-btn, #2d6a4f);
+  color: var(--catch-end-btn-text, #fff);
+}
+
 .catch-end {
   position: absolute;
   inset: 0;
@@ -231,7 +306,7 @@ body.catch-game::before {
   box-sizing: border-box;
   background-color: var(--catch-end-bg-solid, rgba(15, 26, 36, 0.92));
   background-image: var(--catch-end-bg-image, none);
-  background-size: auto 100%;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }

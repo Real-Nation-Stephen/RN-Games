@@ -410,6 +410,26 @@ export default function CatchEditor() {
             value={game.gameplay.swipeHintText}
             onChange={(e) => patch((g) => ({ ...g, gameplay: { ...g.gameplay, swipeHintText: e.target.value } }))}
           />
+          <h4 style={{ margin: "20px 0 8px" }}>Intro screen</h4>
+          <label className="field">Positive item line</label>
+          <input
+            value={game.intro.positiveLine}
+            onChange={(e) => patch((g) => ({ ...g, intro: { ...g.intro, positiveLine: e.target.value } }))}
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Negative item line
+          </label>
+          <input
+            value={game.intro.negativeLine}
+            onChange={(e) => patch((g) => ({ ...g, intro: { ...g.intro, negativeLine: e.target.value } }))}
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Next button label
+          </label>
+          <input
+            value={game.intro.nextLabel}
+            onChange={(e) => patch((g) => ({ ...g, intro: { ...g.intro, nextLabel: e.target.value } }))}
+          />
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
             <input
               type="checkbox"

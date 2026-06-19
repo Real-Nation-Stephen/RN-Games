@@ -49,6 +49,11 @@ export function emptyCatchRecord(id, slug) {
       catcherWidth: 140,
       catcherHeight: 72,
     },
+    intro: {
+      positiveLine: "Catch these to earn points",
+      negativeLine: "Avoid catching these or lose points",
+      nextLabel: "Next",
+    },
     endScreen: {
       logoUrl: "",
       headline: "Time's up!",
@@ -78,6 +83,7 @@ export function normalizeCatchRecord(doc) {
   doc.fontUploads = doc.fontUploads || {};
   doc.hud = { ...defaults.hud, ...(doc.hud || {}) };
   doc.gameplay = { ...defaults.gameplay, ...(doc.gameplay || {}) };
+  doc.intro = { ...defaults.intro, ...(doc.intro || {}) };
   doc.endScreen = {
     ...defaults.endScreen,
     ...(doc.endScreen || {}),
@@ -133,6 +139,7 @@ export function toPublicCatch(doc) {
     fontUploads: g.fontUploads || {},
     hud: g.hud,
     gameplay: g.gameplay,
+    intro: g.intro,
     endScreen: g.endScreen,
     highScore: g.highScore,
     linkedLeaderboardSlug: g.linkedLeaderboardSlug || "",

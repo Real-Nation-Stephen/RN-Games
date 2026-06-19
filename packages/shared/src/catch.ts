@@ -63,6 +63,12 @@ export interface CatchGameplay {
   catcherHeight: number;
 }
 
+export interface CatchIntro {
+  positiveLine: string;
+  negativeLine: string;
+  nextLabel: string;
+}
+
 export interface CatchEndScreen {
   logoUrl: string;
   headline: string;
@@ -100,6 +106,7 @@ export interface CatchRecord {
   fontUploads: Record<string, CatchFontUpload>;
   hud: CatchHud;
   gameplay: CatchGameplay;
+  intro: CatchIntro;
   endScreen: CatchEndScreen;
   highScore: HighScoreSettings;
   linkedLeaderboardSlug: string;
@@ -153,6 +160,11 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       itemSize: 72,
       catcherWidth: 140,
       catcherHeight: 72,
+    },
+    intro: {
+      positiveLine: "Catch these to earn points",
+      negativeLine: "Avoid catching these or lose points",
+      nextLabel: "Next",
     },
     endScreen: {
       logoUrl: "",
@@ -210,6 +222,7 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
     fontUploads: { ...(doc.fontUploads || {}) },
     hud: { ...defaults.hud, ...(doc.hud || {}) },
     gameplay: rawGameplay,
+    intro: { ...defaults.intro, ...(doc.intro || {}) },
     endScreen: {
       ...defaults.endScreen,
       ...(doc.endScreen || {}),

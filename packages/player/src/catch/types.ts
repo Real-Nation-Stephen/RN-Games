@@ -18,6 +18,7 @@ export type CatchConfig = Pick<
   | "fontUploads"
   | "hud"
   | "gameplay"
+  | "intro"
   | "endScreen"
   | "highScore"
   | "linkedLeaderboardSlug"

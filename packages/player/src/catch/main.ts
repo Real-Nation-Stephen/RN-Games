@@ -9,7 +9,7 @@ import {
   pickEndBackgroundUrl,
 } from "./api";
 import { CatchEngine } from "./engine";
-import { bindCatchLayout } from "./layout";
+import { bindCatchLayout, pointerToStageX as mapPointerX } from "./layout";
 import type { CatchConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
@@ -24,6 +24,15 @@ const els = {
   timer: document.getElementById("catch-timer-value")!,
   swipeHint: document.getElementById("catch-swipe-hint")!,
   swipeText: document.getElementById("catch-swipe-text")!,
+  intro: document.getElementById("catch-intro")!,
+  introPositive: document.getElementById("catch-intro-positive") as HTMLImageElement,
+  introPositivePh: document.getElementById("catch-intro-positive-ph")!,
+  introPositiveText: document.getElementById("catch-intro-positive-text")!,
+  introNegativeRow: document.getElementById("catch-intro-negative-row")!,
+  introNegative: document.getElementById("catch-intro-negative") as HTMLImageElement,
+  introNegativePh: document.getElementById("catch-intro-negative-ph")!,
+  introNegativeText: document.getElementById("catch-intro-negative-text")!,
+  introNext: document.getElementById("catch-intro-next") as HTMLButtonElement,
   startOverlay: document.getElementById("catch-start-overlay")!,
   countdownOverlay: document.getElementById("catch-countdown-overlay")!,
   countdownNum: document.getElementById("catch-countdown-num")!,
@@ -133,6 +142,29 @@ function applyTheme(c: CatchConfig) {
   els.swipeText.textContent = c.gameplay.swipeHintText || "Swipe to move";
   els.powered.hidden = c.showPoweredBy === false;
 
+  const intro = c.intro;
+  els.introPositiveText.textContent = intro.positiveLine || "Catch these to earn points";
+  els.introNegativeText.textContent = intro.negativeLine || "Avoid catching these or lose points";
+  els.introNext.textContent = intro.nextLabel || "Next";
+  const hideNegative = c.gameplay.positiveOnly;
+  els.introNegativeRow.hidden = hideNegative;
+  if (c.sprites.positiveUrl) {
+    els.introPositive.src = c.sprites.positiveUrl;
+    els.introPositive.hidden = false;
+    els.introPositivePh.hidden = true;
+  } else {
+    els.introPositive.hidden = true;
+    els.introPositivePh.hidden = false;
+  }
+  if (!hideNegative && c.sprites.negativeUrl) {
+    els.introNegative.src = c.sprites.negativeUrl;
+    els.introNegative.hidden = false;
+    els.introNegativePh.hidden = true;
+  } else if (!hideNegative) {
+    els.introNegative.hidden = true;
+    els.introNegativePh.hidden = false;
+  }
+
   injectFonts(c);
   void preloadSprites(c);
   setupMusic(c);
@@ -193,7 +225,16 @@ function updateHud() {
   els.timer.textContent = formatTime(engine.timeLeft);
 }
 
+function showIntroUi() {
+  els.intro.hidden = false;
+  els.startOverlay.hidden = true;
+  els.countdownOverlay.hidden = true;
+  els.swipeHint.hidden = true;
+  els.end.hidden = true;
+}
+
 function showStartUi() {
+  els.intro.hidden = true;
   els.startOverlay.hidden = false;
   els.countdownOverlay.hidden = true;
   els.swipeHint.hidden = false;
@@ -201,6 +242,7 @@ function showStartUi() {
 }
 
 function showCountdownUi(n: number) {
+  els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = false;
   els.swipeHint.hidden = true;
@@ -208,6 +250,7 @@ function showCountdownUi(n: number) {
 }
 
 function showPlayingUi() {
+  els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.swipeHint.hidden = true;
@@ -235,6 +278,7 @@ async function submitToLeaderboard() {
 
 async function showEndUi() {
   if (!engine || !cfg) return;
+  els.intro.hidden = true;
   els.end.hidden = false;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
@@ -258,14 +302,14 @@ async function showEndUi() {
   });
 }
 
-function pointerToStageX(clientX: number): number {
-  const rect = els.stage.getBoundingClientRect();
-  const scale = rect.width / CATCH_DESIGN_W;
-  return (clientX - rect.left) / scale;
+function stagePointerX(clientX: number): number {
+  return mapPointerX(clientX, els.fit);
 }
 
 function onPointer(clientX: number) {
   if (!engine || !cfg) return;
+  const x = stagePointerX(clientX);
+  engine.setCatcherX(x);
   if (engine.state === "idle") {
     engine.beginFromTouch();
     void els.music.play().catch(() => undefined);
@@ -275,25 +319,24 @@ function onPointer(clientX: number) {
       payload: { slug: cfg.slug },
     });
   }
-  if (engine.state === "playing" || engine.state === "countdown") {
-    engine.setCatcherX(pointerToStageX(clientX));
-  }
 }
 
 function bindInput() {
   const onDown = (e: PointerEvent) => {
-    if (e.currentTarget === els.stage) els.stage.setPointerCapture(e.pointerId);
+    if (els.intro.hidden === false) return;
+    const target = e.currentTarget as HTMLElement;
+    if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
     onPointer(e.clientX);
   };
   const onMove = (e: PointerEvent) => {
-    if (!engine) return;
-    if (engine.state === "playing" || engine.state === "countdown") {
-      engine.setCatcherX(pointerToStageX(e.clientX));
+    if (!engine || els.intro.hidden === false) return;
+    if (engine.state === "playing" || engine.state === "countdown" || engine.state === "idle") {
+      engine.setCatcherX(stagePointerX(e.clientX));
     }
   };
-  els.stage.addEventListener("pointerdown", onDown);
-  els.stage.addEventListener("pointermove", onMove);
-  els.startOverlay.addEventListener("pointerdown", onDown);
+  els.fit.addEventListener("pointerdown", onDown);
+  els.fit.addEventListener("pointermove", onMove);
+  els.introNext.addEventListener("click", () => showStartUi());
   els.endPlay.addEventListener("click", () => {
     if (!engine || !cfg) return;
     if (!els.endNameWrap.hidden && els.endName.value.trim()) {
@@ -302,7 +345,7 @@ function bindInput() {
     void submitToLeaderboard();
     engine.reset(cfg);
     updateHud();
-    showStartUi();
+    showIntroUi();
   });
 }
 
@@ -399,9 +442,9 @@ function mountGame(c: CatchConfig) {
   engine = new CatchEngine(c);
   resizeCanvas();
   unbindLayout?.();
-  unbindLayout = bindCatchLayout(els.fit, els.stage);
+  unbindLayout = bindCatchLayout(document.documentElement);
   updateHud();
-  showStartUi();
+  showIntroUi();
   els.app.hidden = false;
   lastTs = 0;
   cancelAnimationFrame(raf);
