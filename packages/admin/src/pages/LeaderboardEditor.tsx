@@ -76,19 +76,89 @@ function publicConfig(g: LeaderboardGame) {
   };
 }
 
+const LB_THUMB_W = 960;
+const LB_THUMB_H = 540;
+
+/** html2canvas cannot see `body::before`; apply board BG on the cloned `#app` (thumbnails). */
 function getLeaderboardHtml2CanvasOptions(iframe: HTMLIFrameElement) {
   const idoc = iframe.contentDocument;
   const idwin = iframe.contentWindow;
+  if (!idoc || !idwin) {
+    return { useCORS: true, allowTaint: false, logging: false };
+  }
+  const root = idoc.documentElement;
   const bgSolid =
-    idoc && idwin
-      ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--lb-bg-solid").trim()
-      : "";
+    idwin.getComputedStyle(root).getPropertyValue("--lb-bg-solid").trim() || "#0f1a24";
+  const bgImage = idwin.getComputedStyle(root).getPropertyValue("--lb-bg-image").trim();
   return {
     useCORS: true,
     allowTaint: false,
     logging: false,
-    backgroundColor: bgSolid || "#0f1a24",
+    backgroundColor: bgSolid,
+    onclone: (doc: Document) => {
+      const html = doc.documentElement;
+      const body = doc.body;
+      html.style.width = `${LB_THUMB_W}px`;
+      html.style.height = `${LB_THUMB_H}px`;
+      body.style.width = `${LB_THUMB_W}px`;
+      body.style.height = `${LB_THUMB_H}px`;
+      body.style.margin = "0";
+      body.style.overflow = "hidden";
+
+      doc.getElementById("lb-fs-btn")?.remove();
+      doc.getElementById("powered-by-rn")?.remove();
+
+      const app = doc.getElementById("app");
+      if (!app) return;
+      app.style.width = `${LB_THUMB_W}px`;
+      app.style.height = `${LB_THUMB_H}px`;
+      app.style.minHeight = `${LB_THUMB_H}px`;
+      app.style.maxHeight = `${LB_THUMB_H}px`;
+      app.style.overflow = "hidden";
+      app.style.boxSizing = "border-box";
+      app.style.backgroundColor = bgSolid;
+      if (bgImage && bgImage !== "none") {
+        app.style.backgroundImage = bgImage;
+        app.style.backgroundSize = "cover";
+        app.style.backgroundPosition = "center";
+        app.style.backgroundRepeat = "no-repeat";
+      }
+
+      const brand = doc.getElementById("lb-brand");
+      if (brand && !(brand as HTMLElement).hidden) {
+        (brand as HTMLElement).style.position = "absolute";
+      }
+    },
   };
+}
+
+async function waitForLeaderboardThumbAssets(iframe: HTMLIFrameElement, bgUrl: string) {
+  const idoc = iframe.contentDocument;
+  if (!idoc) return;
+  const waits: Promise<void>[] = [];
+  if (bgUrl) {
+    waits.push(
+      new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = bgUrl;
+      }),
+    );
+  }
+  for (const img of idoc.querySelectorAll<HTMLImageElement>("#app img")) {
+    waits.push(
+      new Promise((resolve) => {
+        if (img.complete) resolve();
+        else {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        }
+      }),
+    );
+  }
+  await Promise.all(waits);
 }
 
 export default function LeaderboardEditor() {
@@ -181,12 +251,18 @@ export default function LeaderboardEditor() {
     if (!game) return;
     await save();
     pushPreview();
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 500));
     const iframe = iframeRef.current;
     const app = iframe?.contentDocument?.getElementById("app");
-    if (!app || !game) return;
+    if (!app || !game || !iframe) return;
+    const bgUrl =
+      game.board.useBackgroundImage && game.board.backgroundImage ? game.board.backgroundImage : "";
+    await waitForLeaderboardThumbAssets(iframe, bgUrl);
     try {
-      const canvas = await html2canvas(app, { scale: 0.4, ...getLeaderboardHtml2CanvasOptions(iframe) });
+      const canvas = await html2canvas(app, {
+        scale: 0.5,
+        ...getLeaderboardHtml2CanvasOptions(iframe),
+      });
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
       if (!blob) return;
       const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
