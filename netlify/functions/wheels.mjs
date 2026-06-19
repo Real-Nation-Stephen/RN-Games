@@ -284,6 +284,7 @@ export const handler = async (event, context) => {
         if (!wheel) {
           return { statusCode: 404, body: JSON.stringify({ error: "Not found" }), headers };
         }
+        if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
       const list = await readIndex();

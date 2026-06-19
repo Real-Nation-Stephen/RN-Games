@@ -509,6 +509,19 @@ export interface LeaderboardRecord {
   };
 }
 
+export function normalizeLeaderboard(
+  doc: Partial<LeaderboardRecord> & { id: string; slug: string },
+): LeaderboardRecord {
+  const defaults = emptyLeaderboard({ id: doc.id, slug: doc.slug });
+  return {
+    ...defaults,
+    ...doc,
+    gameType: "leaderboard",
+    board: { ...defaults.board, ...(doc.board || {}) },
+    moderator: { ...defaults.moderator, ...(doc.moderator || {}) },
+  };
+}
+
 export function emptyLeaderboard(partial: { id: string; slug: string }): LeaderboardRecord {
   return {
     id: partial.id,

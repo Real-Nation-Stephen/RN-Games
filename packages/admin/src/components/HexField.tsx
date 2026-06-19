@@ -1,6 +1,6 @@
 /** Normalise to #rrggbb for <input type="color">; empty stays empty. */
-export function normalizeHexInput(raw: string): string {
-  let s = raw.trim();
+export function normalizeHexInput(raw: string | undefined | null): string {
+  let s = (raw ?? "").trim();
   if (!s) return "";
   if (!s.startsWith("#")) s = `#${s}`;
   if (/^#[0-9a-fA-F]{3}$/.test(s)) {

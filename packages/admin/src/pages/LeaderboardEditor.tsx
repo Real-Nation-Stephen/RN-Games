@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
-import { isLeaderboardLinkableGameType } from "@rngames/shared";
+import { isLeaderboardLinkableGameType, normalizeLeaderboard } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
 
@@ -116,7 +116,7 @@ export default function LeaderboardEditor() {
         navigate(`/wheels/${id}`, { replace: true });
         return;
       }
-      const lb = data as LeaderboardGame;
+      let lb = normalizeLeaderboard(data as LeaderboardGame) as LeaderboardGame;
       if (
         lb.mode === "linked" &&
         lb.linkedGameId &&
@@ -124,9 +124,12 @@ export default function LeaderboardEditor() {
           (index.wheels as IndexItem[]).find((w) => w.id === lb.linkedGameId)?.gameType,
         )
       ) {
-        lb.linkedGameId = "";
-        lb.linkedGameSlug = "";
-        lb.linkedGameTitle = "";
+        lb = {
+          ...lb,
+          linkedGameId: "",
+          linkedGameSlug: "",
+          linkedGameTitle: "",
+        };
       }
       setGame(lb);
       setLinkableGames(
@@ -166,7 +169,7 @@ export default function LeaderboardEditor() {
     setErr(null);
     try {
       const res = await apiSend("/api/wheels", "PUT", { ...game, updatedAt: new Date().toISOString() });
-      if (res?.wheel) setGame(res.wheel as LeaderboardGame);
+      if (res?.wheel) setGame(normalizeLeaderboard(res.wheel as LeaderboardGame) as LeaderboardGame);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -189,7 +192,7 @@ export default function LeaderboardEditor() {
       const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
       const { url } = await uploadFile(file);
       const res = await apiSend("/api/wheels", "PUT", { ...game, thumbnailUrl: url });
-      if (res?.wheel) setGame(res.wheel as LeaderboardGame);
+      if (res?.wheel) setGame(normalizeLeaderboard(res.wheel as LeaderboardGame) as LeaderboardGame);
     } catch {
       /* optional */
     }

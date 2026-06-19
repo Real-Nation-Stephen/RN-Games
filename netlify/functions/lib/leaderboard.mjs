@@ -56,16 +56,14 @@ export function emptyLeaderboardRecord(id, slug) {
 
 export function normalizeLeaderboardRecord(doc) {
   if (!doc || doc.gameType !== "leaderboard") return doc;
+  const defaults = emptyLeaderboardRecord(doc.id || "", doc.slug || "");
   doc.mode = doc.mode === "linked" ? "linked" : "manual";
   doc.linkedGameId = String(doc.linkedGameId || "");
   doc.linkedGameSlug = String(doc.linkedGameSlug || "");
   doc.linkedGameTitle = String(doc.linkedGameTitle || "");
   doc.moderatorPin = String(doc.moderatorPin || "1234").slice(0, 12);
-  doc.board = doc.board || {};
-  doc.moderator = doc.moderator || {};
-  const mod = doc.moderator;
-  mod.buttonDangerHex = mod.buttonDangerHex || "#8b2e2e";
-  mod.buttonDangerTextHex = mod.buttonDangerTextHex || "#ffffff";
+  doc.board = { ...defaults.board, ...(doc.board || {}) };
+  doc.moderator = { ...defaults.moderator, ...(doc.moderator || {}) };
   return doc;
 }
 
