@@ -4,10 +4,24 @@ body.catch-game {
   overflow: hidden;
   font-family: var(--catch-font-body, system-ui, sans-serif);
   color: #fff;
-  background: var(--catch-bg-solid, #1a2a3a);
+  background: var(--catch-viewport-bg-solid, var(--catch-bg-solid, #1a2a3a));
+}
+
+.catch-viewport-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-color: var(--catch-viewport-bg-solid, var(--catch-bg-solid, #1a2a3a));
+  background-image: var(--catch-viewport-bg-image, var(--catch-bg-image, none));
+  background-size: auto 100%;
+  background-position: center top;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
 
 #app {
+  position: relative;
+  z-index: 1;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -30,18 +44,6 @@ body.catch-game {
   top: 0;
   transform-origin: 0 0;
   line-height: normal;
-}
-
-.catch-stage-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-color: var(--catch-bg-solid, #1a2a3a);
-  background-image: var(--catch-bg-image, none);
-  background-size: auto 100%;
-  background-position: center top;
-  background-repeat: no-repeat;
-  pointer-events: none;
 }
 
 #catch-canvas {
@@ -303,11 +305,7 @@ body.catch-game {
   justify-content: center;
   padding: 48px 40px;
   box-sizing: border-box;
-  background-color: var(--catch-end-bg-solid, rgba(15, 26, 36, 0.92));
-  background-image: var(--catch-end-bg-image, none);
-  background-size: auto 100%;
-  background-position: center top;
-  background-repeat: no-repeat;
+  background: transparent;
 }
 
 .catch-end__card {
@@ -321,48 +319,48 @@ body.catch-game {
 }
 
 .catch-end__logo {
-  max-height: 96px;
-  max-width: 280px;
+  max-height: 158px;
+  max-width: 460px;
   object-fit: contain;
-  margin-bottom: 20px;
+  margin-bottom: 33px;
 }
 
 .catch-end__headline {
   margin: 0;
   font-family: var(--catch-font-heading, system-ui, sans-serif);
-  font-size: 56px;
+  font-size: 92px;
   line-height: 1.15;
   color: var(--catch-end-headline, #fff);
 }
 
 .catch-end__subhead {
-  margin: 16px 0 0;
-  font-size: 26px;
+  margin: 26px 0 0;
+  font-size: 43px;
   line-height: 1.35;
   color: var(--catch-end-subhead, #c8d4e0);
 }
 
 .catch-end__score {
-  margin: 28px 0 0;
+  margin: 46px 0 0;
   font-family: var(--catch-font-score, system-ui, sans-serif);
-  font-size: 64px;
+  font-size: 106px;
   line-height: 1.1;
   font-weight: 800;
   color: var(--catch-end-text, #eef2f7);
 }
 
 .catch-end__name {
-  margin-top: 24px;
+  margin-top: 40px;
 }
 
 .catch-end__name input {
-  width: min(220px, 80vw);
-  padding: 10px 14px;
+  width: min(360px, 88vw);
+  padding: 16px 23px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.35);
   color: inherit;
-  font-size: 18px;
+  font-size: 30px;
   text-align: center;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -372,17 +370,17 @@ body.catch-game {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  margin-top: 32px;
+  gap: 26px;
+  margin-top: 53px;
   width: 100%;
 }
 
 .catch-end__btn {
-  padding: 16px 36px;
+  padding: 26px 59px;
   border-radius: 10px;
   border: none;
   cursor: pointer;
-  font-size: 22px;
+  font-size: 36px;
   font-weight: 700;
   background: var(--catch-end-btn, #2d6a4f);
   color: var(--catch-end-btn-text, #fff);
@@ -393,6 +391,10 @@ body.catch-game {
 .catch-end__link {
   background: var(--catch-end-link-btn, #1e81ff);
   color: var(--catch-end-link-btn-text, #fff);
+}
+
+#catch-end-link[hidden] {
+  display: none !important;
 }
 
 .player-error {

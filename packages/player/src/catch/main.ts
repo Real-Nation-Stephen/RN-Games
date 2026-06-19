@@ -104,6 +104,7 @@ function applyTheme(c: CatchConfig) {
   root.style.setProperty("--catch-bg-solid", c.backgroundHex || "#1a2a3a");
   const bg = pickBackgroundUrl(c);
   root.style.setProperty("--catch-bg-image", bg ? `url("${bg}")` : "none");
+  setViewportBackground("game");
 
   const b = c.banner;
   root.style.setProperty("--catch-banner-bg", b.backgroundHex || "#0d1b2a");
@@ -135,7 +136,7 @@ function applyTheme(c: CatchConfig) {
   els.endPlay.textContent = end.playAgainLabel || "Play again";
   root.style.setProperty("--catch-end-link-btn", end.linkButtonHex || "#1e81ff");
   root.style.setProperty("--catch-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
-  const showLink = end.linkEnabled && (end.linkUrl || "").trim();
+  const showLink = end.linkEnabled === true && Boolean((end.linkUrl || "").trim());
   if (showLink) {
     els.endLink.href = end.linkUrl.trim();
     els.endLink.textContent = end.linkLabel || "Learn more";
@@ -180,6 +181,20 @@ function applyTheme(c: CatchConfig) {
   injectFonts(c);
   void preloadSprites(c);
   setupMusic(c);
+}
+
+function setViewportBackground(mode: "game" | "end") {
+  if (!cfg) return;
+  const root = document.documentElement;
+  if (mode === "end") {
+    const endBg = pickEndBackgroundUrl(cfg);
+    root.style.setProperty("--catch-viewport-bg-solid", cfg.backgroundHex || "#0f1a24");
+    root.style.setProperty("--catch-viewport-bg-image", endBg ? `url("${endBg}")` : "none");
+  } else {
+    const bg = pickBackgroundUrl(cfg);
+    root.style.setProperty("--catch-viewport-bg-solid", cfg.backgroundHex || "#1a2a3a");
+    root.style.setProperty("--catch-viewport-bg-image", bg ? `url("${bg}")` : "none");
+  }
 }
 
 function setupMusic(c: CatchConfig) {
@@ -243,6 +258,7 @@ function showIntroUi() {
   els.countdownOverlay.hidden = true;
   els.swipeHint.hidden = true;
   els.end.hidden = true;
+  setViewportBackground("game");
 }
 
 function showStartUi() {
@@ -251,6 +267,7 @@ function showStartUi() {
   els.countdownOverlay.hidden = true;
   els.swipeHint.hidden = false;
   els.end.hidden = true;
+  setViewportBackground("game");
 }
 
 function showCountdownUi(n: number) {
@@ -295,6 +312,7 @@ async function showEndUi() {
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.swipeHint.hidden = true;
+  setViewportBackground("end");
   els.endScore.textContent = `${cfg.endScreen.scorePrefix || "Score:"} ${engine.score}`;
   playSfx(cfg.sounds.gameEnd);
   els.music.pause();
@@ -465,11 +483,7 @@ function mountGame(c: CatchConfig) {
 
 function onBreakpointChange() {
   if (!cfg) return;
-  const root = document.documentElement;
-  const bg = pickBackgroundUrl(cfg);
-  root.style.setProperty("--catch-bg-image", bg ? `url("${bg}")` : "none");
-  const endBg = pickEndBackgroundUrl(cfg);
-  root.style.setProperty("--catch-end-bg-image", endBg ? `url("${endBg}")` : "none");
+  setViewportBackground(els.end.hidden ? "game" : "end");
 }
 
 window.addEventListener("message", (e) => {

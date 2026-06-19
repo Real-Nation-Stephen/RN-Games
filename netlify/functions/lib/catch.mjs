@@ -116,6 +116,7 @@ export function normalizeCatchRecord(doc) {
   g.itemSize = Math.max(32, Math.min(160, Number(g.itemSize) || 72));
   const align = String(doc.banner.logoAlign || "center");
   doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
+  doc.endScreen.linkEnabled = doc.endScreen.linkEnabled === true;
   return doc;
 }
 

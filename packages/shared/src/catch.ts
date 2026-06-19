@@ -220,7 +220,7 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
   const align = String(rawBanner.logoAlign || "center");
   rawBanner.logoAlign = align === "left" || align === "right" ? align : "center";
 
-  return {
+  const out: CatchRecord = {
     ...defaults,
     ...doc,
     gameType: "catch",
@@ -240,4 +240,6 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
     },
     highScore: { ...defaults.highScore, ...(doc.highScore || {}) },
   };
+  out.endScreen.linkEnabled = out.endScreen.linkEnabled === true;
+  return out;
 }
