@@ -137,32 +137,40 @@ export const handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }), headers };
   }
-  const slug = event.queryStringParameters?.slug;
-  if (!slug) {
-    return { statusCode: 400, body: JSON.stringify({ error: "Missing slug" }), headers };
+  try {
+    const slug = event.queryStringParameters?.slug;
+    if (!slug) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Missing slug" }), headers };
+    }
+    const list = await readIndex();
+    const item = list.find((x) => x.slug === slug);
+    if (!item) {
+      return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
+    }
+    const doc = await getWheelJson(item.id);
+    if (!doc) {
+      return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
+    }
+    const payload =
+      doc.gameType === "quiz"
+        ? toPublicQuiz(doc)
+        : doc.gameType === "scratcher"
+          ? toPublicScratcher(doc)
+          : doc.gameType === "flip-cards"
+            ? toPublicFlipCard(doc)
+            : doc.gameType === "pinboard"
+              ? toPublicPinboard(doc)
+              : toPublicWheel(doc);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(payload),
+    };
+  } catch (e) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: e instanceof Error ? e.message : "Server error" }),
+    };
   }
-  const list = await readIndex();
-  const item = list.find((x) => x.slug === slug);
-  if (!item) {
-    return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
-  }
-  const doc = await getWheelJson(item.id);
-  if (!doc) {
-    return { statusCode: 404, body: JSON.stringify({ error: "Game not found" }), headers };
-  }
-  const payload =
-    doc.gameType === "quiz"
-      ? toPublicQuiz(doc)
-      : doc.gameType === "scratcher"
-        ? toPublicScratcher(doc)
-        : doc.gameType === "flip-cards"
-          ? toPublicFlipCard(doc)
-          : doc.gameType === "pinboard"
-            ? toPublicPinboard(doc)
-            : toPublicWheel(doc);
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify(payload),
-  };
 };

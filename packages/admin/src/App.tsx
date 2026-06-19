@@ -40,7 +40,7 @@ export default function App() {
             <img src="/admin/rn-logo.png" alt="Real Nation" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
           </Link>
           <div>
-            <h1>Real Nation Digital — Game Studio</h1>
+            <h1>RN Game Studio</h1>
             <p className="muted" style={{ margin: "4px 0 0" }}>
               Create and manage your games
             </p>

@@ -245,10 +245,13 @@ function emptyWheelRecord(id, slug) {
 }
 
 function syncSegmentArrays(w) {
-  const n = w.segmentCount;
-  w.prizes = Array.from({ length: n }, (__, i) => w.prizes[i] ?? `Prize ${i + 1}`);
+  const n = Math.min(20, Math.max(2, Number(w.segmentCount) || 10));
+  w.segmentCount = n;
+  const prizes = Array.isArray(w.prizes) ? w.prizes : [];
+  const outcomes = Array.isArray(w.segmentOutcome) ? w.segmentOutcome : [];
+  w.prizes = Array.from({ length: n }, (__, i) => prizes[i] ?? `Prize ${i + 1}`);
   w.segmentOutcome = Array.from({ length: n }, (__, i) =>
-    w.segmentOutcome[i] !== undefined ? w.segmentOutcome[i] : i % 2 === 1,
+    outcomes[i] !== undefined ? outcomes[i] : i % 2 === 1,
   );
   if (w.weights && w.weights.length !== n) w.weights = null;
   w.sounds = w.sounds || {};
