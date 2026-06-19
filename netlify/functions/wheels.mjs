@@ -3,6 +3,7 @@ import { connectLambda } from "@netlify/blobs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs";
 import { emptyLeaderboardRecord, normalizeLeaderboardRecord } from "./lib/leaderboard.mjs";
+import { emptyCatchRecord, normalizeCatchRecord } from "./lib/catch.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -285,6 +286,7 @@ export const handler = async (event, context) => {
           return { statusCode: 404, body: JSON.stringify({ error: "Not found" }), headers };
         }
         if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
+        if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
       const list = await readIndex();
@@ -318,12 +320,14 @@ export const handler = async (event, context) => {
         if (wheel.gameType === "flip-cards") syncFlipCards(wheel);
         else if (wheel.gameType === "pinboard") normalizePinboardRecord(wheel);
         else if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
+        else if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
         else if (
           wheel.gameType !== "scratcher" &&
           wheel.gameType !== "flip-cards" &&
           wheel.gameType !== "quiz" &&
           wheel.gameType !== "pinboard" &&
-          wheel.gameType !== "leaderboard"
+          wheel.gameType !== "leaderboard" &&
+          wheel.gameType !== "catch"
         ) {
           syncSegmentArrays(wheel);
         }
@@ -333,6 +337,7 @@ export const handler = async (event, context) => {
         const isQuiz = body.gameType === "quiz";
         const isPinboard = body.gameType === "pinboard";
         const isLeaderboard = body.gameType === "leaderboard";
+        const isCatch = body.gameType === "catch";
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
           : isFlipCards
@@ -343,7 +348,9 @@ export const handler = async (event, context) => {
                 ? emptyPinboardRecord(id, slugCheck.slug)
                 : isLeaderboard
                   ? emptyLeaderboardRecord(id, slugCheck.slug)
-                  : emptyWheelRecord(id, slugCheck.slug);
+                  : isCatch
+                    ? emptyCatchRecord(id, slugCheck.slug)
+                    : emptyWheelRecord(id, slugCheck.slug);
         wheel.title = body.title || wheel.title;
         wheel.clientName = body.clientName || "";
       }
@@ -390,12 +397,14 @@ export const handler = async (event, context) => {
       const isQuiz = existing.gameType === "quiz";
       const isPinboard = existing.gameType === "pinboard";
       const isLeaderboard = existing.gameType === "leaderboard";
+      const isCatch = existing.gameType === "catch";
       const isWheel =
         existing.gameType !== "scratcher" &&
         existing.gameType !== "flip-cards" &&
         existing.gameType !== "quiz" &&
         existing.gameType !== "pinboard" &&
-        existing.gameType !== "leaderboard";
+        existing.gameType !== "leaderboard" &&
+        existing.gameType !== "catch";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -497,6 +506,32 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         normalizeLeaderboardRecord(existing);
+      } else if (isCatch) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "backgroundHex",
+          "backgrounds",
+          "banner",
+          "sprites",
+          "catcherSpriteUrl",
+          "sounds",
+          "fonts",
+          "fontUploads",
+          "hud",
+          "gameplay",
+          "endScreen",
+          "highScore",
+          "linkedLeaderboardSlug",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        normalizeCatchRecord(existing);
       } else if (isWheel) {
         const assign = [
           "title",

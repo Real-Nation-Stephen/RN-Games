@@ -88,6 +88,10 @@ export default function WheelEditor() {
         navigate(`/pinboards/${id}`, { replace: true });
         return;
       }
+      if (data.gameType === "catch") {
+        navigate(`/catch/${id}`, { replace: true });
+        return;
+      }
       setWheel(data);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");

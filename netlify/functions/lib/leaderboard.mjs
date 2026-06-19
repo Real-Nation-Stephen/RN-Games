@@ -1,10 +1,7 @@
 /** Leaderboard module — record helpers, ranking, public payload. */
 
 /** gameType values allowed to POST scores into a linked leaderboard (see shared leaderboard-linkable.ts). */
-export const LEADERBOARD_LINKABLE_GAME_TYPES = new Set([
-  // Phase D: "catch"
-  // Phase E: "dino-runner"
-]);
+export const LEADERBOARD_LINKABLE_GAME_TYPES = new Set(["catch"]);
 
 export function isLeaderboardLinkableGameType(gameType) {
   const t = String(gameType || "spinning-wheel").trim() || "spinning-wheel";

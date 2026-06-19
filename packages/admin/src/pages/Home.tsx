@@ -39,12 +39,17 @@ function isLeaderboard(w: Item) {
   return w.gameType === "leaderboard";
 }
 
+function isCatch(w: Item) {
+  return w.gameType === "catch";
+}
+
 function editorPath(w: Item) {
   if (isQuiz(w)) return `/quizzes/${w.id}`;
   if (isScratcher(w)) return `/scratchers/${w.id}`;
   if (isFlipCards(w)) return `/flip-cards/${w.id}`;
   if (isPinboard(w)) return `/pinboards/${w.id}`;
   if (isLeaderboard(w)) return `/leaderboards/${w.id}`;
+  if (isCatch(w)) return `/catch/${w.id}`;
   return `/wheels/${w.id}`;
 }
 
@@ -293,6 +298,24 @@ export default function Home() {
     }
   }
 
+  async function createCatch() {
+    const slug = `catch-${Date.now().toString(36)}`;
+    try {
+      const res = await apiSend("/api/wheels", "POST", {
+        gameType: "catch",
+        slug,
+        title: "New catch game",
+        clientName: "",
+      });
+      await load();
+      if (res?.wheel?.id) {
+        window.location.href = `/admin/catch/${res.wheel.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Create failed");
+    }
+  }
+
   async function createQuiz() {
     setErr(null);
     try {
@@ -353,6 +376,7 @@ export default function Home() {
   const flipCardGames = wheels.filter(isFlipCards);
   const pinboardGames = wheels.filter(isPinboard);
   const leaderboardGames = wheels.filter(isLeaderboard);
+  const catchGames = wheels.filter(isCatch);
 
   const placeholderZip = "#";
 
@@ -388,6 +412,9 @@ export default function Home() {
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void createLeaderboard()}>
             New leaderboard
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createCatch()}>
+            New catch game
           </button>
         </div>
       </section>
@@ -503,6 +530,29 @@ export default function Home() {
                 editPath={(w) => `/leaderboards/${w.id}`}
                 copyLabel="Copy live URL"
                 getPublicUrl={(w) => `${siteUrl}/leaderboard/${w.slug}`}
+                onDuplicate={duplicateGame}
+              />
+            )}
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <SectionHeader
+              title="Your catch games"
+              newLabel="New catch game"
+              onNew={createCatch}
+              resourceHref={placeholderZip}
+              resourceLabel="Download catch templates (ZIP)"
+            />
+            {catchGames.length === 0 ? (
+              <div className="card">
+                <p style={{ margin: 0 }}>No catch games yet.</p>
+              </div>
+            ) : (
+              <GamesTable
+                items={catchGames}
+                editPath={(w) => `/catch/${w.id}`}
+                copyLabel="Copy public URL"
+                getPublicUrl={(w) => `${siteUrl}/catch/${w.slug}`}
                 onDuplicate={duplicateGame}
               />
             )}

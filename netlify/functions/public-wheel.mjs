@@ -3,6 +3,7 @@ import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { toPublicPinboard } from "./lib/pinboard.mjs";
 import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
+import { toPublicCatch } from "./lib/catch.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -163,7 +164,9 @@ export const handler = async (event) => {
               ? toPublicPinboard(doc)
               : doc.gameType === "leaderboard"
                 ? toPublicLeaderboard(doc)
-                : toPublicWheel(doc);
+                : doc.gameType === "catch"
+                  ? toPublicCatch(doc)
+                  : toPublicWheel(doc);
     return {
       statusCode: 200,
       headers,

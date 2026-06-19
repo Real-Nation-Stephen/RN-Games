@@ -11,6 +11,20 @@ export {
   LEADERBOARD_LINKABLE_GAME_TYPES,
   isLeaderboardLinkableGameType,
 } from "./leaderboard-linkable.js";
+export {
+  CATCH_DESIGN_W,
+  CATCH_DESIGN_H,
+  CATCH_BG_SIZE_HINTS,
+  emptyCatch,
+  normalizeCatch,
+  type CatchRecord,
+  type CatchBanner,
+  type CatchBreakpointBg,
+  type CatchEndScreen,
+  type CatchGameplay,
+  type CatchHud,
+  type CatchSounds,
+} from "./catch.js";
 
 export const RESERVED_SLUGS = new Set([
   "admin",
@@ -33,10 +47,12 @@ export const RESERVED_SLUGS = new Set([
   "pinboard",
   /** Leaderboard module (Phase C) */
   "leaderboard",
+  /** Catch arcade game (Phase D) */
+  "catch",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard";
+export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard" | "catch";
 
 export type QuizPresentation = "frame16x9" | "responsive";
 export type QuizMotion = "static" | "videoSequences";

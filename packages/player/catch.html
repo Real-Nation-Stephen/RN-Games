@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Catch game</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/catch/catch.css" />
+  </head>
+  <body class="catch-game">
+    <div id="app" hidden>
+      <div id="fit">
+        <div id="stage">
+          <canvas id="catch-canvas" aria-hidden="true"></canvas>
+          <header id="catch-banner" class="catch-banner catch-banner--center"></header>
+          <div class="catch-hud">
+            <div class="catch-hud__block">
+              <p class="catch-hud__label">Score</p>
+              <p class="catch-hud__value" id="catch-score-value">0</p>
+            </div>
+            <div class="catch-hud__block" style="text-align: right">
+              <p class="catch-hud__label">Time</p>
+              <p class="catch-hud__value" id="catch-timer-value">0:60</p>
+            </div>
+          </div>
+          <div id="catch-swipe-hint" class="catch-swipe-hint" hidden>
+            <div id="catch-swipe-text">Swipe to move</div>
+            <div class="catch-swipe-hint__anim" aria-hidden="true">
+              <span class="catch-swipe-hint__hand"></span>
+            </div>
+          </div>
+          <div id="catch-start-overlay" class="catch-overlay" hidden></div>
+          <div id="catch-countdown-overlay" class="catch-overlay catch-overlay--pass" hidden>
+            <div id="catch-countdown-num" class="catch-countdown-num">3</div>
+          </div>
+          <div id="catch-end" class="catch-end" hidden>
+            <div class="catch-end__card">
+              <img id="catch-end-logo" class="catch-end__logo" alt="" hidden />
+              <h2 id="catch-end-headline" class="catch-end__headline">Time's up!</h2>
+              <p id="catch-end-subhead" class="catch-end__subhead"></p>
+              <p id="catch-end-score" class="catch-end__score">Score: 0</p>
+              <div id="catch-end-name-wrap" class="catch-end__name" hidden>
+                <input id="catch-end-name" type="text" maxlength="3" placeholder="ABC" autocomplete="off" />
+              </div>
+              <button type="button" id="catch-end-play" class="catch-end__btn">Play again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="catch-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load game</h2>
+        <p class="muted" id="catch-error-msg"></p>
+      </div>
+    </div>
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+      hidden
+    >
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
+    </a>
+    <audio id="catch-music" loop playsinline></audio>
+    <script type="module" src="/src/catch/main.ts"></script>
+  </body>
+</html>

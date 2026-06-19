@@ -16,6 +16,7 @@ const RESERVED = new Set([
   "flip-cards",
   "pinboard",
   "leaderboard",
+  "catch",
 ]);
 
 export default async (request, context) => {
@@ -32,6 +33,15 @@ export default async (request, context) => {
         return fetch(new URL(`/play/leaderboard-moderate.html?slug=${encodeURIComponent(slug)}`, url));
       }
       return fetch(new URL(`/play/leaderboard-board.html?slug=${encodeURIComponent(slug)}`, url));
+    }
+  }
+
+  // Catch game: /catch/:slug
+  if (path === "/catch" || path.startsWith("/catch/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "catch") {
+      const slug = seg[1];
+      return fetch(new URL(`/play/catch.html?slug=${encodeURIComponent(slug)}`, url));
     }
   }
 
