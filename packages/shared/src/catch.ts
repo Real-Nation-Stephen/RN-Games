@@ -81,6 +81,11 @@ export interface CatchEndScreen {
   headlineHex: string;
   subheadHex: string;
   backgrounds: CatchBreakpointBg;
+  linkEnabled: boolean;
+  linkLabel: string;
+  linkUrl: string;
+  linkButtonHex: string;
+  linkButtonTextHex: string;
 }
 
 export interface CatchRecord {
@@ -178,6 +183,11 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       headlineHex: "#ffffff",
       subheadHex: "#c8d4e0",
       backgrounds: { desktop: "", tablet: "", mobile: "" },
+      linkEnabled: false,
+      linkLabel: "Learn more",
+      linkUrl: "",
+      linkButtonHex: "#1e81ff",
+      linkButtonTextHex: "#ffffff",
     },
     highScore: { enabled: false, nameMaxLength: 3 },
     linkedLeaderboardSlug: "",

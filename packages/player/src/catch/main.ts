@@ -44,6 +44,7 @@ const els = {
   endNameWrap: document.getElementById("catch-end-name-wrap")!,
   endName: document.getElementById("catch-end-name") as HTMLInputElement,
   endPlay: document.getElementById("catch-end-play") as HTMLButtonElement,
+  endLink: document.getElementById("catch-end-link") as HTMLAnchorElement,
   powered: document.getElementById("powered-by-rn") as HTMLElement,
   music: document.getElementById("catch-music") as HTMLAudioElement,
 };
@@ -132,6 +133,17 @@ function applyTheme(c: CatchConfig) {
   els.endHeadline.textContent = end.headline || "Time's up!";
   els.endSubhead.textContent = end.subhead || "";
   els.endPlay.textContent = end.playAgainLabel || "Play again";
+  root.style.setProperty("--catch-end-link-btn", end.linkButtonHex || "#1e81ff");
+  root.style.setProperty("--catch-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
+  const showLink = end.linkEnabled && (end.linkUrl || "").trim();
+  if (showLink) {
+    els.endLink.href = end.linkUrl.trim();
+    els.endLink.textContent = end.linkLabel || "Learn more";
+    els.endLink.hidden = false;
+  } else {
+    els.endLink.hidden = true;
+    els.endLink.removeAttribute("href");
+  }
   if (end.logoUrl) {
     els.endLogo.src = end.logoUrl;
     els.endLogo.hidden = false;
@@ -442,7 +454,7 @@ function mountGame(c: CatchConfig) {
   engine = new CatchEngine(c);
   resizeCanvas();
   unbindLayout?.();
-  unbindLayout = bindCatchLayout(document.documentElement);
+  unbindLayout = bindCatchLayout(els.fit, els.stage);
   updateHud();
   showIntroUi();
   els.app.hidden = false;

@@ -4,6 +4,8 @@ import type { CatchConfig, CatchGameState, FallingItem } from "./types";
 const BANNER_H = 132;
 const CATCHER_BOTTOM_PAD = 120;
 const SPAWN_EDGE_PAD = 20;
+const POSITIVE_RATIO_START = 0.5;
+const POSITIVE_RATIO_END = 0.1;
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -11,6 +13,13 @@ function lerp(a: number, b: number, t: number) {
 
 function randBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
+}
+
+function shuffleKinds(kinds: ("positive" | "negative")[]) {
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
+  }
 }
 
 export class CatchEngine {
@@ -29,6 +38,8 @@ export class CatchEngine {
   private countdownAcc = 0;
   private nextId = 1;
   private cfg: CatchConfig;
+  private spawnPlan: ("positive" | "negative")[] = [];
+  private spawnPlanIndex = 0;
 
   constructor(cfg: CatchConfig) {
     this.cfg = cfg;
@@ -52,6 +63,59 @@ export class CatchEngine {
     return Math.min(1, Math.max(0, 1 - this.timeLeft / total));
   }
 
+  private targetPositiveRatio(progress = this.roundProgress()) {
+    return lerp(POSITIVE_RATIO_START, POSITIVE_RATIO_END, progress);
+  }
+
+  private buildSpawnPlan() {
+    const g = this.cfg.gameplay;
+    if (g.positiveOnly) {
+      this.spawnPlan = [];
+      this.spawnPlanIndex = 0;
+      return;
+    }
+
+    const avgMs = (g.spawnIntervalMinMs + g.spawnIntervalMaxMs) / 2;
+    const n = Math.max(12, Math.round((g.durationSec * 1000) / avgMs));
+    const kinds: ("positive" | "negative")[] = [];
+    let expectedPos = 0;
+
+    for (let i = 0; i < n; i++) {
+      const t = n <= 1 ? 0 : i / (n - 1);
+      const posRatio = this.targetPositiveRatio(t);
+      expectedPos += posRatio;
+      kinds.push(Math.random() < posRatio ? "positive" : "negative");
+    }
+
+    const targetPos = Math.round(expectedPos);
+    let posCount = kinds.filter((k) => k === "positive").length;
+
+    for (let i = 0; i < kinds.length && posCount < targetPos; i++) {
+      if (kinds[i] === "negative") {
+        kinds[i] = "positive";
+        posCount++;
+      }
+    }
+    for (let i = kinds.length - 1; i >= 0 && posCount > targetPos; i--) {
+      if (kinds[i] === "positive") {
+        kinds[i] = "negative";
+        posCount--;
+      }
+    }
+
+    shuffleKinds(kinds);
+    this.spawnPlan = kinds;
+    this.spawnPlanIndex = 0;
+  }
+
+  private pickSpawnKind(): "positive" | "negative" {
+    if (this.cfg.gameplay.positiveOnly) return "positive";
+    if (this.spawnPlanIndex < this.spawnPlan.length) {
+      return this.spawnPlan[this.spawnPlanIndex++];
+    }
+    return Math.random() < this.targetPositiveRatio() ? "positive" : "negative";
+  }
+
   private currentFallSpeed() {
     const g = this.cfg.gameplay;
     return lerp(g.fallSpeedStart, g.fallSpeedEnd, this.roundProgress());
@@ -67,6 +131,8 @@ export class CatchEngine {
     this.spawnAcc = 0;
     this.items = [];
     this.catcherX = CATCH_DESIGN_W / 2;
+    this.spawnPlan = [];
+    this.spawnPlanIndex = 0;
     this.scheduleNextSpawn();
   }
 
@@ -92,6 +158,7 @@ export class CatchEngine {
         if (this.countdownValue <= 0) {
           this.state = "playing";
           this.spawnAcc = 0;
+          this.buildSpawnPlan();
           this.spawnItem();
           this.scheduleNextSpawn();
         }
@@ -137,9 +204,7 @@ export class CatchEngine {
   private spawnItem() {
     const g = this.cfg.gameplay;
     const size = g.itemSize;
-    const positiveOnly = g.positiveOnly;
-    const kind: "positive" | "negative" =
-      positiveOnly || Math.random() > 0.35 ? "positive" : "negative";
+    const kind = this.pickSpawnKind();
     const half = size / 2;
     const pad = half + SPAWN_EDGE_PAD;
     const minX = pad;

@@ -664,6 +664,37 @@ export default function CatchEditor() {
             value={game.endScreen.buttonTextHex}
             onChange={(v) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, buttonTextHex: v } }))}
           />
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
+            <input
+              type="checkbox"
+              checked={game.endScreen.linkEnabled}
+              onChange={(e) =>
+                patch((g) => ({ ...g, endScreen: { ...g.endScreen, linkEnabled: e.target.checked } }))
+              }
+            />
+            Show optional link button
+          </label>
+          <label className="field">Link button label</label>
+          <input
+            value={game.endScreen.linkLabel}
+            onChange={(e) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, linkLabel: e.target.value } }))}
+          />
+          <label className="field">Link URL</label>
+          <input
+            value={game.endScreen.linkUrl}
+            placeholder="https://"
+            onChange={(e) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, linkUrl: e.target.value } }))}
+          />
+          <HexField
+            label="Link button hex"
+            value={game.endScreen.linkButtonHex}
+            onChange={(v) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, linkButtonHex: v } }))}
+          />
+          <HexField
+            label="Link button text hex"
+            value={game.endScreen.linkButtonTextHex}
+            onChange={(v) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, linkButtonTextHex: v } }))}
+          />
           <BgUploadRow
             label="End screen desktop BG"
             hint={CATCH_BG_SIZE_HINTS.desktop}

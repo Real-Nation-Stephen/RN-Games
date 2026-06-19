@@ -11,6 +11,7 @@
     <div id="app" hidden>
       <div id="fit">
         <div id="stage">
+          <div id="catch-stage-bg" class="catch-stage-bg" aria-hidden="true"></div>
           <canvas id="catch-canvas" aria-hidden="true"></canvas>
           <header id="catch-banner" class="catch-banner catch-banner--center"></header>
           <div class="catch-hud">
@@ -57,7 +58,10 @@
               <div id="catch-end-name-wrap" class="catch-end__name" hidden>
                 <input id="catch-end-name" type="text" maxlength="3" placeholder="ABC" autocomplete="off" />
               </div>
-              <button type="button" id="catch-end-play" class="catch-end__btn">Play again</button>
+              <div class="catch-end__actions">
+                <button type="button" id="catch-end-play" class="catch-end__btn">Play again</button>
+                <a id="catch-end-link" class="catch-end__btn catch-end__link" hidden target="_blank" rel="noopener noreferrer">Learn more</a>
+              </div>
             </div>
           </div>
         </div>

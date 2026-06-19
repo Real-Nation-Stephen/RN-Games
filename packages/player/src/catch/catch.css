@@ -4,18 +4,7 @@ body.catch-game {
   overflow: hidden;
   font-family: var(--catch-font-body, system-ui, sans-serif);
   color: #fff;
-}
-
-body.catch-game::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background-color: var(--catch-bg-solid, #1a2a3a);
-  background-image: var(--catch-bg-image, none);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: var(--catch-bg-solid, #1a2a3a);
 }
 
 #app {
@@ -32,29 +21,38 @@ body.catch-game::before {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
-  width: calc(var(--catch-design-w, 1080) * var(--catch-scale, 1) * 1px);
-  height: calc(var(--catch-design-h, 1920) * var(--catch-scale, 1) * 1px);
+  line-height: normal;
 }
 
 #stage {
   position: absolute;
   left: 0;
   top: 0;
-  width: calc(var(--catch-design-w, 1080) * 1px);
-  height: calc(var(--catch-design-h, 1920) * 1px);
-  transform: scale(var(--catch-scale, 1));
   transform-origin: 0 0;
   line-height: normal;
+}
+
+.catch-stage-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: var(--catch-bg-solid, #1a2a3a);
+  background-image: var(--catch-bg-image, none);
+  background-size: auto 100%;
+  background-position: center top;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
 
 #catch-canvas {
   position: absolute;
   left: 0;
   top: 0;
-  width: calc(var(--catch-design-w, 1080) * 1px);
-  height: calc(var(--catch-design-h, 1920) * 1px);
+  width: 1080px;
+  height: 1920px;
   display: block;
   touch-action: none;
+  z-index: 1;
 }
 
 .catch-banner {
@@ -146,7 +144,8 @@ body.catch-game::before {
 
 .catch-overlay[hidden],
 .catch-swipe-hint[hidden],
-.catch-intro[hidden] {
+.catch-intro[hidden],
+.catch-end[hidden] {
   display: none !important;
 }
 
@@ -233,7 +232,7 @@ body.catch-game::before {
   justify-content: center;
   padding: 48px 40px;
   box-sizing: border-box;
-  background: rgba(8, 14, 22, 0.88);
+  background: rgba(8, 14, 22, 0.9);
 }
 
 .catch-intro__card {
@@ -306,13 +305,9 @@ body.catch-game::before {
   box-sizing: border-box;
   background-color: var(--catch-end-bg-solid, rgba(15, 26, 36, 0.92));
   background-image: var(--catch-end-bg-image, none);
-  background-size: cover;
-  background-position: center;
+  background-size: auto 100%;
+  background-position: center top;
   background-repeat: no-repeat;
-}
-
-.catch-end[hidden] {
-  display: none !important;
 }
 
 .catch-end__card {
@@ -373,8 +368,16 @@ body.catch-game::before {
   text-transform: uppercase;
 }
 
-.catch-end__btn {
+.catch-end__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   margin-top: 32px;
+  width: 100%;
+}
+
+.catch-end__btn {
   padding: 16px 36px;
   border-radius: 10px;
   border: none;
@@ -383,6 +386,13 @@ body.catch-game::before {
   font-weight: 700;
   background: var(--catch-end-btn, #2d6a4f);
   color: var(--catch-end-btn-text, #fff);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.catch-end__link {
+  background: var(--catch-end-link-btn, #1e81ff);
+  color: var(--catch-end-link-btn-text, #fff);
 }
 
 .player-error {
