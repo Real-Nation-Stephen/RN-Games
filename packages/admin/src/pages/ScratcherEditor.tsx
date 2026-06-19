@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
+import { HexField } from "../components/HexField";
 
 type ScratcherFormatId = "16x9" | "1x1" | "9x16" | "4x3";
 
@@ -376,13 +377,10 @@ export default function ScratcherEditor() {
           ))}
         </select>
 
-        <label className="field" style={{ marginTop: 12 }}>
-          Background colour (hex)
-        </label>
-        <input
-          type="text"
+        <HexField
+          label="Background colour (hex)"
           value={game.backgroundColor}
-          onChange={(e) => setGame({ ...game, backgroundColor: e.target.value })}
+          onChange={(v) => setGame({ ...game, backgroundColor: v })}
           placeholder="#0a1628"
         />
 

@@ -1,6 +1,8 @@
 /**
  * Flip cards — production player (public API or admin preview postMessage).
  */
+import { track } from "@rngames/shared/track";
+
 const API_BASE = "/api";
 
 const CARD_W_PER_H = 827 / 1417;
@@ -639,6 +641,12 @@ async function openDetail(slotIndex) {
   if (deckIdx === undefined) return;
   const card = liveConfig.cards[deckIdx];
   if (!card) return;
+
+  track({
+    type: "flip_cards.open",
+    gameId: String(liveConfig.id || liveConfig.slug || ""),
+    payload: { deckIndex: deckIdx, slotIndex },
+  });
 
   detailFlipInner.style.transform = "";
 

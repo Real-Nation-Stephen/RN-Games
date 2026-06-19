@@ -607,6 +607,7 @@ export default function PinboardEditor() {
           <HexField label="Background hex" value={String(m.backgroundHex || "#1a2332")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, backgroundHex: v } }))} />
           <HexField label="Text hex" value={String(m.textHex || "#f5f5f5")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, textHex: v } }))} />
           <HexField label="Button hex" value={String(m.buttonHex || "#d93ddb")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, buttonHex: v } }))} />
+          <HexField label="Button text hex" value={String(m.buttonTextHex || "#ffffff")} onChange={(v) => patch((g) => ({ ...g, mobile: { ...g.mobile, buttonTextHex: v } }))} />
           <p className="muted" style={{ marginTop: 16, marginBottom: 8, fontSize: "0.85rem" }}>
             Guest submission types
           </p>

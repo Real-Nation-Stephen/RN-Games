@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
+import { HexField } from "../components/HexField";
 
 type FlipCardFace = {
   frontImage: string;
@@ -734,11 +735,10 @@ export default function FlipCardEditor() {
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>General assets</h3>
-        <label className="field">Background colour (hex)</label>
-        <input
-          type="text"
+        <HexField
+          label="Background colour (hex)"
           value={game.backgroundColor}
-          onChange={(e) => setGame({ ...game, backgroundColor: e.target.value })}
+          onChange={(v) => setGame({ ...game, backgroundColor: v })}
         />
         <label className="field" style={{ marginTop: 12 }}>
           Background image (scale to fill)
@@ -870,16 +870,16 @@ export default function FlipCardEditor() {
             />
           </div>
           <div>
-            <label className="field">Text colour</label>
-            <input
-              type="text"
+            <HexField
+              label="Text colour"
               value={game.shuffle?.textColor || ""}
-              onChange={(e) =>
+              onChange={(v) =>
                 setGame({
                   ...game,
-                  shuffle: { ...game.shuffle, textColor: e.target.value },
+                  shuffle: { ...game.shuffle, textColor: v },
                 })
               }
+              placeholder="#ffffff"
             />
           </div>
           <div>

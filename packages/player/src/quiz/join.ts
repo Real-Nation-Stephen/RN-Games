@@ -3,6 +3,7 @@ import { byId, fetchJson, fetchQuiz, qs, setFavicon, showApp, showError } from "
 import { quizSessionGetUrl } from "./api-path";
 import { applyQuizSurface } from "./quiz-theme";
 import { ensureQuizFontFaces } from "./font-loader";
+import { track } from "@rngames/shared/track";
 
 const DEFAULT_ICONS = ["🐯", "🦊", "🐼", "🐸", "🐙", "🦁", "🐵", "🦉", "🐰", "🐺", "🐝", "🦄"];
 
@@ -348,6 +349,12 @@ async function main() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, participantId, answer: { choiceId: selectedChoiceId } }),
+        });
+        track({
+          type: "quiz.answer",
+          gameId: slug,
+          sessionId: code,
+          payload: { participantId, choiceId: selectedChoiceId },
         });
         // Mark submitted for current question (best-effort).
         submittedForQuestionId = lastQuestionId || submittedForQuestionId || "1";

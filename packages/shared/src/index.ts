@@ -1,5 +1,7 @@
 /** Shared wheel types and validation for Real Nation Digital — Game Studio */
 
+export { track, type TrackEvent, type TrackEventInput } from "./track.js";
+
 export const RESERVED_SLUGS = new Set([
   "admin",
   "api",
@@ -19,6 +21,8 @@ export const RESERVED_SLUGS = new Set([
   "flip-cards",
   /** Live event pin board */
   "pinboard",
+  /** Leaderboard module (Phase C) */
+  "leaderboard",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */

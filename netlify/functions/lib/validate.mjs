@@ -9,6 +9,11 @@ export const RESERVED_SLUGS = new Set([
   "robots.txt",
   "_next",
   ".netlify",
+  "quiz",
+  "scratcher",
+  "flip-cards",
+  "pinboard",
+  "leaderboard",
 ]);
 
 export function validateSlug(raw) {

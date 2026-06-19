@@ -3,6 +3,7 @@ import { loadConfig, getEventIdFromQuery, addSubmission } from "./store";
 import { applyBranding, injectFontFaces } from "./theme";
 import { createPhotoEditor } from "./photo-editor";
 import type { PinboardConfig, PinboardStickyAsset } from "./types";
+import { track } from "@rngames/shared/track";
 
 type Tab = "photo" | "note";
 
@@ -325,6 +326,11 @@ async function submitNote(eventId: string, cfg: PinboardConfig) {
     noteMode: state.noteMode,
     stickyId: sticky.id,
   });
+  track({
+    type: "pinboard.submit",
+    gameId: eventId,
+    payload: { submissionType: "note", stickyId: sticky.id },
+  });
   showThanks(cfg);
 }
 
@@ -383,6 +389,11 @@ async function bootstrap() {
             photoRawDataUrl: result.rawDataUrl,
             photoFrameId: result.frameId,
             photoStickers: result.stickers,
+          });
+          track({
+            type: "pinboard.submit",
+            gameId: eventId,
+            payload: { submissionType: "photo", frameId: result.frameId },
           });
           photoEditor.close();
           showThanks(cfg);

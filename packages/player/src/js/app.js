@@ -5,6 +5,7 @@ import {
 } from "./wheel.js";
 import { startSpinAudioAsync, playRevealSound, unlockAudio } from "./audio.js";
 import { burstConfetti } from "./fanfare.js";
+import { track } from "@rngames/shared/track";
 
 const DESIGN_W = 1920;
 const DESIGN_H = 1080;
@@ -144,6 +145,16 @@ function resetToHeadline() {
 }
 
 function logSpin(winnerIndex, isWin) {
+  track({
+    type: "wheel.spin",
+    gameId: config.id || wheelSlug,
+    payload: {
+      slug: wheelSlug,
+      segmentIndex: winnerIndex,
+      prizeLabel: config.prizes[winnerIndex] ?? "",
+      outcome: isWin ? "win" : "lose",
+    },
+  });
   if (!config.reportingEnabled) return;
   void fetch(`${API_BASE}/log-spin`, {
     method: "POST",

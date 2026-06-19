@@ -8,6 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@rngames/shared": "1.0.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

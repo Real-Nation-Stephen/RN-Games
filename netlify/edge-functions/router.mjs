@@ -15,6 +15,7 @@ const RESERVED = new Set([
   "scratcher",
   "flip-cards",
   "pinboard",
+  "leaderboard",
 ]);
 
 export default async (request, context) => {

@@ -2,6 +2,12 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@rngames/shared/track": resolve(__dirname, "../shared/src/track.ts"),
+      "@rngames/shared": resolve(__dirname, "../shared/src/index.ts"),
+    },
+  },
   root: resolve(__dirname),
   /** Must match `dist/play/` in assemble-dist so `/slug` routes still load `/play/assets/*`. */
   base: "/play/",

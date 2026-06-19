@@ -7,8 +7,8 @@ Live reference for how the platform is built, hosted, secured, and where the gap
 | **Product** | RN Game Studio (Real Nation Digital) |
 | **Production** | [rn-games.netlify.app](https://rn-games.netlify.app) |
 | **Repository** | [Real-Nation-Stephen/RN-Games](https://github.com/Real-Nation-Stephen/RN-Games) |
-| **Last updated** | May 2026 |
-| **Doc version** | 0.3 |
+| **Last updated** | Jun 2026 |
+| **Doc version** | 0.3.3 |
 
 ---
 
@@ -187,6 +187,18 @@ A planned direction is **modular** consent / collection / tracking packs attacha
 
 ## Tracking & reporting
 
+### Event stub (Phases B–F)
+
+Player surfaces call `track()` from `@rngames/shared/track` at key moments (wheel spin, scratcher reveal, flip-card open, quiz answer, pin board submit). The function is a **no-op** until Phase G ingest is built.
+
+Event shape:
+
+```ts
+{ type, gameId, moduleId?, campaignId?, sessionId?, timestamp, payload? }
+```
+
+Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer`, `pinboard.submit`.
+
 ### Spinning wheels (most complete)
 
 1. Editor toggles **Reporting** on a wheel (`reportingEnabled`). First enable can set `reportingLockedAt` and provision a **Google Sheet tab** per wheel (when `GOOGLE_SHEET_ID` and service account env vars are set).
@@ -251,7 +263,7 @@ Edge function `router.mjs` handles clean URLs before static fallthrough:
 | `/quiz/:slug/live/:code/leaderboard` | Leaderboard |
 | `/admin/*`, `/play/*`, `/api/*` | Passed through to static / functions |
 
-Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `report`, `quiz`, `scratcher`, `flip-cards`, `pinboard`, etc.
+Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `report`, `quiz`, `scratcher`, `flip-cards`, `pinboard`, `leaderboard`, etc.
 
 ---
 
@@ -317,6 +329,7 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 | Doc / platform | Date | Notes |
 |----------------|------|-------|
 | 0.3 | May 2026 | Pin board guest submit toggles; game duplicate via `sourceId`; pin board thumbnail background fix; quiz host timer / `waiting` phase improvements |
+| 0.3.3 | Jun 2026 | Phase B: shared `track()` stub, `HexField` rollout, `leaderboard` reserved slug, validate.mjs slug list aligned with shared |
 | 0.3.2 | May 2026 | Phase A: RN Game Studio branding; `public-wheel` error handling; `syncSegmentArrays` hardening |
 | 0.3.1 | May 2026 | Added [PLANNING.md](./PLANNING.md) with locked product decisions |
 | 0.2 | May 2026 | Pin board studio editor, slug-from-path fix, moderator branding, guest assets |

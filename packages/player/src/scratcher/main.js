@@ -3,6 +3,7 @@
  */
 import { burstConfetti } from "../js/fanfare.js";
 import { FORMATS, getFormatOrThrow } from "./formats.js";
+import { track } from "@rngames/shared/track";
 
 const isEmbed = document.body.classList.contains("scratcher-embed");
 const API_BASE = "/api";
@@ -353,6 +354,11 @@ function playOutcomeSound() {
 function completeReveal() {
   if (completed) return;
   completed = true;
+  track({
+    type: "scratcher.reveal",
+    gameId: String(liveConfig?.id || liveConfig?.slug || ""),
+    payload: { outcome: isWin ? "win" : "lose" },
+  });
   if (els.canvas) {
     els.canvas.style.pointerEvents = "none";
     els.canvas.classList.add("is-revealed");

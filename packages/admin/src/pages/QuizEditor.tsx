@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import type { QuizSequence, QuizSequenceStyle, QuizSurfaceTheme, QuizTextAnimationId } from "../../player/src/quiz/types";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
+import { HexField } from "../components/HexField";
 
 type QuizMode = {
   presentation: "frame16x9" | "responsive";
@@ -181,34 +182,13 @@ function SurfaceFields({
     <details style={{ marginTop: 10 }}>
       <summary style={{ cursor: "pointer", fontWeight: 600 }}>{title}</summary>
       <div className="grid2" style={{ marginTop: 10 }}>
-        <div>
-          <label className="field">Background hex</label>
-          <input value={t.backgroundHex || ""} onChange={(e) => set({ backgroundHex: e.target.value })} placeholder="#0a1628" />
-        </div>
-        <div>
-          <label className="field">Text hex</label>
-          <input value={t.textHex || ""} onChange={(e) => set({ textHex: e.target.value })} />
-        </div>
-        <div>
-          <label className="field">Muted text hex</label>
-          <input value={t.mutedHex || ""} onChange={(e) => set({ mutedHex: e.target.value })} />
-        </div>
-        <div>
-          <label className="field">Button bg hex</label>
-          <input value={t.buttonHex || ""} onChange={(e) => set({ buttonHex: e.target.value })} />
-        </div>
-        <div>
-          <label className="field">Button down/selected hex</label>
-          <input value={(t as any).buttonDownHex || ""} onChange={(e) => set({ buttonDownHex: e.target.value } as any)} />
-        </div>
-        <div>
-          <label className="field">Button text hex</label>
-          <input value={t.buttonTextHex || ""} onChange={(e) => set({ buttonTextHex: e.target.value })} />
-        </div>
-        <div>
-          <label className="field">Overlay hex</label>
-          <input value={t.overlayHex || ""} onChange={(e) => set({ overlayHex: e.target.value })} />
-        </div>
+        <HexField label="Background hex" value={t.backgroundHex || ""} onChange={(v) => set({ backgroundHex: v })} placeholder="#0a1628" />
+        <HexField label="Text hex" value={t.textHex || ""} onChange={(v) => set({ textHex: v })} />
+        <HexField label="Muted text hex" value={t.mutedHex || ""} onChange={(v) => set({ mutedHex: v })} />
+        <HexField label="Button bg hex" value={t.buttonHex || ""} onChange={(v) => set({ buttonHex: v })} />
+        <HexField label="Button down/selected hex" value={(t as any).buttonDownHex || ""} onChange={(v) => set({ buttonDownHex: v } as any)} />
+        <HexField label="Button text hex" value={t.buttonTextHex || ""} onChange={(v) => set({ buttonTextHex: v })} />
+        <HexField label="Overlay hex" value={t.overlayHex || ""} onChange={(v) => set({ overlayHex: v })} />
         <div>
           <label className="field">Heading font (CSS)</label>
           <input value={t.fontHeading || ""} onChange={(e) => set({ fontHeading: e.target.value })} placeholder="Georgia, serif" />
@@ -637,13 +617,11 @@ export default function QuizEditor() {
               {quiz.branding?.logoUrl ? <img src={quiz.branding.logoUrl} alt="" width={48} height={48} style={{ borderRadius: 8 }} /> : null}
             </div>
           </div>
-          <div>
-            <label className="field">Default stage background (hex)</label>
-            <input
-              value={quiz.branding?.backgroundColor || ""}
-              onChange={(e) => setQuiz({ ...quiz, branding: { ...quiz.branding, backgroundColor: e.target.value } })}
-            />
-          </div>
+          <HexField
+            label="Default stage background (hex)"
+            value={quiz.branding?.backgroundColor || ""}
+            onChange={(v) => setQuiz({ ...quiz, branding: { ...quiz.branding, backgroundColor: v } })}
+          />
           <div>
             <label className="field">Default background image</label>
             <button type="button" className="btn" onClick={() => void pickUpload((url) => setQuiz({ ...quiz, branding: { ...quiz.branding, backgroundImage: url } }))}>
@@ -1149,18 +1127,9 @@ function SequenceForm({
 
       <h5>Universal</h5>
       <div className="grid2">
-        <div>
-          <label className="field">Slide BG hex (overrides default)</label>
-          <input value={st.bgHex || ""} onChange={(e) => patchStyle({ bgHex: e.target.value })} placeholder="#0a1628" />
-        </div>
-        <div>
-          <label className="field">Text hex</label>
-          <input value={st.textHex || ""} onChange={(e) => patchStyle({ textHex: e.target.value })} />
-        </div>
-        <div>
-          <label className="field">Button hex (questions)</label>
-          <input value={st.buttonHex || ""} onChange={(e) => patchStyle({ buttonHex: e.target.value })} />
-        </div>
+        <HexField label="Slide BG hex (overrides default)" value={st.bgHex || ""} onChange={(v) => patchStyle({ bgHex: v })} placeholder="#0a1628" />
+        <HexField label="Text hex" value={st.textHex || ""} onChange={(v) => patchStyle({ textHex: v })} />
+        <HexField label="Button hex (questions)" value={st.buttonHex || ""} onChange={(v) => patchStyle({ buttonHex: v })} />
         <div>
           <label className="field">Presentation V align</label>
           <select

@@ -12,7 +12,7 @@ Small decisions baked into early phases to avoid rework:
 
 | Principle | Detail |
 |-----------|--------|
-| **Event stub** | From Phase C onward, shared `track(event)` with stable shape `{ type, gameId, moduleId?, timestamp, payload }` — no-op or blob append until Phase G |
+| **Event stub** | From Phase B onward, shared `track(event)` in `@rngames/shared` with stable shape `{ type, gameId, moduleId?, timestamp, payload }` — no-op (dev console) until Phase G ingest |
 | **Sheets** | **One-way export** only (platform → Sheets). Client deliverable = branded dashboard URL; Sheets = backup/export |
 | **Slug uniqueness** | **Global** across module types — cannot claim a slug already in use (wheels, leaderboards, landings, etc.) |
 | **Tracking Phase G** | Requires **management + head of research** sign-off on retention, buckets, and compliance before build — not improvised |
@@ -22,9 +22,11 @@ Small decisions baked into early phases to avoid rework:
 
 Fix alongside rename / shared components — low cost, fewer demo failures:
 
-- `public-wheel` — wrap handler in try/catch (opaque 500s today)
-- `syncSegmentArrays` — guard null `segmentOutcome` (wheel duplicate/save)
-- Edge router — document `/play/...` fallback when clean URLs 500; expand reserved paths as modules ship
+- `public-wheel` — wrap handler in try/catch ✅ (Phase A)
+- `syncSegmentArrays` — guard null `segmentOutcome` ✅ (Phase A)
+- Edge router — document `/play/...` fallback when clean URLs 500; expand reserved paths as modules ship ✅ (`leaderboard` reserved, Phase B)
+- Shared `track()` stub in `@rngames/shared` — no-op until Phase G; wired at player event sites ✅ (Phase B)
+- `HexField` (hex + picker) rolled out to quiz, scratcher, flip-cards editors ✅ (Phase B; pin board was reference)
 
 ---
 
