@@ -305,12 +305,13 @@ export default function CatchEditor() {
             onChange={(e) =>
               patch((g) => ({
                 ...g,
-                banner: { ...g.banner, logoAlign: e.target.value as "left" | "center" },
+                banner: { ...g.banner, logoAlign: e.target.value as "left" | "center" | "right" },
               }))
             }
           >
-            <option value="center">Centred</option>
             <option value="left">Left aligned</option>
+            <option value="center">Centred</option>
+            <option value="right">Right aligned</option>
           </select>
         </div>
 
@@ -326,6 +327,81 @@ export default function CatchEditor() {
               patch((g) => ({
                 ...g,
                 gameplay: { ...g.gameplay, durationSec: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Item size (px, square)
+          </label>
+          <input
+            type="number"
+            min={32}
+            max={160}
+            value={game.gameplay.itemSize}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, itemSize: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Fall speed start (px/s)
+          </label>
+          <input
+            type="number"
+            min={80}
+            max={800}
+            value={game.gameplay.fallSpeedStart}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, fallSpeedStart: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Fall speed end (px/s)
+          </label>
+          <input
+            type="number"
+            min={80}
+            max={1200}
+            value={game.gameplay.fallSpeedEnd}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, fallSpeedEnd: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Spawn interval min (ms)
+          </label>
+          <input
+            type="number"
+            min={200}
+            max={2500}
+            value={game.gameplay.spawnIntervalMinMs}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, spawnIntervalMinMs: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Spawn interval max (ms)
+          </label>
+          <input
+            type="number"
+            min={200}
+            max={2500}
+            value={game.gameplay.spawnIntervalMaxMs}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, spawnIntervalMaxMs: Number(e.target.value) },
               }))
             }
           />

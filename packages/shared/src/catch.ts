@@ -11,7 +11,7 @@ export const CATCH_BG_SIZE_HINTS = {
   mobile: "1080×1920 portrait — background fits viewport height",
 } as const;
 
-export type CatchLogoAlign = "left" | "center";
+export type CatchLogoAlign = "left" | "center" | "right";
 export type CatchBreakpointBg = { desktop: string; tablet: string; mobile: string };
 
 export interface CatchBanner {
@@ -54,8 +54,10 @@ export interface CatchGameplay {
   durationSec: number;
   positiveOnly: boolean;
   swipeHintText: string;
-  spawnIntervalMs: number;
-  fallSpeed: number;
+  spawnIntervalMinMs: number;
+  spawnIntervalMaxMs: number;
+  fallSpeedStart: number;
+  fallSpeedEnd: number;
   itemSize: number;
   catcherWidth: number;
   catcherHeight: number;
@@ -144,8 +146,10 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       durationSec: 60,
       positiveOnly: false,
       swipeHintText: "Swipe to move",
-      spawnIntervalMs: 900,
-      fallSpeed: 280,
+      spawnIntervalMinMs: 550,
+      spawnIntervalMaxMs: 950,
+      fallSpeedStart: 220,
+      fallSpeedEnd: 420,
       itemSize: 72,
       catcherWidth: 140,
       catcherHeight: 72,
@@ -170,18 +174,42 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
 
 export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: string }): CatchRecord {
   const defaults = emptyCatch({ id: doc.id, slug: doc.slug });
+  const rawGameplay = { ...defaults.gameplay, ...(doc.gameplay || {}) } as CatchGameplay & {
+    spawnIntervalMs?: number;
+    fallSpeed?: number;
+  };
+  if (rawGameplay.spawnIntervalMinMs == null || rawGameplay.spawnIntervalMaxMs == null) {
+    const base = Number(rawGameplay.spawnIntervalMs) || defaults.gameplay.spawnIntervalMaxMs;
+    rawGameplay.spawnIntervalMinMs = Math.round(base * 0.6);
+    rawGameplay.spawnIntervalMaxMs = base;
+  }
+  if (rawGameplay.fallSpeedStart == null || rawGameplay.fallSpeedEnd == null) {
+    const base = Number(rawGameplay.fallSpeed) || defaults.gameplay.fallSpeedStart;
+    rawGameplay.fallSpeedStart = base;
+    rawGameplay.fallSpeedEnd = Math.round(base * 1.75);
+  }
+  rawGameplay.spawnIntervalMinMs = Math.max(200, Math.min(rawGameplay.spawnIntervalMinMs, rawGameplay.spawnIntervalMaxMs));
+  rawGameplay.spawnIntervalMaxMs = Math.max(rawGameplay.spawnIntervalMinMs, Math.min(2500, rawGameplay.spawnIntervalMaxMs));
+  rawGameplay.fallSpeedStart = Math.max(80, rawGameplay.fallSpeedStart);
+  rawGameplay.fallSpeedEnd = Math.max(rawGameplay.fallSpeedStart, rawGameplay.fallSpeedEnd);
+  rawGameplay.itemSize = Math.max(32, Math.min(160, Number(rawGameplay.itemSize) || defaults.gameplay.itemSize));
+
+  const rawBanner = { ...defaults.banner, ...(doc.banner || {}) };
+  const align = String(rawBanner.logoAlign || "center");
+  rawBanner.logoAlign = align === "left" || align === "right" ? align : "center";
+
   return {
     ...defaults,
     ...doc,
     gameType: "catch",
     backgrounds: { ...defaults.backgrounds, ...(doc.backgrounds || {}) },
-    banner: { ...defaults.banner, ...(doc.banner || {}) },
+    banner: rawBanner,
     sprites: { ...defaults.sprites, ...(doc.sprites || {}) },
     sounds: { ...defaults.sounds, ...(doc.sounds || {}) },
     fonts: { ...defaults.fonts, ...(doc.fonts || {}) },
     fontUploads: { ...(doc.fontUploads || {}) },
     hud: { ...defaults.hud, ...(doc.hud || {}) },
-    gameplay: { ...defaults.gameplay, ...(doc.gameplay || {}) },
+    gameplay: rawGameplay,
     endScreen: {
       ...defaults.endScreen,
       ...(doc.endScreen || {}),

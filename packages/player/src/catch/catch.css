@@ -19,16 +19,19 @@ body.catch-game::before {
 }
 
 #app {
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 #fit {
   position: relative;
   overflow: hidden;
-  line-height: 0;
+  flex-shrink: 0;
 }
 
 #stage {
@@ -36,13 +39,15 @@ body.catch-game::before {
   height: calc(var(--catch-design-h) * 1px);
   transform-origin: 0 0;
   position: relative;
+  line-height: normal;
 }
 
 #catch-canvas {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: 0;
+  top: 0;
+  width: calc(var(--catch-design-w) * 1px);
+  height: calc(var(--catch-design-h) * 1px);
   display: block;
   touch-action: none;
 }
@@ -67,6 +72,10 @@ body.catch-game::before {
 
 .catch-banner--left {
   justify-content: flex-start;
+}
+
+.catch-banner--right {
+  justify-content: flex-end;
 }
 
 .catch-banner img {
@@ -137,7 +146,7 @@ body.catch-game::before {
 
 .catch-countdown-num {
   font-family: var(--catch-font-heading, system-ui, sans-serif);
-  font-size: clamp(120px, 22vw, 220px);
+  font-size: 200px;
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -159,11 +168,12 @@ body.catch-game::before {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 36px;
+  bottom: 48px;
   z-index: 6;
   text-align: center;
   pointer-events: none;
-  font-size: 18px;
+  font-size: 24px;
+  line-height: 1.35;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
@@ -214,9 +224,11 @@ body.catch-game::before {
   position: absolute;
   inset: 0;
   z-index: 10;
-  display: grid;
-  place-items: center;
-  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  box-sizing: border-box;
   background-color: var(--catch-end-bg-solid, rgba(15, 26, 36, 0.92));
   background-image: var(--catch-end-bg-image, none);
   background-size: auto 100%;
@@ -229,40 +241,48 @@ body.catch-game::before {
 }
 
 .catch-end__card {
+  width: 100%;
+  max-width: 720px;
   text-align: center;
-  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
 
 .catch-end__logo {
-  max-height: 80px;
-  max-width: 240px;
+  max-height: 96px;
+  max-width: 280px;
   object-fit: contain;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .catch-end__headline {
   margin: 0;
   font-family: var(--catch-font-heading, system-ui, sans-serif);
-  font-size: clamp(28px, 5vw, 44px);
+  font-size: 56px;
+  line-height: 1.15;
   color: var(--catch-end-headline, #fff);
 }
 
 .catch-end__subhead {
-  margin: 10px 0 0;
-  font-size: 18px;
+  margin: 16px 0 0;
+  font-size: 26px;
+  line-height: 1.35;
   color: var(--catch-end-subhead, #c8d4e0);
 }
 
 .catch-end__score {
-  margin: 24px 0 0;
+  margin: 28px 0 0;
   font-family: var(--catch-font-score, system-ui, sans-serif);
-  font-size: clamp(36px, 7vw, 56px);
+  font-size: 64px;
+  line-height: 1.1;
   font-weight: 800;
   color: var(--catch-end-text, #eef2f7);
 }
 
 .catch-end__name {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .catch-end__name input {
@@ -279,12 +299,12 @@ body.catch-game::before {
 }
 
 .catch-end__btn {
-  margin-top: 24px;
-  padding: 14px 28px;
+  margin-top: 32px;
+  padding: 16px 36px;
   border-radius: 10px;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   background: var(--catch-end-btn, #2d6a4f);
   color: var(--catch-end-btn-text, #fff);

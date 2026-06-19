@@ -97,7 +97,8 @@ function applyTheme(c: CatchConfig) {
 
   const b = c.banner;
   root.style.setProperty("--catch-banner-bg", b.backgroundHex || "#0d1b2a");
-  els.banner.className = `catch-banner catch-banner--${b.logoAlign === "left" ? "left" : "center"}`;
+  const align = b.logoAlign === "left" || b.logoAlign === "right" ? b.logoAlign : "center";
+  els.banner.className = `catch-banner catch-banner--${align}`;
   if (b.logoUrl) {
     els.banner.innerHTML = `<img src="${b.logoUrl}" alt="" />`;
   } else {
@@ -305,6 +306,22 @@ function bindInput() {
   });
 }
 
+function drawImageContain(
+  context: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  cx: number,
+  cy: number,
+  boxW: number,
+  boxH: number,
+) {
+  const iw = img.naturalWidth || 1;
+  const ih = img.naturalHeight || 1;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const w = iw * scale;
+  const h = ih * scale;
+  context.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+}
+
 function drawItem(
   c: CatchConfig,
   item: { x: number; y: number; kind: "positive" | "negative"; rotation: number; size: number },
@@ -316,7 +333,7 @@ function drawItem(
   ctx.translate(item.x, item.y);
   ctx.rotate(item.rotation);
   if (img && img.complete && img.naturalWidth) {
-    ctx.drawImage(img, -item.size / 2, -item.size / 2, item.size, item.size);
+    drawImageContain(ctx, img, 0, 0, item.size, item.size);
   } else {
     ctx.fillStyle = item.kind === "positive" ? "#3ecf8e" : "#e05d5d";
     ctx.beginPath();
@@ -355,13 +372,7 @@ function drawFrame() {
   const cy = engine.catcherY;
   const catcherImg = cfg.catcherSpriteUrl ? imageCache.get(cfg.catcherSpriteUrl) : null;
   if (catcherImg && catcherImg.complete && catcherImg.naturalWidth) {
-    ctx.drawImage(
-      catcherImg,
-      cx - g.catcherWidth / 2,
-      cy - g.catcherHeight / 2,
-      g.catcherWidth,
-      g.catcherHeight,
-    );
+    drawImageContain(ctx, catcherImg, cx, cy, g.catcherWidth, g.catcherHeight);
   } else {
     ctx.fillStyle = "#f4d35e";
     ctx.fillRect(cx - g.catcherWidth / 2, cy - g.catcherHeight / 2, g.catcherWidth, g.catcherHeight);
@@ -372,8 +383,10 @@ function drawFrame() {
 
 function resizeCanvas() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  els.canvas.width = CATCH_DESIGN_W * dpr;
-  els.canvas.height = CATCH_DESIGN_H * dpr;
+  els.canvas.width = Math.round(CATCH_DESIGN_W * dpr);
+  els.canvas.height = Math.round(CATCH_DESIGN_H * dpr);
+  els.canvas.style.width = `${CATCH_DESIGN_W}px`;
+  els.canvas.style.height = `${CATCH_DESIGN_H}px`;
   ctx = els.canvas.getContext("2d");
   if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

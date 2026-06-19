@@ -41,8 +41,10 @@ export function emptyCatchRecord(id, slug) {
       durationSec: 60,
       positiveOnly: false,
       swipeHintText: "Swipe to move",
-      spawnIntervalMs: 900,
-      fallSpeed: 280,
+      spawnIntervalMinMs: 550,
+      spawnIntervalMaxMs: 950,
+      fallSpeedStart: 220,
+      fallSpeedEnd: 420,
       itemSize: 72,
       catcherWidth: 140,
       catcherHeight: 72,
@@ -85,7 +87,24 @@ export function normalizeCatchRecord(doc) {
   doc.linkedLeaderboardSlug = String(doc.linkedLeaderboardSlug || "");
   doc.gameplay.durationSec = Math.min(300, Math.max(10, Number(doc.gameplay.durationSec) || 60));
   doc.gameplay.positiveOnly = !!doc.gameplay.positiveOnly;
-  doc.banner.logoAlign = doc.banner.logoAlign === "left" ? "left" : "center";
+  const g = doc.gameplay;
+  if (g.spawnIntervalMinMs == null || g.spawnIntervalMaxMs == null) {
+    const base = Number(g.spawnIntervalMs) || 900;
+    g.spawnIntervalMinMs = Math.round(base * 0.6);
+    g.spawnIntervalMaxMs = base;
+  }
+  if (g.fallSpeedStart == null || g.fallSpeedEnd == null) {
+    const base = Number(g.fallSpeed) || 220;
+    g.fallSpeedStart = base;
+    g.fallSpeedEnd = Math.round(base * 1.75);
+  }
+  g.spawnIntervalMinMs = Math.max(200, Math.min(g.spawnIntervalMinMs, g.spawnIntervalMaxMs));
+  g.spawnIntervalMaxMs = Math.max(g.spawnIntervalMinMs, Math.min(2500, g.spawnIntervalMaxMs));
+  g.fallSpeedStart = Math.max(80, Number(g.fallSpeedStart) || 220);
+  g.fallSpeedEnd = Math.max(g.fallSpeedStart, Number(g.fallSpeedEnd) || 420);
+  g.itemSize = Math.max(32, Math.min(160, Number(g.itemSize) || 72));
+  const align = String(doc.banner.logoAlign || "center");
+  doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
   return doc;
 }
 
