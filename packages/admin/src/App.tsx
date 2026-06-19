@@ -6,6 +6,7 @@ import QuizEditor from "./pages/QuizEditor";
 import ScratcherEditor from "./pages/ScratcherEditor";
 import FlipCardEditor from "./pages/FlipCardEditor";
 import PinboardEditor from "./pages/PinboardEditor";
+import LeaderboardEditor from "./pages/LeaderboardEditor";
 import WheelEditor from "./pages/WheelEditor";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/scratchers/:id" element={<ScratcherEditor />} />
           <Route path="/flip-cards/:id" element={<FlipCardEditor />} />
           <Route path="/pinboards/:id" element={<PinboardEditor />} />
+          <Route path="/leaderboards/:id" element={<LeaderboardEditor />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

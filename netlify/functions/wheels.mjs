@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { connectLambda } from "@netlify/blobs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs";
+import { emptyLeaderboardRecord, normalizeLeaderboardRecord } from "./lib/leaderboard.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -10,6 +11,7 @@ import {
   setWheelJson,
   deleteWheelBlob,
   deletePinboardStateBlob,
+  deleteLeaderboardStateBlob,
 } from "./lib/blobs.mjs";
 import { validateSlug } from "./lib/validate.mjs";
 import { ensureWheelReportingTab, sanitizeSheetTabName } from "./lib/sheets.mjs";
@@ -314,11 +316,13 @@ export const handler = async (event, context) => {
         wheel.updatedAt = new Date().toISOString();
         if (wheel.gameType === "flip-cards") syncFlipCards(wheel);
         else if (wheel.gameType === "pinboard") normalizePinboardRecord(wheel);
+        else if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         else if (
           wheel.gameType !== "scratcher" &&
           wheel.gameType !== "flip-cards" &&
           wheel.gameType !== "quiz" &&
-          wheel.gameType !== "pinboard"
+          wheel.gameType !== "pinboard" &&
+          wheel.gameType !== "leaderboard"
         ) {
           syncSegmentArrays(wheel);
         }
@@ -327,6 +331,7 @@ export const handler = async (event, context) => {
         const isFlipCards = body.gameType === "flip-cards";
         const isQuiz = body.gameType === "quiz";
         const isPinboard = body.gameType === "pinboard";
+        const isLeaderboard = body.gameType === "leaderboard";
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
           : isFlipCards
@@ -335,7 +340,9 @@ export const handler = async (event, context) => {
               ? emptyQuizRecord(id, slugCheck.slug)
               : isPinboard
                 ? emptyPinboardRecord(id, slugCheck.slug)
-                : emptyWheelRecord(id, slugCheck.slug);
+                : isLeaderboard
+                  ? emptyLeaderboardRecord(id, slugCheck.slug)
+                  : emptyWheelRecord(id, slugCheck.slug);
         wheel.title = body.title || wheel.title;
         wheel.clientName = body.clientName || "";
       }
@@ -381,11 +388,13 @@ export const handler = async (event, context) => {
       const isFlipCards = existing.gameType === "flip-cards";
       const isQuiz = existing.gameType === "quiz";
       const isPinboard = existing.gameType === "pinboard";
+      const isLeaderboard = existing.gameType === "leaderboard";
       const isWheel =
         existing.gameType !== "scratcher" &&
         existing.gameType !== "flip-cards" &&
         existing.gameType !== "quiz" &&
-        existing.gameType !== "pinboard";
+        existing.gameType !== "pinboard" &&
+        existing.gameType !== "leaderboard";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -467,6 +476,26 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         normalizePinboardRecord(existing);
+      } else if (isLeaderboard) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "mode",
+          "linkedGameId",
+          "linkedGameSlug",
+          "linkedGameTitle",
+          "moderatorPin",
+          "board",
+          "moderator",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        normalizeLeaderboardRecord(existing);
       } else if (isWheel) {
         const assign = [
           "title",
@@ -558,6 +587,7 @@ export const handler = async (event, context) => {
       }
       await deleteWheelBlob(id);
       await deletePinboardStateBlob(id);
+      await deleteLeaderboardStateBlob(id);
       const list = (await readIndex()).filter((x) => x.id !== id);
       await writeIndex(list);
       return { statusCode: 204, body: "", headers };

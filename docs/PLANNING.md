@@ -92,6 +92,21 @@ Capture tracking learnings in this doc and INFRASTRUCTURE.md during A–F.
 
 **Fields:** rank, display name, score (+ internal id, timestamps for audit).
 
+### High score vs Leaderboard module
+
+These are **different mechanisms** — a game can use either, both, or neither.
+
+| | **High score** (in-game) | **Leaderboard module** (Studio) |
+|---|---|---|
+| Scope | Inside a single game session/device | Standalone ranked board (`/leaderboard/:slug`) |
+| Data | One best result + short tag (e.g. 3-letter name) | Many rows; shared rank + timing tie-break |
+| Typical use | Arcade “best run” on the game over screen | Event projection, manual in-person scoring, linked game aggregation |
+| Coexistence | Yes — e.g. catch shows local high score **and** POSTs to a linked leaderboard on submit | Linked mode accepts scores from one connected game (1:1 for now) |
+
+**Quiz play-along** already has a session leaderboard (`/quiz/:slug/live/:code/leaderboard`) tied to quiz participants — that stays quiz-specific. The standalone module is for catch/dino and other games plus manual event boards.
+
+High score settings on game records (`highScore.enabled`, `nameMaxLength`) ship with arcade POCs (Phase D+). Linked submit uses `POST /api/leaderboard-state` with `sourceGameId`.
+
 ---
 
 ## Catch game (POC)

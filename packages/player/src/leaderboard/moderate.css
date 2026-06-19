@@ -1,0 +1,84 @@
+body.leaderboard-moderate {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--lb-mod-bg, #121820);
+  color: var(--lb-mod-text, #eef2f7);
+  font-family: system-ui, sans-serif;
+}
+
+#lb-mod-gate,
+#lb-mod-app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.field {
+  display: block;
+  margin: 12px 0;
+}
+
+.field input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--lb-mod-btn, #2d6a4f);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn-danger {
+  background: #8b2e2e;
+}
+
+.lb-mod-card {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.lb-mod-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.lb-mod-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#lb-mod-err {
+  color: #ffb4b4;
+  margin: 8px 0;
+}
+
+.muted {
+  opacity: 0.7;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

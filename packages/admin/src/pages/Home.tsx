@@ -35,11 +35,16 @@ function isPinboard(w: Item) {
   return w.gameType === "pinboard";
 }
 
+function isLeaderboard(w: Item) {
+  return w.gameType === "leaderboard";
+}
+
 function editorPath(w: Item) {
   if (isQuiz(w)) return `/quizzes/${w.id}`;
   if (isScratcher(w)) return `/scratchers/${w.id}`;
   if (isFlipCards(w)) return `/flip-cards/${w.id}`;
   if (isPinboard(w)) return `/pinboards/${w.id}`;
+  if (isLeaderboard(w)) return `/leaderboards/${w.id}`;
   return `/wheels/${w.id}`;
 }
 
@@ -47,11 +52,13 @@ function GamesTable({
   items,
   editPath,
   copyLabel = "Copy public URL",
+  getPublicUrl,
   onDuplicate,
 }: {
   items: Item[];
   editPath: (w: Item) => string;
   copyLabel?: string;
+  getPublicUrl?: (w: Item) => string;
   onDuplicate?: (w: Item) => void | Promise<void>;
 }) {
   function copy(text: string) {
@@ -93,7 +100,7 @@ function GamesTable({
                   type="button"
                   className="btn"
                   style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                  onClick={() => copy(`${siteUrl}/${w.slug}`)}
+                  onClick={() => copy(getPublicUrl ? getPublicUrl(w) : `${siteUrl}/${w.slug}`)}
                 >
                   {copyLabel}
                 </button>
@@ -268,6 +275,24 @@ export default function Home() {
     }
   }
 
+  async function createLeaderboard() {
+    const slug = `leaderboard-${Date.now().toString(36)}`;
+    try {
+      const res = await apiSend("/api/wheels", "POST", {
+        gameType: "leaderboard",
+        slug,
+        title: "New leaderboard",
+        clientName: "",
+      });
+      await load();
+      if (res?.wheel?.id) {
+        window.location.href = `/admin/leaderboards/${res.wheel.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Create failed");
+    }
+  }
+
   async function createQuiz() {
     setErr(null);
     try {
@@ -327,6 +352,7 @@ export default function Home() {
   const quizGames = wheels.filter(isQuiz);
   const flipCardGames = wheels.filter(isFlipCards);
   const pinboardGames = wheels.filter(isPinboard);
+  const leaderboardGames = wheels.filter(isLeaderboard);
 
   const placeholderZip = "#";
 
@@ -359,6 +385,9 @@ export default function Home() {
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void createPinboard()}>
             New pin board
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createLeaderboard()}>
+            New leaderboard
           </button>
         </div>
       </section>
@@ -450,6 +479,30 @@ export default function Home() {
                 items={pinboardGames}
                 editPath={(w) => `/pinboards/${w.id}`}
                 copyLabel="Copy board URL"
+                getPublicUrl={(w) => `${siteUrl}/pinboard/${w.slug}`}
+                onDuplicate={duplicateGame}
+              />
+            )}
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <SectionHeader
+              title="Your leaderboards"
+              newLabel="New leaderboard"
+              onNew={createLeaderboard}
+              resourceHref={placeholderZip}
+              resourceLabel="Download leaderboard templates (ZIP)"
+            />
+            {leaderboardGames.length === 0 ? (
+              <div className="card">
+                <p style={{ margin: 0 }}>No leaderboards yet.</p>
+              </div>
+            ) : (
+              <GamesTable
+                items={leaderboardGames}
+                editPath={(w) => `/leaderboards/${w.id}`}
+                copyLabel="Copy live URL"
+                getPublicUrl={(w) => `${siteUrl}/leaderboard/${w.slug}`}
                 onDuplicate={duplicateGame}
               />
             )}

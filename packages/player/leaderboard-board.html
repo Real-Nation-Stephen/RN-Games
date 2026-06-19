@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leaderboard</title>
+    <link rel="stylesheet" href="/src/leaderboard/board.css" />
+  </head>
+  <body class="leaderboard-board">
+    <div id="app" hidden>
+      <div class="lb-brand" id="lb-brand" hidden></div>
+      <div class="lb-header-wrap">
+        <h1 id="lb-header">Leaderboard</h1>
+        <p id="lb-subhead"></p>
+      </div>
+      <div class="lb-panel">
+        <p id="lb-indicator" hidden></p>
+        <ol id="lb-list"></ol>
+      </div>
+    </div>
+    <div id="lb-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load leaderboard</h2>
+        <p class="muted" id="lb-error-msg"></p>
+      </div>
+    </div>
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+      hidden
+      style="position: fixed; left: 16px; bottom: 16px; opacity: 0.85"
+    >
+      Powered by Real Nation
+    </a>
+    <button id="lb-fs-btn" class="lb-fs-btn" type="button" aria-label="Fullscreen">⤢</button>
+    <script type="module" src="/src/leaderboard/board.ts"></script>
+  </body>
+</html>

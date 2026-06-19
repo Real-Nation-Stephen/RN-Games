@@ -25,6 +25,7 @@ Current game types in Studio:
 | `flip-cards` | `/admin/flip-cards/:id` | `/play/flip-cards.html?slug=` |
 | `quiz` | `/admin/quizzes/:id` | `/quiz/:slug/host`, `/join`, `/present`, etc. |
 | `pinboard` | `/admin/pinboards/:id` | `/pinboard/:slug`, `/submit`, `/moderate` |
+| `leaderboard` | `/admin/leaderboards/:id` | `/leaderboard/:slug`, `/moderator` |
 
 ---
 
@@ -91,6 +92,7 @@ There is **no SQL database**. All persistent platform data uses **Netlify Blobs*
 | `file:{uuid}` | Uploaded binary (images, audio) |
 | Quiz session keys | Live session: room code, host key, phase, answers, participants (via `lib/quiz-store.mjs`) |
 | `pinboard-state:{wheelId}` | Guest submissions awaiting moderation |
+| `leaderboard-state:{wheelId}` | Ranked entries, pan offset, revision |
 
 **Implications**
 
@@ -121,6 +123,7 @@ Redirects in `netlify.toml` map `/api/*` → `/.netlify/functions/*`.
 | `POST /api/quiz-answer` | Public | Submit answer |
 | `POST /api/quiz-bonus` | Public | Bonus steal flow |
 | `GET/POST /api/pinboard-state` | Mixed | Board submissions + moderation |
+| `GET/POST/PUT /api/leaderboard-state` | Mixed | Leaderboard poll, linked submit, moderator PIN actions |
 
 Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studio calls `/api/wheels` with `Authorization: Bearer <Netlify Identity token>`.
 
@@ -197,7 +200,7 @@ Event shape:
 { type, gameId, moduleId?, campaignId?, sessionId?, timestamp, payload? }
 ```
 
-Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer`, `pinboard.submit`.
+Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer`, `pinboard.submit`, `leaderboard.view`, `leaderboard.submit`.
 
 ### Spinning wheels (most complete)
 
@@ -255,6 +258,8 @@ Edge function `router.mjs` handles clean URLs before static fallthrough:
 | `/pinboard/:slug` | Board |
 | `/pinboard/:slug/submit` | Guest submit |
 | `/pinboard/:slug/moderate` | Moderation |
+| `/leaderboard/:slug` | Leaderboard live board |
+| `/leaderboard/:slug/moderator` | Leaderboard moderator (PIN) |
 | `/quiz/:slug/host` | Quiz host |
 | `/quiz/:slug/present` | Presenter |
 | `/quiz/:slug/present/:code` | Session presenter |
@@ -316,7 +321,7 @@ Without Netlify dev, admin API calls from Vite proxy expect port **8888**.
 High-level intent; **locked decisions and phase order** live in [PLANNING.md](./PLANNING.md) (updated as we build).
 
 - **Modular data collection / GDPR / tracking** — broad ingest + configurable dashboards; Sheets as export, Blobs/SQL as source of truth
-- **Leaderboard module** — `/leaderboard/:slug` + moderator PIN; linked or manual mode
+- **Leaderboard module** — `/leaderboard/:slug` + moderator PIN; linked or manual mode ✅ (Phase C)
 - **New game types** — catch + dino runner POCs, then console + cartridge (fresh in monorepo)
 - **Editor standardisation** — shared `ColorField` / asset components; preview stays at bottom
 - **Campaign landing pages** — same Netlify site; tracked CTAs/QRs

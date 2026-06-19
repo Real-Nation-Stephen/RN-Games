@@ -35,6 +35,8 @@ export default defineConfig({
         "pinboard-submit": resolve(__dirname, "pinboard-submit.html"),
         "pinboard-moderate": resolve(__dirname, "pinboard-moderate.html"),
         "pinboard-lab": resolve(__dirname, "pinboard-lab.html"),
+        "leaderboard-board": resolve(__dirname, "leaderboard-board.html"),
+        "leaderboard-moderate": resolve(__dirname, "leaderboard-moderate.html"),
       },
     },
   },

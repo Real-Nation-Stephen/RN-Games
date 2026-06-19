@@ -2,6 +2,7 @@ import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { toPublicPinboard } from "./lib/pinboard.mjs";
+import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -160,7 +161,9 @@ export const handler = async (event) => {
             ? toPublicFlipCard(doc)
             : doc.gameType === "pinboard"
               ? toPublicPinboard(doc)
-              : toPublicWheel(doc);
+              : doc.gameType === "leaderboard"
+                ? toPublicLeaderboard(doc)
+                : toPublicWheel(doc);
     return {
       statusCode: 200,
       headers,

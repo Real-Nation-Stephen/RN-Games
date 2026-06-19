@@ -22,6 +22,19 @@ export default async (request, context) => {
   const url = new URL(request.url);
   const path = url.pathname;
 
+  // Leaderboard module: /leaderboard/:slug live + /leaderboard/:slug/moderator
+  if (path === "/leaderboard" || path.startsWith("/leaderboard/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "leaderboard") {
+      const slug = seg[1];
+      const surface = seg[2] || "board";
+      if (surface === "moderator") {
+        return fetch(new URL(`/play/leaderboard-moderate.html?slug=${encodeURIComponent(slug)}`, url));
+      }
+      return fetch(new URL(`/play/leaderboard-board.html?slug=${encodeURIComponent(slug)}`, url));
+    }
+  }
+
   // Pin board: /pinboard/:slug, /pinboard/:slug/submit, /pinboard/:slug/moderate
   if (path === "/pinboard" || path.startsWith("/pinboard/")) {
     const seg = path.split("/").filter(Boolean);

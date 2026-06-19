@@ -53,3 +53,29 @@ export async function deletePinboardStateBlob(wheelId) {
   const st = await blobStore();
   await st.delete(`pinboard-state:${wheelId}`);
 }
+
+export async function getLeaderboardStateJson(wheelId) {
+  const st = await blobStore();
+  const raw = await st.get(`leaderboard-state:${wheelId}`, { type: "json" });
+  if (!raw) {
+    return { version: 1, wheelId, revision: 0, panOffset: 0, entries: [], clearedAt: null };
+  }
+  return {
+    version: 1,
+    wheelId,
+    revision: Number(raw.revision) || 0,
+    panOffset: Number(raw.panOffset) || 0,
+    entries: Array.isArray(raw.entries) ? raw.entries : [],
+    clearedAt: raw.clearedAt ?? null,
+  };
+}
+
+export async function setLeaderboardStateJson(wheelId, data) {
+  const st = await blobStore();
+  await st.setJSON(`leaderboard-state:${wheelId}`, data);
+}
+
+export async function deleteLeaderboardStateBlob(wheelId) {
+  const st = await blobStore();
+  await st.delete(`leaderboard-state:${wheelId}`);
+}

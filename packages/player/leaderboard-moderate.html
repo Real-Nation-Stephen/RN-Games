@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leaderboard — Moderator</title>
+    <link rel="stylesheet" href="/src/leaderboard/moderate.css" />
+  </head>
+  <body class="leaderboard-moderate">
+    <div id="lb-mod-gate">
+      <h1>Moderator access</h1>
+      <p class="muted">Enter the PIN set in RN Game Studio.</p>
+      <label class="field">PIN
+        <input id="lb-mod-pin" type="password" inputmode="numeric" autocomplete="off" />
+      </label>
+      <button type="button" class="btn" id="lb-mod-pin-submit">Continue</button>
+      <p id="lb-mod-err-gate" class="lb-mod-err" hidden></p>
+    </div>
+    <div id="lb-mod-app" hidden>
+      <h1 id="lb-mod-headline">Leaderboard moderation</h1>
+      <p id="lb-mod-meta" class="muted"></p>
+      <section style="margin: 20px 0; padding: 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px">
+        <h2 style="margin: 0 0 12px; font-size: 1rem">Add player (manual)</h2>
+        <div class="grid2">
+          <label class="field">Display name
+            <input id="lb-mod-name" type="text" maxlength="64" />
+          </label>
+          <label class="field">Score
+            <input id="lb-mod-score" type="number" />
+          </label>
+        </div>
+        <button type="button" class="btn" id="lb-mod-add">Add entry</button>
+      </section>
+      <section style="margin: 20px 0">
+        <h2 style="font-size: 1rem">Live board pan</h2>
+        <p class="muted" style="font-size: 0.9rem">When 16+ players, the live board shows a window of 10. Offset reveals lower ranks.</p>
+        <label class="field">Pan offset (0 = top)
+          <input id="lb-mod-pan" type="number" min="0" value="0" />
+        </label>
+        <button type="button" class="btn" id="lb-mod-pan-apply">Apply pan</button>
+      </section>
+      <div id="lb-mod-list"></div>
+      <button type="button" class="btn btn-danger" id="lb-mod-clear" style="margin-top: 16px">Clear all entries</button>
+      <p id="lb-mod-err" class="lb-mod-err" hidden></p>
+    </div>
+    <script type="module" src="/src/leaderboard/moderate.ts"></script>
+  </body>
+</html>

@@ -1,6 +1,12 @@
 /** Shared wheel types and validation for Real Nation Digital — Game Studio */
 
 export { track, type TrackEvent, type TrackEventInput } from "./track.js";
+export {
+  rankLeaderboardEntries,
+  liveLeaderboardWindow,
+  type HighScoreSettings,
+  type RankedLeaderboardEntry,
+} from "./leaderboard.js";
 
 export const RESERVED_SLUGS = new Set([
   "admin",
@@ -26,7 +32,7 @@ export const RESERVED_SLUGS = new Set([
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard";
+export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard";
 
 export type QuizPresentation = "frame16x9" | "responsive";
 export type QuizMotion = "static" | "videoSequences";
@@ -452,6 +458,84 @@ export interface PinboardRecord {
     rejectLabel: string;
   };
   stickies: PinboardStickyAsset[];
+}
+
+export type LeaderboardMode = "linked" | "manual";
+
+export interface LeaderboardBoardBranding {
+  header: string;
+  subhead: string;
+  headerHex: string;
+  subheadHex: string;
+  useBackgroundImage: boolean;
+  backgroundHex: string;
+  backgroundImage: string;
+  brandLogoUrl: string;
+  brandLogoCorner: "bl" | "br" | "tl" | "tr";
+  fonts: { heading?: string; subheading?: string; body?: string };
+}
+
+export interface LeaderboardRecord {
+  id: string;
+  gameType: "leaderboard";
+  title: string;
+  clientName: string;
+  slug: string;
+  updatedAt: string;
+  reportingEnabled: boolean;
+  reportingLockedAt?: string | null;
+  thumbnailUrl?: string;
+  faviconUrl?: string;
+  reportingSheetTab?: string;
+  showPoweredBy?: boolean;
+  mode: LeaderboardMode;
+  linkedGameId: string;
+  linkedGameSlug: string;
+  linkedGameTitle: string;
+  moderatorPin: string;
+  board: LeaderboardBoardBranding;
+  moderator: PinboardBrandingSurface & { headline: string };
+}
+
+export function emptyLeaderboard(partial: { id: string; slug: string }): LeaderboardRecord {
+  return {
+    id: partial.id,
+    gameType: "leaderboard",
+    title: "Untitled leaderboard",
+    clientName: "",
+    slug: partial.slug,
+    updatedAt: new Date().toISOString(),
+    reportingEnabled: false,
+    reportingLockedAt: null,
+    thumbnailUrl: "",
+    faviconUrl: "",
+    reportingSheetTab: "",
+    showPoweredBy: true,
+    mode: "manual",
+    linkedGameId: "",
+    linkedGameSlug: "",
+    linkedGameTitle: "",
+    moderatorPin: "1234",
+    board: {
+      header: "Leaderboard",
+      subhead: "Live rankings",
+      headerHex: "#ffffff",
+      subheadHex: "#c8d4e0",
+      useBackgroundImage: false,
+      backgroundHex: "#0f1a24",
+      backgroundImage: "",
+      brandLogoUrl: "",
+      brandLogoCorner: "bl",
+      fonts: {},
+    },
+    moderator: {
+      headline: "Leaderboard moderation",
+      backgroundHex: "#121820",
+      textHex: "#eef2f7",
+      buttonHex: "#2d6a4f",
+      buttonTextHex: "#ffffff",
+    },
+  };
 }
 
 import {

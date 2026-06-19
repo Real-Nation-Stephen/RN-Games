@@ -81,6 +81,16 @@
   to = "/.netlify/functions/pinboard-state"
   status = 200
 
+[[redirects]]
+  from = "/api/leaderboard-state"
+  to = "/.netlify/functions/leaderboard-state"
+  status = 200
+
+[[headers]]
+  for = "/api/leaderboard-state"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
 [[headers]]
   for = "/api/quiz-session"
   [headers.values]
