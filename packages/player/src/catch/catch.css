@@ -11,6 +11,10 @@ body.catch-game {
   position: fixed;
   inset: 0;
   z-index: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: -webkit-fill-available;
   background-color: var(--catch-viewport-bg-solid, var(--catch-bg-solid, #1a2a3a));
   background-image: var(--catch-viewport-bg-image, var(--catch-bg-image, none));
   background-size: auto 100%;
@@ -103,22 +107,23 @@ body.catch-game {
 }
 
 .catch-hud__block {
-  min-width: 120px;
+  min-width: 180px;
 }
 
 .catch-hud__label {
   margin: 0;
-  font-size: 14px;
+  font-size: 28px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--catch-hud-label, #c8d4e0);
 }
 
 .catch-hud__value {
-  margin: 4px 0 0;
-  font-size: 34px;
+  margin: 6px 0 0;
+  font-size: 72px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 #catch-score-value {
@@ -147,8 +152,94 @@ body.catch-game {
 .catch-overlay[hidden],
 .catch-swipe-hint[hidden],
 .catch-intro[hidden],
-.catch-end[hidden] {
+.catch-end[hidden],
+.catch-name-screen[hidden] {
   display: none !important;
+}
+
+.catch-mute {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(8, 14, 22, 0.55);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.catch-mute__icon--off {
+  display: none;
+}
+
+body.catch-muted .catch-mute__icon--on {
+  display: none;
+}
+
+body.catch-muted .catch-mute__icon--off {
+  display: block;
+}
+
+.catch-name-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  box-sizing: border-box;
+  background: rgba(8, 14, 22, 0.92);
+}
+
+.catch-name-screen__card {
+  width: 100%;
+  max-width: 640px;
+  text-align: center;
+}
+
+.catch-name-screen__title {
+  margin: 0;
+  font-family: var(--catch-font-heading, system-ui, sans-serif);
+  font-size: 52px;
+  line-height: 1.15;
+}
+
+.catch-name-screen__hint {
+  margin: 16px 0 28px;
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.catch-name-screen__input {
+  width: min(420px, 88vw);
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  font-size: 28px;
+  text-align: center;
+}
+
+.catch-name-screen__btn {
+  margin-top: 28px;
+  padding: 16px 40px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 700;
+  background: var(--catch-end-btn, #2d6a4f);
+  color: var(--catch-end-btn-text, #fff);
 }
 
 .catch-countdown-num {

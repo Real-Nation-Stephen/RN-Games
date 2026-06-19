@@ -9,6 +9,10 @@
   </head>
   <body class="catch-game">
     <div id="catch-viewport-bg" class="catch-viewport-bg" aria-hidden="true"></div>
+    <button type="button" id="catch-mute" class="catch-mute" aria-label="Toggle sound" title="Sound" hidden>
+      <span class="catch-mute__icon catch-mute__icon--on" aria-hidden="true">🔊</span>
+      <span class="catch-mute__icon catch-mute__icon--off" aria-hidden="true">🔇</span>
+    </button>
     <div id="app" hidden>
       <div id="fit">
         <div id="stage">
@@ -22,6 +26,14 @@
             <div class="catch-hud__block" style="text-align: right">
               <p class="catch-hud__label">Time</p>
               <p class="catch-hud__value" id="catch-timer-value">0:60</p>
+            </div>
+          </div>
+          <div id="catch-name-screen" class="catch-name-screen" hidden>
+            <div class="catch-name-screen__card">
+              <h2 class="catch-name-screen__title">Enter your name</h2>
+              <p class="catch-name-screen__hint">For the leaderboard</p>
+              <input id="catch-name-start" class="catch-name-screen__input" type="text" autocomplete="name" />
+              <button type="button" id="catch-name-continue" class="catch-name-screen__btn">Continue</button>
             </div>
           </div>
           <div id="catch-intro" class="catch-intro" hidden>

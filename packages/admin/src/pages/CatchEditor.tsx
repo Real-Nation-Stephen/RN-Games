@@ -37,6 +37,7 @@ function publicConfig(g: CatchGame) {
     fontUploads: g.fontUploads,
     hud: g.hud,
     gameplay: g.gameplay,
+    intro: g.intro,
     endScreen: g.endScreen,
     highScore: g.highScore,
     linkedLeaderboardSlug: g.linkedLeaderboardSlug,
@@ -214,6 +215,8 @@ export default function CatchEditor() {
   if (!game) {
     return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
   }
+
+  const embedCode = `<iframe src="${siteUrl}/play/catch.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Catch game").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;" loading="lazy"></iframe>`;
 
   return (
     <div>
@@ -438,6 +441,16 @@ export default function CatchEditor() {
             />
             Positive items only (no penalties)
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={game.gameplay.pointsAddTime}
+              onChange={(e) =>
+                patch((g) => ({ ...g, gameplay: { ...g.gameplay, pointsAddTime: e.target.checked } }))
+              }
+            />
+            Points add/remove time (+1s positive, −1s negative)
+          </label>
           <label className="field" style={{ marginTop: 12 }}>
             Linked leaderboard (slug)
           </label>
@@ -458,8 +471,23 @@ export default function CatchEditor() {
               checked={game.highScore.enabled}
               onChange={(e) => patch((g) => ({ ...g, highScore: { ...g.highScore, enabled: e.target.checked } }))}
             />
-            Prompt for initials on end screen (for leaderboard submit)
+            Collect player name before play (for leaderboard)
           </label>
+          <label className="field" style={{ marginTop: 12 }}>
+            Name character limit
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={32}
+            value={game.highScore.nameMaxLength}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                highScore: { ...g.highScore, nameMaxLength: Number(e.target.value) || 3 },
+              }))
+            }
+          />
         </div>
 
         <div className="card">
@@ -755,6 +783,16 @@ export default function CatchEditor() {
             background: game.backgroundHex || "#1a2a3a",
             display: "block",
           }}
+        />
+        <label className="field" style={{ marginTop: 16 }}>
+          Embed code
+        </label>
+        <textarea
+          readOnly
+          rows={4}
+          value={embedCode}
+          style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
+          onFocus={(e) => e.target.select()}
         />
       </div>
 

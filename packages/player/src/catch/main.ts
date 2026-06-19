@@ -9,7 +9,17 @@ import {
   pickEndBackgroundUrl,
 } from "./api";
 import { CatchEngine } from "./engine";
-import { bindCatchLayout, pointerToStageX as mapPointerX } from "./layout";
+import {
+  initCatchAudio,
+  isCatchMuted,
+  playCatchBeep,
+  playCatchSfx,
+  preloadCatchSfx,
+  setCatchMuted,
+  unlockCatchAudio,
+} from "./audio";
+import { bindCatchKeyboard, pollHorizontalInput } from "./gamepad";
+import { bindCatchLayout, layoutCatchStage, pointerToStageX as mapPointerX } from "./layout";
 import type { CatchConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
@@ -33,6 +43,10 @@ const els = {
   introNegativePh: document.getElementById("catch-intro-negative-ph")!,
   introNegativeText: document.getElementById("catch-intro-negative-text")!,
   introNext: document.getElementById("catch-intro-next") as HTMLButtonElement,
+  nameScreen: document.getElementById("catch-name-screen")!,
+  nameStart: document.getElementById("catch-name-start") as HTMLInputElement,
+  nameContinue: document.getElementById("catch-name-continue") as HTMLButtonElement,
+  muteBtn: document.getElementById("catch-mute") as HTMLButtonElement,
   startOverlay: document.getElementById("catch-start-overlay")!,
   countdownOverlay: document.getElementById("catch-countdown-overlay")!,
   countdownNum: document.getElementById("catch-countdown-num")!,
@@ -55,8 +69,66 @@ let ctx: CanvasRenderingContext2D | null = null;
 let lastTs = 0;
 let raf = 0;
 let unbindLayout: (() => void) | null = null;
+let unbindKeyboard: (() => void) | null = null;
+let lastCountdownBeep = 0;
+let lastTimerBeepSec = -1;
 
 const imageCache = new Map<string, HTMLImageElement>();
+
+initCatchAudio();
+updateMuteUi();
+
+function nameStorageKey(slug: string) {
+  return `catch-name:${slug}`;
+}
+
+function externalIdStorageKey(slug: string) {
+  return `catch-lb-ext:${slug}`;
+}
+
+function needsPlayerName() {
+  return !!cfg?.linkedLeaderboardSlug && cfg.highScore?.enabled !== false;
+}
+
+function nameMaxLen() {
+  return Math.min(32, Math.max(1, cfg?.highScore?.nameMaxLength || 3));
+}
+
+function getPlayerName() {
+  if (!cfg) return "Player";
+  const max = nameMaxLen();
+  const saved = localStorage.getItem(nameStorageKey(cfg.slug)) || "";
+  const fromStart = els.nameStart?.value?.trim() || "";
+  const raw = fromStart || saved || "Player";
+  return raw.slice(0, max) || "Player";
+}
+
+function savePlayerName(name: string) {
+  if (!cfg) return;
+  const trimmed = name.trim().slice(0, nameMaxLen());
+  if (trimmed) localStorage.setItem(nameStorageKey(cfg.slug), trimmed);
+}
+
+function getLeaderboardExternalId() {
+  if (!cfg) return "";
+  const key = externalIdStorageKey(cfg.slug);
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = `catch-${cfg.id}-${crypto.randomUUID()}`;
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function updateMuteUi() {
+  document.body.classList.toggle("catch-muted", isCatchMuted());
+  if (isCatchMuted()) els.music.pause();
+}
+
+function applyMusicVolume() {
+  if (!cfg) return;
+  els.music.volume = isCatchMuted() ? 0 : (cfg.sounds.musicVolume ?? 0.35);
+}
 
 function loadImage(url: string): Promise<HTMLImageElement | null> {
   const u = (url || "").trim();
@@ -179,8 +251,14 @@ function applyTheme(c: CatchConfig) {
   }
 
   injectFonts(c);
+  preloadCatchSfx([
+    c.sounds.positiveCatch,
+    c.sounds.negativeCatch,
+    c.sounds.gameEnd,
+  ]);
   void preloadSprites(c);
   setupMusic(c);
+  applyMusicVolume();
 }
 
 function setViewportBackground(mode: "game" | "end") {
@@ -239,11 +317,19 @@ function formatTime(sec: number) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-function playSfx(url: string | null | undefined) {
-  if (!url) return;
-  const a = new Audio(url);
-  a.volume = 0.9;
-  void a.play().catch(() => undefined);
+function showNameUi() {
+  els.nameScreen.hidden = false;
+  els.intro.hidden = true;
+  els.startOverlay.hidden = true;
+  els.countdownOverlay.hidden = true;
+  els.swipeHint.hidden = true;
+  els.end.hidden = true;
+  setViewportBackground("game");
+  if (cfg) {
+    els.nameStart.maxLength = nameMaxLen();
+    const saved = localStorage.getItem(nameStorageKey(cfg.slug));
+    if (saved) els.nameStart.value = saved.slice(0, nameMaxLen());
+  }
 }
 
 function updateHud() {
@@ -253,6 +339,7 @@ function updateHud() {
 }
 
 function showIntroUi() {
+  els.nameScreen.hidden = true;
   els.intro.hidden = false;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
@@ -262,6 +349,7 @@ function showIntroUi() {
 }
 
 function showStartUi() {
+  els.nameScreen.hidden = true;
   els.intro.hidden = true;
   els.startOverlay.hidden = false;
   els.countdownOverlay.hidden = true;
@@ -271,6 +359,7 @@ function showStartUi() {
 }
 
 function showCountdownUi(n: number) {
+  els.nameScreen.hidden = true;
   els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = false;
@@ -279,6 +368,7 @@ function showCountdownUi(n: number) {
 }
 
 function showPlayingUi() {
+  els.nameScreen.hidden = true;
   els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
@@ -288,17 +378,13 @@ function showPlayingUi() {
 
 async function submitToLeaderboard() {
   if (!cfg?.linkedLeaderboardSlug || !cfg.id || !engine) return;
-  const max = Math.min(12, Math.max(1, cfg.highScore?.nameMaxLength || 3));
-  const name =
-    (els.endName.value || localStorage.getItem(`catch-name:${cfg.slug}`) || "Player").trim().slice(0, max) ||
-    "Player";
   try {
     await submitLinkedScore({
       leaderboardSlug: cfg.linkedLeaderboardSlug,
       sourceGameId: cfg.id,
-      displayName: name,
+      displayName: needsPlayerName() ? getPlayerName() : "Player",
       score: engine.score,
-      externalId: `catch-${cfg.id}-${Date.now()}`,
+      externalId: getLeaderboardExternalId(),
     });
   } catch {
     /* optional */
@@ -307,6 +393,7 @@ async function submitToLeaderboard() {
 
 async function showEndUi() {
   if (!engine || !cfg) return;
+  els.nameScreen.hidden = true;
   els.intro.hidden = true;
   els.end.hidden = false;
   els.startOverlay.hidden = true;
@@ -314,16 +401,11 @@ async function showEndUi() {
   els.swipeHint.hidden = true;
   setViewportBackground("end");
   els.endScore.textContent = `${cfg.endScreen.scorePrefix || "Score:"} ${engine.score}`;
-  playSfx(cfg.sounds.gameEnd);
+  playCatchSfx(cfg.sounds.gameEnd);
   els.music.pause();
 
-  const needsName = !!cfg.linkedLeaderboardSlug && cfg.highScore?.enabled !== false;
-  els.endNameWrap.hidden = !needsName;
-  if (needsName) {
-    els.endName.maxLength = Math.min(12, Math.max(1, cfg.highScore?.nameMaxLength || 3));
-    const saved = localStorage.getItem(`catch-name:${cfg.slug}`);
-    if (saved) els.endName.value = saved.slice(0, els.endName.maxLength);
-  }
+  els.endNameWrap.hidden = true;
+  void submitToLeaderboard();
 
   track({
     type: "catch.round_end",
@@ -338,11 +420,14 @@ function stagePointerX(clientX: number): number {
 
 function onPointer(clientX: number) {
   if (!engine || !cfg) return;
+  void unlockCatchAudio();
   const x = stagePointerX(clientX);
   engine.setCatcherX(x);
   if (engine.state === "idle") {
     engine.beginFromTouch();
-    void els.music.play().catch(() => undefined);
+    lastCountdownBeep = 0;
+    lastTimerBeepSec = -1;
+    if (!isCatchMuted()) void els.music.play().catch(() => undefined);
     track({
       type: "catch.round_start",
       gameId: cfg.id || cfg.slug,
@@ -353,30 +438,50 @@ function onPointer(clientX: number) {
 
 function bindInput() {
   const onDown = (e: PointerEvent) => {
-    if (els.intro.hidden === false) return;
+    if (els.nameScreen.hidden === false || els.intro.hidden === false) return;
     const target = e.currentTarget as HTMLElement;
     if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
     onPointer(e.clientX);
   };
   const onMove = (e: PointerEvent) => {
-    if (!engine || els.intro.hidden === false) return;
+    if (!engine || els.nameScreen.hidden === false || els.intro.hidden === false) return;
     if (engine.state === "playing" || engine.state === "countdown" || engine.state === "idle") {
       engine.setCatcherX(stagePointerX(e.clientX));
     }
   };
   els.fit.addEventListener("pointerdown", onDown);
   els.fit.addEventListener("pointermove", onMove);
+  els.nameContinue.addEventListener("click", () => {
+    if (!cfg) return;
+    const name = els.nameStart.value.trim().slice(0, nameMaxLen());
+    if (!name) {
+      els.nameStart.focus();
+      return;
+    }
+    savePlayerName(name);
+    getLeaderboardExternalId();
+    showIntroUi();
+  });
+  els.nameStart.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") els.nameContinue.click();
+  });
   els.introNext.addEventListener("click", () => showStartUi());
+  els.muteBtn.addEventListener("click", () => {
+    setCatchMuted(!isCatchMuted());
+    updateMuteUi();
+    applyMusicVolume();
+    if (isCatchMuted()) els.music.pause();
+  });
   els.endPlay.addEventListener("click", () => {
     if (!engine || !cfg) return;
-    if (!els.endNameWrap.hidden && els.endName.value.trim()) {
-      localStorage.setItem(`catch-name:${cfg.slug}`, els.endName.value.trim());
-    }
-    void submitToLeaderboard();
     engine.reset(cfg);
+    lastCountdownBeep = 0;
+    lastTimerBeepSec = -1;
     updateHud();
     showIntroUi();
   });
+  unbindKeyboard?.();
+  unbindKeyboard = bindCatchKeyboard();
 }
 
 function drawImageContain(
@@ -426,8 +531,28 @@ function drawFrame() {
   lastTs = now;
   engine.update(dt);
 
+  const padX = pollHorizontalInput();
+  if (padX && (engine.state === "playing" || engine.state === "countdown" || engine.state === "idle")) {
+    engine.nudgeCatcher(padX, dt);
+  }
+
   if (engine.state === "playing" && engine.score !== prevScore) {
-    playSfx(engine.score > prevScore ? cfg.sounds.positiveCatch : cfg.sounds.negativeCatch);
+    playCatchSfx(engine.score > prevScore ? cfg.sounds.positiveCatch : cfg.sounds.negativeCatch);
+  }
+
+  if (engine.state === "countdown" && engine.countdownValue !== lastCountdownBeep) {
+    lastCountdownBeep = engine.countdownValue;
+    playCatchBeep(660);
+  }
+
+  if (engine.state === "playing") {
+    const sec = Math.ceil(engine.timeLeft);
+    if (sec <= 5 && sec > 0 && sec !== lastTimerBeepSec) {
+      lastTimerBeepSec = sec;
+      playCatchBeep(sec <= 3 ? 880 : 740);
+    }
+  } else {
+    lastTimerBeepSec = -1;
   }
 
   if (engine.state === "countdown") showCountdownUi(engine.countdownValue);
@@ -474,8 +599,12 @@ function mountGame(c: CatchConfig) {
   unbindLayout?.();
   unbindLayout = bindCatchLayout(els.fit, els.stage);
   updateHud();
-  showIntroUi();
+  lastCountdownBeep = 0;
+  lastTimerBeepSec = -1;
+  if (needsPlayerName()) showNameUi();
+  else showIntroUi();
   els.app.hidden = false;
+  els.muteBtn.hidden = false;
   lastTs = 0;
   cancelAnimationFrame(raf);
   raf = requestAnimationFrame(drawFrame);
@@ -483,6 +612,7 @@ function mountGame(c: CatchConfig) {
 
 function onBreakpointChange() {
   if (!cfg) return;
+  layoutCatchStage(els.fit, els.stage);
   setViewportBackground(els.end.hidden ? "game" : "end");
 }
 
@@ -511,5 +641,6 @@ if (!isPreview) {
     err.hidden = false;
     msg.textContent = e instanceof Error ? e.message : "Failed to load";
     els.app.hidden = true;
+    els.muteBtn.hidden = true;
   });
 }

@@ -61,6 +61,8 @@ export interface CatchGameplay {
   itemSize: number;
   catcherWidth: number;
   catcherHeight: number;
+  /** When on, +1s per positive catch and −1s per negative catch. */
+  pointsAddTime: boolean;
 }
 
 export interface CatchIntro {
@@ -165,6 +167,7 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       itemSize: 72,
       catcherWidth: 140,
       catcherHeight: 72,
+      pointsAddTime: false,
     },
     intro: {
       positiveLine: "Catch these to earn points",
@@ -215,6 +218,7 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
   rawGameplay.fallSpeedStart = Math.max(80, rawGameplay.fallSpeedStart);
   rawGameplay.fallSpeedEnd = Math.max(rawGameplay.fallSpeedStart, rawGameplay.fallSpeedEnd);
   rawGameplay.itemSize = Math.max(32, Math.min(160, Number(rawGameplay.itemSize) || defaults.gameplay.itemSize));
+  rawGameplay.pointsAddTime = rawGameplay.pointsAddTime === true;
 
   const rawBanner = { ...defaults.banner, ...(doc.banner || {}) };
   const align = String(rawBanner.logoAlign || "center");
@@ -241,5 +245,6 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
     highScore: { ...defaults.highScore, ...(doc.highScore || {}) },
   };
   out.endScreen.linkEnabled = out.endScreen.linkEnabled === true;
+  out.highScore.nameMaxLength = Math.min(32, Math.max(1, Number(out.highScore.nameMaxLength) || 3));
   return out;
 }

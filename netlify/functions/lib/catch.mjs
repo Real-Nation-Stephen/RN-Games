@@ -48,6 +48,7 @@ export function emptyCatchRecord(id, slug) {
       itemSize: 72,
       catcherWidth: 140,
       catcherHeight: 72,
+      pointsAddTime: false,
     },
     intro: {
       positiveLine: "Catch these to earn points",
@@ -114,9 +115,11 @@ export function normalizeCatchRecord(doc) {
   g.fallSpeedStart = Math.max(80, Number(g.fallSpeedStart) || 220);
   g.fallSpeedEnd = Math.max(g.fallSpeedStart, Number(g.fallSpeedEnd) || 420);
   g.itemSize = Math.max(32, Math.min(160, Number(g.itemSize) || 72));
+  g.pointsAddTime = g.pointsAddTime === true;
   const align = String(doc.banner.logoAlign || "center");
   doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
   doc.endScreen.linkEnabled = doc.endScreen.linkEnabled === true;
+  doc.highScore.nameMaxLength = Math.min(32, Math.max(1, Number(doc.highScore.nameMaxLength) || 3));
   return doc;
 }
 

@@ -149,6 +149,12 @@ export class CatchEngine {
     this.catcherX = Math.min(this.designW - half - pad, Math.max(half + pad, x));
   }
 
+  nudgeCatcher(dx: number, dt: number) {
+    if (!dx) return;
+    const speed = 720;
+    this.setCatcherX(this.catcherX + dx * speed * dt);
+  }
+
   update(dt: number) {
     if (this.state === "countdown") {
       this.countdownAcc += dt;
@@ -192,8 +198,13 @@ export class CatchEngine {
       item.rotation += item.rotSpeed * dt;
       if (item.y - item.size / 2 > this.designH + 40) continue;
       if (this.hitTest(item)) {
-        if (item.kind === "positive") this.score += 1;
-        else if (!g.positiveOnly) this.score = Math.max(0, this.score - 1);
+        if (item.kind === "positive") {
+          this.score += 1;
+          if (g.pointsAddTime) this.timeLeft += 1;
+        } else if (!g.positiveOnly) {
+          this.score = Math.max(0, this.score - 1);
+          if (g.pointsAddTime) this.timeLeft = Math.max(0, this.timeLeft - 1);
+        }
         continue;
       }
       next.push(item);
