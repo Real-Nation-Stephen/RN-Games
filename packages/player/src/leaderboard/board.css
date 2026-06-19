@@ -118,8 +118,8 @@ body[data-brand-corner="tr"] .lb-brand {
 
 .lb-fs-btn {
   position: fixed;
-  right: 12px;
-  bottom: 12px;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
   z-index: 5;
   padding: 10px 14px;
   border-radius: 8px;

@@ -1,5 +1,16 @@
 /** Leaderboard module — record helpers, ranking, public payload. */
 
+/** gameType values allowed to POST scores into a linked leaderboard (see shared leaderboard-linkable.ts). */
+export const LEADERBOARD_LINKABLE_GAME_TYPES = new Set([
+  // Phase D: "catch"
+  // Phase E: "dino-runner"
+]);
+
+export function isLeaderboardLinkableGameType(gameType) {
+  const t = String(gameType || "spinning-wheel").trim() || "spinning-wheel";
+  return LEADERBOARD_LINKABLE_GAME_TYPES.has(t);
+}
+
 export function emptyLeaderboardRecord(id, slug) {
   return {
     id,
@@ -37,6 +48,8 @@ export function emptyLeaderboardRecord(id, slug) {
       textHex: "#eef2f7",
       buttonHex: "#2d6a4f",
       buttonTextHex: "#ffffff",
+      buttonDangerHex: "#8b2e2e",
+      buttonDangerTextHex: "#ffffff",
     },
   };
 }
@@ -50,6 +63,9 @@ export function normalizeLeaderboardRecord(doc) {
   doc.moderatorPin = String(doc.moderatorPin || "1234").slice(0, 12);
   doc.board = doc.board || {};
   doc.moderator = doc.moderator || {};
+  const mod = doc.moderator;
+  mod.buttonDangerHex = mod.buttonDangerHex || "#8b2e2e";
+  mod.buttonDangerTextHex = mod.buttonDangerTextHex || "#ffffff";
   return doc;
 }
 
@@ -123,6 +139,8 @@ export function toPublicLeaderboard(doc) {
       textHex: mod.textHex || "#eef2f7",
       buttonHex: mod.buttonHex || "#2d6a4f",
       buttonTextHex: mod.buttonTextHex || "#ffffff",
+      buttonDangerHex: mod.buttonDangerHex || "#8b2e2e",
+      buttonDangerTextHex: mod.buttonDangerTextHex || "#ffffff",
     },
     reportingEnabled: !!doc.reportingEnabled,
   };

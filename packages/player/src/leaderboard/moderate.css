@@ -27,6 +27,7 @@ body.leaderboard-moderate {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(0, 0, 0, 0.25);
   color: inherit;
+  box-sizing: border-box;
 }
 
 .btn {
@@ -34,12 +35,13 @@ body.leaderboard-moderate {
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: var(--lb-mod-btn, #2d6a4f);
-  color: #fff;
+  color: var(--lb-mod-btn-text, #fff);
   cursor: pointer;
 }
 
 .btn-danger {
-  background: #8b2e2e;
+  background: var(--lb-mod-btn-danger, #8b2e2e);
+  color: var(--lb-mod-btn-danger-text, #fff);
 }
 
 .lb-mod-card {

@@ -9,6 +9,7 @@ import {
 import {
   normalizeLeaderboardRecord,
   toPublicLeaderboardState,
+  isLeaderboardLinkableGameType,
 } from "./lib/leaderboard.mjs";
 
 const headers = {
@@ -98,6 +99,14 @@ export const handler = async (event) => {
     const sourceGameId = String(body.sourceGameId || "").trim();
     if (!sourceGameId || sourceGameId !== String(config.linkedGameId || "").trim()) {
       return { statusCode: 403, body: JSON.stringify({ error: "Source game not linked to this leaderboard" }), headers };
+    }
+    const sourceDoc = await getWheelJson(sourceGameId);
+    if (!sourceDoc || !isLeaderboardLinkableGameType(sourceDoc.gameType)) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "This game type cannot submit scores to a leaderboard module" }),
+        headers,
+      };
     }
 
     const displayName = String(body.displayName || "").trim().slice(0, 64);

@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@rngames/shared": resolve(__dirname, "../shared/src/index.ts"),
+    },
+  },
   base: "/admin/",
   build: {
     outDir: resolve(__dirname, "dist"),

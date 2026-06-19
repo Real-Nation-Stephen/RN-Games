@@ -26,6 +26,9 @@ function applyModChrome(c: LeaderboardConfig) {
   document.documentElement.style.setProperty("--lb-mod-bg", m.backgroundHex || "#121820");
   document.documentElement.style.setProperty("--lb-mod-text", m.textHex || "#eef2f7");
   document.documentElement.style.setProperty("--lb-mod-btn", m.buttonHex || "#2d6a4f");
+  document.documentElement.style.setProperty("--lb-mod-btn-text", m.buttonTextHex || "#ffffff");
+  document.documentElement.style.setProperty("--lb-mod-btn-danger", m.buttonDangerHex || "#8b2e2e");
+  document.documentElement.style.setProperty("--lb-mod-btn-danger-text", m.buttonDangerTextHex || "#ffffff");
   $("lb-mod-headline").textContent = m.headline || "Leaderboard moderation";
 }
 

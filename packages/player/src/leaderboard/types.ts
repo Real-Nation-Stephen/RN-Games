@@ -28,6 +28,8 @@ export interface LeaderboardConfig {
     textHex: string;
     buttonHex: string;
     buttonTextHex: string;
+    buttonDangerHex: string;
+    buttonDangerTextHex: string;
   };
 }
 

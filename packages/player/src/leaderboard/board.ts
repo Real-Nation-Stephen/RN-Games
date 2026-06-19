@@ -27,7 +27,7 @@ function applyChrome(cfg: LeaderboardConfig) {
   } else {
     brand.hidden = true;
   }
-  const powered = $("powered-by-rn");
+  const powered = document.getElementById("powered-by-rn") as HTMLElement | null;
   if (powered) powered.hidden = cfg.showPoweredBy === false;
 }
 

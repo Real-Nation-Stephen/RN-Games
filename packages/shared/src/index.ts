@@ -7,6 +7,10 @@ export {
   type HighScoreSettings,
   type RankedLeaderboardEntry,
 } from "./leaderboard.js";
+export {
+  LEADERBOARD_LINKABLE_GAME_TYPES,
+  isLeaderboardLinkableGameType,
+} from "./leaderboard-linkable.js";
 
 export const RESERVED_SLUGS = new Set([
   "admin",
@@ -494,7 +498,15 @@ export interface LeaderboardRecord {
   linkedGameTitle: string;
   moderatorPin: string;
   board: LeaderboardBoardBranding;
-  moderator: PinboardBrandingSurface & { headline: string };
+  moderator: {
+    headline: string;
+    backgroundHex: string;
+    textHex: string;
+    buttonHex: string;
+    buttonTextHex: string;
+    buttonDangerHex: string;
+    buttonDangerTextHex: string;
+  };
 }
 
 export function emptyLeaderboard(partial: { id: string; slug: string }): LeaderboardRecord {
@@ -534,6 +546,8 @@ export function emptyLeaderboard(partial: { id: string; slug: string }): Leaderb
       textHex: "#eef2f7",
       buttonHex: "#2d6a4f",
       buttonTextHex: "#ffffff",
+      buttonDangerHex: "#8b2e2e",
+      buttonDangerTextHex: "#ffffff",
     },
   };
 }

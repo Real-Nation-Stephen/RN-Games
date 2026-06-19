@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@rngames/shared": "1.0.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "netlify-identity-widget": "^1.9.2",

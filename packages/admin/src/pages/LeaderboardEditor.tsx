@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import html2canvas from "html2canvas";
+import { isLeaderboardLinkableGameType } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
 
@@ -11,6 +13,7 @@ type LeaderboardGame = {
   slug: string;
   updatedAt: string;
   reportingEnabled: boolean;
+  thumbnailUrl?: string;
   faviconUrl?: string;
   showPoweredBy?: boolean;
   mode: "linked" | "manual";
@@ -35,6 +38,8 @@ type LeaderboardGame = {
     textHex: string;
     buttonHex: string;
     buttonTextHex: string;
+    buttonDangerHex: string;
+    buttonDangerTextHex: string;
   };
 };
 
@@ -71,14 +76,33 @@ function publicConfig(g: LeaderboardGame) {
   };
 }
 
+function getLeaderboardHtml2CanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  const bgSolid =
+    idoc && idwin
+      ? idwin.getComputedStyle(idoc.documentElement).getPropertyValue("--lb-bg-solid").trim()
+      : "";
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid || "#0f1a24",
+  };
+}
+
 export default function LeaderboardEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<LeaderboardGame | null>(null);
-  const [games, setGames] = useState<IndexItem[]>([]);
+  const [linkableGames, setLinkableGames] = useState<IndexItem[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const patch = (fn: (g: LeaderboardGame) => LeaderboardGame) => {
+    setGame((prev) => (prev ? fn(prev) : prev));
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -92,8 +116,27 @@ export default function LeaderboardEditor() {
         navigate(`/wheels/${id}`, { replace: true });
         return;
       }
-      setGame(data as LeaderboardGame);
-      setGames((index.wheels || []).filter((w: IndexItem) => w.id !== id && w.gameType !== "leaderboard"));
+      const lb = data as LeaderboardGame;
+      if (
+        lb.mode === "linked" &&
+        lb.linkedGameId &&
+        !isLeaderboardLinkableGameType(
+          (index.wheels as IndexItem[]).find((w) => w.id === lb.linkedGameId)?.gameType,
+        )
+      ) {
+        lb.linkedGameId = "";
+        lb.linkedGameSlug = "";
+        lb.linkedGameTitle = "";
+      }
+      setGame(lb);
+      setLinkableGames(
+        (index.wheels || []).filter(
+          (w: IndexItem) =>
+            w.id !== id &&
+            w.gameType !== "leaderboard" &&
+            isLeaderboardLinkableGameType(w.gameType),
+        ),
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
@@ -113,25 +156,17 @@ export default function LeaderboardEditor() {
 
   useEffect(() => {
     if (!game) return;
-    const t = window.setTimeout(pushPreview, 80);
+    const t = window.setTimeout(() => pushPreview(), 80);
     return () => window.clearTimeout(t);
   }, [game, pushPreview]);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const onLoad = () => pushPreview();
-    iframe.addEventListener("load", onLoad);
-    return () => iframe.removeEventListener("load", onLoad);
-  }, [pushPreview]);
 
   async function save() {
     if (!game) return;
     setSaving(true);
     setErr(null);
     try {
-      await apiSend("/api/wheels", "PUT", game);
-      await load();
+      const res = await apiSend("/api/wheels", "PUT", { ...game, updatedAt: new Date().toISOString() });
+      if (res?.wheel) setGame(res.wheel as LeaderboardGame);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -139,125 +174,208 @@ export default function LeaderboardEditor() {
     }
   }
 
-  async function remove() {
-    if (!game || !confirm("Delete this leaderboard?")) return;
-    await apiDelete(`/api/wheels?id=${encodeURIComponent(game.id)}`);
-    navigate("/");
+  async function saveWithThumbnail() {
+    if (!game) return;
+    await save();
+    pushPreview();
+    await new Promise((r) => setTimeout(r, 400));
+    const iframe = iframeRef.current;
+    const app = iframe?.contentDocument?.getElementById("app");
+    if (!app || !game) return;
+    try {
+      const canvas = await html2canvas(app, { scale: 0.4, ...getLeaderboardHtml2CanvasOptions(iframe) });
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
+      if (!blob) return;
+      const file = new File([blob], `thumb-${game.id}.jpg`, { type: "image/jpeg" });
+      const { url } = await uploadFile(file);
+      const res = await apiSend("/api/wheels", "PUT", { ...game, thumbnailUrl: url });
+      if (res?.wheel) setGame(res.wheel as LeaderboardGame);
+    } catch {
+      /* optional */
+    }
   }
 
-  function patch(p: Partial<LeaderboardGame>) {
-    setGame((g) => (g ? { ...g, ...p } : g));
-  }
-
-  function patchBoard(p: Partial<LeaderboardGame["board"]>) {
-    setGame((g) => (g ? { ...g, board: { ...g.board, ...p } } : g));
-  }
-
-  function patchMod(p: Partial<LeaderboardGame["moderator"]>) {
-    setGame((g) => (g ? { ...g, moderator: { ...g.moderator, ...p } } : g));
-  }
-
-  function linkGame(gameId: string) {
-    const item = games.find((g) => g.id === gameId);
-    patch({
-      linkedGameId: gameId,
-      linkedGameSlug: item?.slug || "",
-      linkedGameTitle: item?.title || "",
-      mode: "linked",
-    });
+  async function deleteGame() {
+    if (!game) return;
+    const ok = window.confirm(
+      "Delete this leaderboard and its public URLs?\n\nThis cannot be undone.\n\nClick OK to delete, or Cancel to keep it.",
+    );
+    if (!ok) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiDelete(`/api/wheels?id=${encodeURIComponent(game.id)}`);
+      navigate("/");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!game) {
-    return <p className="muted">{err || "Loading…"}</p>;
+    return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
   }
 
   const b = game.board;
+  const mod = game.moderator;
 
   return (
     <div>
       <p>
-        <Link to="/">← All games</Link>
+        <Link to="/">← Studio</Link>
       </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 16 }}>
-        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button type="button" className="btn" onClick={() => void navigator.clipboard.writeText(liveUrl(game.slug))}>
-          Copy live URL
-        </button>
-        <button type="button" className="btn" onClick={() => void navigator.clipboard.writeText(moderateUrl(game.slug))}>
-          Copy moderator URL
-        </button>
-        <button type="button" className="btn" onClick={() => void remove()}>
-          Delete
-        </button>
-      </div>
-      {err ? <p className="muted">{err}</p> : null}
+      <h2 style={{ marginTop: 8 }}>Edit leaderboard</h2>
+      {err && <p className="muted">{err}</p>}
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Game info</h3>
-        <label className="field">Title
-          <input value={game.title} onChange={(e) => patch({ title: e.target.value })} />
-        </label>
-        <label className="field">Client
-          <input value={game.clientName} onChange={(e) => patch({ clientName: e.target.value })} />
-        </label>
-        <label className="field">Slug
-          <input value={game.slug} onChange={(e) => patch({ slug: e.target.value })} />
-        </label>
-        <label className="field">Moderator PIN
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Game details</h3>
+        <div className="grid2">
+          <div>
+            <label className="field">Title</label>
+            <input type="text" value={game.title} onChange={(e) => patch((g) => ({ ...g, title: e.target.value }))} />
+          </div>
+          <div>
+            <label className="field">Client</label>
+            <input
+              type="text"
+              value={game.clientName}
+              onChange={(e) => patch((g) => ({ ...g, clientName: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="field">Sub-URL (slug)</label>
+            <input
+              type="text"
+              value={game.slug}
+              onChange={(e) => patch((g) => ({ ...g, slug: e.target.value.trim().toLowerCase() }))}
+            />
+          </div>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
           <input
-            value={game.moderatorPin}
-            onChange={(e) => patch({ moderatorPin: e.target.value })}
-            placeholder="Set a PIN for the moderator page"
+            type="checkbox"
+            checked={game.reportingEnabled}
+            onChange={(e) => patch((g) => ({ ...g, reportingEnabled: e.target.checked }))}
           />
+          Enable reporting
+        </label>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Live board: <code>{liveUrl(game.slug)}</code>
+          <br />
+          Moderator: <code>{moderateUrl(game.slug)}</code>
+        </p>
+        <label className="field" style={{ marginTop: 12 }}>
+          Tab icon
+        </label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            patch((g) => ({ ...g, faviconUrl: url }));
+          }}
+        />
+        {game.faviconUrl ? <span className="muted"> ✓</span> : null}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={game.showPoweredBy !== false}
+            onChange={(e) => patch((g) => ({ ...g, showPoweredBy: e.target.checked }))}
+          />
+          Show “Powered by Real Nation” on the public game page
         </label>
       </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Data source</h3>
-        <p className="muted" style={{ fontSize: "0.9rem", maxWidth: "52rem" }}>
-          <strong>Linked</strong> — scores arrive from a connected game (catch, dino, quiz handoff, etc.).
-          <strong> Manual</strong> — facilitator adds and edits rows on the moderator page (in-person events).
-          A game can still show its own <em>high score</em> (single best + short name) while also submitting to a linked leaderboard.
-        </p>
-        <label className="field">Mode
+      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Data source</h3>
+          <p className="muted" style={{ fontSize: "0.9rem" }}>
+            <strong>Manual</strong> — facilitator maintains scores on the moderator page.
+            <strong> Linked</strong> — scores arrive from a score-based arcade game (catch, dino, etc.).
+            Wheels, scratchers, flip cards, pin boards, and quizzes cannot be linked (quizzes use their own session
+            leaderboard).
+          </p>
+          <label className="field">Mode</label>
           <select
             value={game.mode}
-            onChange={(e) => patch({ mode: e.target.value as "linked" | "manual" })}
+            onChange={(e) => {
+              const mode = e.target.value as "linked" | "manual";
+              patch((g) => ({
+                ...g,
+                mode,
+                ...(mode === "manual" ? { linkedGameId: "", linkedGameSlug: "", linkedGameTitle: "" } : {}),
+              }));
+            }}
           >
             <option value="manual">Manual</option>
             <option value="linked">Linked to a game</option>
           </select>
-        </label>
-        {game.mode === "linked" ? (
-          <label className="field">Linked game
-            <select value={game.linkedGameId} onChange={(e) => linkGame(e.target.value)}>
-              <option value="">— Select —</option>
-              {games.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.title} ({g.gameType || "spinning-wheel"}) — /{g.slug}
-                </option>
-              ))}
-            </select>
+          {game.mode === "linked" ? (
+            <>
+              <label className="field" style={{ marginTop: 12 }}>
+                Linked game
+              </label>
+              <select
+                value={game.linkedGameId}
+                onChange={(e) => {
+                  const item = linkableGames.find((x) => x.id === e.target.value);
+                  patch((g) => ({
+                    ...g,
+                    linkedGameId: e.target.value,
+                    linkedGameSlug: item?.slug || "",
+                    linkedGameTitle: item?.title || "",
+                  }));
+                }}
+              >
+                <option value="">— Select —</option>
+                {linkableGames.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title} ({g.gameType}) — /{g.slug}
+                  </option>
+                ))}
+              </select>
+              {linkableGames.length === 0 ? (
+                <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
+                  No linkable games in this Studio yet. Arcade modules (catch, dino) will appear here when added. Use
+                  Manual mode for in-person events.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          <label className="field" style={{ marginTop: 12 }}>
+            Moderator PIN
           </label>
-        ) : null}
-      </div>
-
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Live board branding</h3>
-        <label className="field">Header
-          <input value={b.header} onChange={(e) => patchBoard({ header: e.target.value })} />
-        </label>
-        <label className="field">Subhead
-          <input value={b.subhead} onChange={(e) => patchBoard({ subhead: e.target.value })} />
-        </label>
-        <div className="grid2">
-          <HexField label="Header hex" value={b.headerHex} onChange={(v) => patchBoard({ headerHex: v })} />
-          <HexField label="Subhead hex" value={b.subheadHex} onChange={(v) => patchBoard({ subheadHex: v })} />
-          <HexField label="Background hex" value={b.backgroundHex} onChange={(v) => patchBoard({ backgroundHex: v })} />
+          <input
+            type="text"
+            value={game.moderatorPin}
+            onChange={(e) => patch((g) => ({ ...g, moderatorPin: e.target.value }))}
+            placeholder="Required for moderator page"
+          />
         </div>
-        <label className="field" style={{ marginTop: 12 }}>Brand logo
+
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Live board</h3>
+          <label className="field">Header</label>
+          <input value={b.header} onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, header: e.target.value } }))} />
+          <label className="field">Subhead</label>
+          <input value={b.subhead} onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, subhead: e.target.value } }))} />
+          <HexField label="Header hex" value={b.headerHex} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, headerHex: v } }))} />
+          <HexField label="Subhead hex" value={b.subheadHex} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, subheadHex: v } }))} />
+          <HexField label="Background hex" value={b.backgroundHex} onChange={(v) => patch((g) => ({ ...g, board: { ...g.board, backgroundHex: v } }))} />
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={!!b.useBackgroundImage}
+              onChange={(e) => patch((g) => ({ ...g, board: { ...g.board, useBackgroundImage: e.target.checked } }))}
+            />
+            Use background image
+          </label>
+          <label className="field" style={{ marginTop: 12 }}>
+            Background image
+          </label>
           <input
             type="file"
             accept="image/*"
@@ -265,48 +383,99 @@ export default function LeaderboardEditor() {
               const f = e.target.files?.[0];
               if (!f) return;
               const { url } = await uploadFile(f);
-              patchBoard({ brandLogoUrl: url });
+              patch((g) => ({
+                ...g,
+                board: { ...g.board, backgroundImage: url, useBackgroundImage: true },
+              }));
             }}
           />
-        </label>
-        <label className="field">Logo corner
+          {b.backgroundImage ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 12 }}>
+            Brand logo
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((g) => ({ ...g, board: { ...g.board, brandLogoUrl: url } }));
+            }}
+          />
+          {b.brandLogoUrl ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 12 }}>
+            Brand logo corner
+          </label>
           <select
             value={b.brandLogoCorner}
-            onChange={(e) => patchBoard({ brandLogoCorner: e.target.value as LeaderboardGame["board"]["brandLogoCorner"] })}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                board: { ...g.board, brandLogoCorner: e.target.value as LeaderboardGame["board"]["brandLogoCorner"] },
+              }))
+            }
           >
             <option value="bl">Bottom left</option>
             <option value="br">Bottom right</option>
             <option value="tl">Top left</option>
             <option value="tr">Top right</option>
           </select>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-          <input
-            type="checkbox"
-            checked={game.showPoweredBy !== false}
-            onChange={(e) => patch({ showPoweredBy: e.target.checked })}
-          />
-          Show “Powered by Real Nation”
-        </label>
-      </div>
+        </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Moderator page</h3>
-        <label className="field">Headline
-          <input value={game.moderator.headline} onChange={(e) => patchMod({ headline: e.target.value })} />
-        </label>
-        <HexField label="Background hex" value={game.moderator.backgroundHex} onChange={(v) => patchMod({ backgroundHex: v })} />
-        <HexField label="Text hex" value={game.moderator.textHex} onChange={(v) => patchMod({ textHex: v })} />
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Moderator</h3>
+          <label className="field">Headline</label>
+          <input value={mod.headline} onChange={(e) => patch((g) => ({ ...g, moderator: { ...g.moderator, headline: e.target.value } }))} />
+          <HexField label="Background hex" value={mod.backgroundHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, backgroundHex: v } }))} />
+          <HexField label="Text hex" value={mod.textHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, textHex: v } }))} />
+          <HexField label="Primary button hex" value={mod.buttonHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonHex: v } }))} />
+          <HexField label="Primary button text hex" value={mod.buttonTextHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonTextHex: v } }))} />
+          <HexField label="Secondary button hex" value={mod.buttonDangerHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonDangerHex: v } }))} />
+          <HexField label="Secondary button text hex" value={mod.buttonDangerTextHex} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonDangerTextHex: v } }))} />
+        </div>
       </div>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Live preview</h3>
+        <p className="muted">Updates the iframe with your current settings (not saved to server until you Save).</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <button type="button" className="btn btn-primary" onClick={() => pushPreview()}>
+            Refresh preview
+          </button>
+          <button type="button" className="btn" onClick={() => window.open(liveUrl(game.slug), "_blank")}>
+            Open live board
+          </button>
+          <button type="button" className="btn" onClick={() => window.open(moderateUrl(game.slug), "_blank")}>
+            Open moderator view
+          </button>
+        </div>
         <iframe
           ref={iframeRef}
           title="Leaderboard preview"
-          src="/play/leaderboard-board.html?preview=1"
-          style={{ width: "100%", height: 420, border: "1px solid var(--rn-border)", borderRadius: 8, background: "#0f1a24" }}
+          src={`/play/leaderboard-board.html?preview=1&slug=${encodeURIComponent(game.slug)}`}
+          onLoad={() => pushPreview()}
+          style={{
+            width: "100%",
+            height: "min(420px, 52vh)",
+            border: "1px solid var(--rn-border)",
+            borderRadius: 8,
+            background: b.backgroundHex || "#0f1a24",
+            display: "block",
+          }}
         />
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="btn" disabled={saving} onClick={() => void saveWithThumbnail()}>
+          Save + thumbnail
+        </button>
+        <button type="button" className="btn btn-danger" disabled={saving} onClick={() => void deleteGame()}>
+          Delete game
+        </button>
       </div>
     </div>
   );

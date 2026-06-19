@@ -72,6 +72,25 @@ Capture tracking learnings in this doc and INFRASTRUCTURE.md during A–F.
 | **Kiosk quiz** | **Spin-off variant** — self-guided kiosk quizzes as their own product line, **not** bundled into play-along quiz (reduces complexity) |
 | Live preview | Keep **preview at bottom** on all games (current pattern) — not a side column |
 | Pin board | Reference for inputs + layout where other editors fit |
+| **Studio editor shell** | See checklist below — game details card, bottom save bar, preview last |
+
+### Studio editor consistency (all modules)
+
+New editors should match the established shell unless there is a documented reason not to:
+
+| Area | Convention |
+|------|------------|
+| **Game details** | `grid2`: Title, Client, Sub-URL (slug, lowercased on change). Reporting checkbox. Public URL(s) as `<code>`. Tab icon upload. “Powered by Real Nation” checkbox. |
+| **Actions** | **Save**, **Save + thumbnail**, **Delete game** at the **bottom** of the page (not top). Preview card sits above them. |
+| **Preview** | Live iframe at bottom section with Refresh + Open public links. |
+| **Colours** | Shared `HexField` (hex + picker only). |
+| **Powered by** | Public player: fixed bottom-right image (`powered-by-real-nation.png`), not text. |
+| **Thumbnails** | `html2canvas` on preview `#app` → Save + thumbnail. |
+| **Multi-panel layout** | Pin board / leaderboard: `repeat(auto-fit, minmax(280px, 1fr))` columns for branding surfaces. |
+
+### Leaderboard linkable game types
+
+Only game types in `LEADERBOARD_LINKABLE_GAME_TYPES` (`@rngames/shared`) appear in the Studio linker and may `POST` scores. **Not linkable:** spinning wheel, scratcher, flip cards, pin board, quiz (session LB built-in). **Linkable when shipped:** catch, dino runner. API enforces the same list.
 
 ---
 
