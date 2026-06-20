@@ -4,6 +4,7 @@ import html2canvas from "html2canvas";
 import {
   CATCH_BG_SIZE_HINTS,
   normalizeCatch,
+  type CatchItemVariant,
   type CatchRecord,
 } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
@@ -42,6 +43,80 @@ function publicConfig(g: CatchGame) {
     highScore: g.highScore,
     linkedLeaderboardSlug: g.linkedLeaderboardSlug,
   };
+}
+
+function newVariantId() {
+  return `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function ItemVariantEditor({
+  label,
+  variants,
+  onChange,
+  uploadFile,
+  negative = false,
+}: {
+  label: string;
+  variants: CatchItemVariant[];
+  onChange: (next: CatchItemVariant[]) => void;
+  uploadFile: (f: File) => Promise<{ url: string }>;
+  negative?: boolean;
+}) {
+  const rows = variants.length ? variants : [{ id: newVariantId(), url: "", points: 1 }];
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label className="field">{label}</label>
+      {rows.map((v, i) => (
+        <div key={v.id || i} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              const next = [...rows];
+              next[i] = { ...next[i], url };
+              onChange(next);
+            }}
+          />
+          <input
+            type="number"
+            min={1}
+            max={99}
+            title={negative ? "Penalty points" : "Points"}
+            value={v.points}
+            style={{ width: 72 }}
+            onChange={(e) => {
+              const next = [...rows];
+              next[i] = { ...next[i], points: Number(e.target.value) || 1 };
+              onChange(next);
+            }}
+          />
+          <span className="muted" style={{ fontSize: "0.82rem" }}>
+            {negative ? "penalty" : "pts"}
+          </span>
+          {v.url ? <span className="muted"> ✓</span> : null}
+          {rows.length > 1 ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onChange(rows.filter((_, j) => j !== i))}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn"
+        onClick={() => onChange([...rows, { id: newVariantId(), url: "", points: 1 }])}
+      >
+        Add {negative ? "negative" : "positive"} item
+      </button>
+    </div>
+  );
 }
 
 function getCatchHtml2CanvasOptions(iframe: HTMLIFrameElement) {
@@ -379,32 +454,65 @@ export default function CatchEditor() {
             }
           />
           <label className="field" style={{ marginTop: 12 }}>
-            Spawn interval min (ms)
+            Spawn interval start (ms)
           </label>
           <input
             type="number"
             min={200}
             max={2500}
-            value={game.gameplay.spawnIntervalMinMs}
+            value={game.gameplay.spawnIntervalStartMs}
             onChange={(e) =>
               patch((g) => ({
                 ...g,
-                gameplay: { ...g.gameplay, spawnIntervalMinMs: Number(e.target.value) },
+                gameplay: { ...g.gameplay, spawnIntervalStartMs: Number(e.target.value) },
+              }))
+            }
+          />
+          <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+            Higher = slower spawns at round start.
+          </p>
+          <label className="field" style={{ marginTop: 12 }}>
+            Spawn interval end (ms)
+          </label>
+          <input
+            type="number"
+            min={200}
+            max={2500}
+            value={game.gameplay.spawnIntervalEndMs}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, spawnIntervalEndMs: Number(e.target.value) },
               }))
             }
           />
           <label className="field" style={{ marginTop: 12 }}>
-            Spawn interval max (ms)
+            Positive item % start
           </label>
           <input
             type="number"
-            min={200}
-            max={2500}
-            value={game.gameplay.spawnIntervalMaxMs}
+            min={0}
+            max={100}
+            value={game.gameplay.positivePercentStart}
             onChange={(e) =>
               patch((g) => ({
                 ...g,
-                gameplay: { ...g.gameplay, spawnIntervalMaxMs: Number(e.target.value) },
+                gameplay: { ...g.gameplay, positivePercentStart: Number(e.target.value) },
+              }))
+            }
+          />
+          <label className="field" style={{ marginTop: 12 }}>
+            Positive item % end
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={game.gameplay.positivePercentEnd}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, positivePercentEnd: Number(e.target.value) },
               }))
             }
           />
@@ -449,7 +557,7 @@ export default function CatchEditor() {
                 patch((g) => ({ ...g, gameplay: { ...g.gameplay, pointsAddTime: e.target.checked } }))
               }
             />
-            Points add/remove time (+1s positive, −1s negative)
+            Points add/remove time (seconds match item point values)
           </label>
           <label className="field" style={{ marginTop: 12 }}>
             Linked leaderboard (slug)
@@ -505,33 +613,51 @@ export default function CatchEditor() {
           />
           {game.catcherSpriteUrl ? <span className="muted"> ✓</span> : null}
           <label className="field" style={{ marginTop: 12 }}>
-            Positive item
+            Catcher width (px)
           </label>
           <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const { url } = await uploadFile(f);
-              patch((g) => ({ ...g, sprites: { ...g.sprites, positiveUrl: url } }));
-            }}
+            type="number"
+            min={40}
+            max={420}
+            value={game.gameplay.catcherWidth}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, catcherWidth: Number(e.target.value) },
+              }))
+            }
           />
-          {game.sprites.positiveUrl ? <span className="muted"> ✓</span> : null}
           <label className="field" style={{ marginTop: 12 }}>
-            Negative item
+            Catcher height (px)
           </label>
           <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const { url } = await uploadFile(f);
-              patch((g) => ({ ...g, sprites: { ...g.sprites, negativeUrl: url } }));
-            }}
+            type="number"
+            min={40}
+            max={420}
+            value={game.gameplay.catcherHeight}
+            onChange={(e) =>
+              patch((g) => ({
+                ...g,
+                gameplay: { ...g.gameplay, catcherHeight: Number(e.target.value) },
+              }))
+            }
           />
-          {game.sprites.negativeUrl ? <span className="muted"> ✓</span> : null}
+          <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+            Sprite fits inside this box; collision matches the drawn image size.
+          </p>
+          <ItemVariantEditor
+            label="Positive items"
+            variants={game.sprites.positive}
+            uploadFile={uploadFile}
+            onChange={(positive) => patch((g) => ({ ...g, sprites: { ...g.sprites, positive } }))}
+          />
+          <ItemVariantEditor
+            label="Negative items"
+            variants={game.sprites.negative}
+            uploadFile={uploadFile}
+            negative
+            onChange={(negative) => patch((g) => ({ ...g, sprites: { ...g.sprites, negative } }))}
+          />
         </div>
 
         <div className="card">

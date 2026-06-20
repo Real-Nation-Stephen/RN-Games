@@ -1,4 +1,4 @@
-import { CATCH_DESIGN_H, CATCH_DESIGN_W } from "@rngames/shared";
+import { CATCH_DESIGN_H, CATCH_DESIGN_W, type CatchItemVariant } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
 import { submitLinkedScore } from "../leaderboard/api";
 import {
@@ -35,13 +35,11 @@ const els = {
   swipeHint: document.getElementById("catch-swipe-hint")!,
   swipeText: document.getElementById("catch-swipe-text")!,
   intro: document.getElementById("catch-intro")!,
-  introPositive: document.getElementById("catch-intro-positive") as HTMLImageElement,
-  introPositivePh: document.getElementById("catch-intro-positive-ph")!,
   introPositiveText: document.getElementById("catch-intro-positive-text")!,
-  introNegativeRow: document.getElementById("catch-intro-negative-row")!,
-  introNegative: document.getElementById("catch-intro-negative") as HTMLImageElement,
-  introNegativePh: document.getElementById("catch-intro-negative-ph")!,
+  introPositiveList: document.getElementById("catch-intro-positive-list")!,
+  introNegativeWrap: document.getElementById("catch-intro-negative-wrap")!,
   introNegativeText: document.getElementById("catch-intro-negative-text")!,
+  introNegativeList: document.getElementById("catch-intro-negative-list")!,
   introNext: document.getElementById("catch-intro-next") as HTMLButtonElement,
   nameScreen: document.getElementById("catch-name-screen")!,
   nameStart: document.getElementById("catch-name-start") as HTMLInputElement,
@@ -232,22 +230,12 @@ function applyTheme(c: CatchConfig) {
   els.introNegativeText.textContent = intro.negativeLine || "Avoid catching these or lose points";
   els.introNext.textContent = intro.nextLabel || "Next";
   const hideNegative = c.gameplay.positiveOnly;
-  els.introNegativeRow.hidden = hideNegative;
-  if (c.sprites.positiveUrl) {
-    els.introPositive.src = c.sprites.positiveUrl;
-    els.introPositive.hidden = false;
-    els.introPositivePh.hidden = true;
+  els.introNegativeWrap.hidden = hideNegative;
+  renderIntroVariants(els.introPositiveList, c.sprites.positive, "catch-intro__sprite--positive");
+  if (!hideNegative) {
+    renderIntroVariants(els.introNegativeList, c.sprites.negative, "catch-intro__sprite--negative", true);
   } else {
-    els.introPositive.hidden = true;
-    els.introPositivePh.hidden = false;
-  }
-  if (!hideNegative && c.sprites.negativeUrl) {
-    els.introNegative.src = c.sprites.negativeUrl;
-    els.introNegative.hidden = false;
-    els.introNegativePh.hidden = true;
-  } else if (!hideNegative) {
-    els.introNegative.hidden = true;
-    els.introNegativePh.hidden = false;
+    els.introNegativeList.innerHTML = "";
   }
 
   injectFonts(c);
@@ -289,14 +277,50 @@ function setupMusic(c: CatchConfig) {
 }
 
 async function preloadSprites(c: CatchConfig) {
-  await Promise.all([
-    loadImage(c.catcherSpriteUrl),
-    loadImage(c.sprites.positiveUrl),
-    loadImage(c.sprites.negativeUrl),
-    loadImage(c.banner.logoUrl),
-    loadImage(c.endScreen.logoUrl),
-    loadImage(pickBackgroundUrl(c)),
-  ]);
+  const urls = [
+    c.catcherSpriteUrl,
+    ...c.sprites.positive.map((v) => v.url),
+    ...c.sprites.negative.map((v) => v.url),
+    c.banner.logoUrl,
+    c.endScreen.logoUrl,
+    pickBackgroundUrl(c),
+  ];
+  await Promise.all(urls.map((url) => loadImage(url)));
+}
+
+function renderIntroVariants(
+  container: HTMLElement,
+  variants: CatchItemVariant[],
+  placeholderClass: string,
+  negative = false,
+) {
+  container.innerHTML = "";
+  const usable = variants.filter((v) => v.url);
+  if (!usable.length) {
+    const ph = document.createElement("div");
+    ph.className = `catch-intro__sprite--placeholder ${placeholderClass}`;
+    container.appendChild(ph);
+    return;
+  }
+  for (const v of usable) {
+    const row = document.createElement("div");
+    row.className = "catch-intro__variant";
+    const img = document.createElement("img");
+    img.className = "catch-intro__sprite";
+    img.src = v.url;
+    img.alt = "";
+    const pts = document.createElement("p");
+    pts.className = "catch-intro__points";
+    pts.textContent = negative ? `−${v.points}` : v.points === 1 ? "+1" : `+${v.points}`;
+    row.appendChild(img);
+    row.appendChild(pts);
+    container.appendChild(row);
+  }
+}
+
+function itemVariantUrl(c: CatchConfig, kind: "positive" | "negative", variantId: string) {
+  const list = kind === "positive" ? c.sprites.positive : c.sprites.negative;
+  return list.find((v) => v.id === variantId)?.url || list.find((v) => v.url)?.url || "";
 }
 
 function applyFavicon(url?: string) {
@@ -502,10 +526,17 @@ function drawImageContain(
 
 function drawItem(
   c: CatchConfig,
-  item: { x: number; y: number; kind: "positive" | "negative"; rotation: number; size: number },
+  item: {
+    x: number;
+    y: number;
+    kind: "positive" | "negative";
+    variantId: string;
+    rotation: number;
+    size: number;
+  },
 ) {
   if (!ctx) return;
-  const url = item.kind === "positive" ? c.sprites.positiveUrl : c.sprites.negativeUrl;
+  const url = itemVariantUrl(c, item.kind, item.variantId);
   const img = url ? imageCache.get(url) : null;
   ctx.save();
   ctx.translate(item.x, item.y);
@@ -537,7 +568,8 @@ function drawFrame() {
   }
 
   if (engine.state === "playing" && engine.score !== prevScore) {
-    playCatchSfx(engine.score > prevScore ? cfg.sounds.positiveCatch : cfg.sounds.negativeCatch);
+    const delta = engine.score - prevScore;
+    playCatchSfx(delta > 0 ? cfg.sounds.positiveCatch : cfg.sounds.negativeCatch);
   }
 
   if (engine.state === "countdown" && engine.countdownValue !== lastCountdownBeep) {
@@ -569,12 +601,18 @@ function drawFrame() {
   const cx = engine.catcherX;
   const cy = engine.catcherY;
   const catcherImg = cfg.catcherSpriteUrl ? imageCache.get(cfg.catcherSpriteUrl) : null;
+  let hitW = g.catcherWidth;
+  let hitH = g.catcherHeight;
   if (catcherImg && catcherImg.complete && catcherImg.naturalWidth) {
+    const scale = Math.min(g.catcherWidth / catcherImg.naturalWidth, g.catcherHeight / catcherImg.naturalHeight);
+    hitW = catcherImg.naturalWidth * scale;
+    hitH = catcherImg.naturalHeight * scale;
     drawImageContain(ctx, catcherImg, cx, cy, g.catcherWidth, g.catcherHeight);
   } else {
     ctx.fillStyle = "#f4d35e";
     ctx.fillRect(cx - g.catcherWidth / 2, cy - g.catcherHeight / 2, g.catcherWidth, g.catcherHeight);
   }
+  engine.setCatcherHitSize(hitW, hitH);
 
   raf = requestAnimationFrame(drawFrame);
 }

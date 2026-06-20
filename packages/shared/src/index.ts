@@ -23,6 +23,8 @@ export {
   type CatchEndScreen,
   type CatchGameplay,
   type CatchHud,
+  type CatchItemSprites,
+  type CatchItemVariant,
   type CatchSounds,
 } from "./catch.js";
 

@@ -20,9 +20,46 @@ export interface CatchBanner {
   logoAlign: CatchLogoAlign;
 }
 
+export interface CatchItemVariant {
+  id: string;
+  url: string;
+  points: number;
+}
+
 export interface CatchItemSprites {
-  positiveUrl: string;
-  negativeUrl: string;
+  positive: CatchItemVariant[];
+  negative: CatchItemVariant[];
+}
+
+export function normalizeCatchItemVariants(
+  raw: unknown,
+  legacyUrl?: string,
+): CatchItemVariant[] {
+  const list = Array.isArray(raw) ? raw : [];
+  const normalized: CatchItemVariant[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const v = list[i] as Partial<CatchItemVariant>;
+    if (!v || typeof v !== "object") continue;
+    const url = String(v.url || "").trim();
+    if (!url) continue;
+    normalized.push({
+      id: String(v.id || `v${i + 1}`),
+      url,
+      points: Math.max(1, Math.min(99, Number(v.points) || 1)),
+    });
+  }
+  const legacy = String(legacyUrl || "").trim();
+  if (normalized.length === 0 && legacy) {
+    return [{ id: "v1", url: legacy, points: 1 }];
+  }
+  return normalized;
+}
+
+export function normalizeCatchSprites(raw: Partial<CatchItemSprites> & { positiveUrl?: string; negativeUrl?: string } = {}): CatchItemSprites {
+  return {
+    positive: normalizeCatchItemVariants(raw.positive, raw.positiveUrl),
+    negative: normalizeCatchItemVariants(raw.negative, raw.negativeUrl),
+  };
 }
 
 export interface CatchSounds {
@@ -54,14 +91,20 @@ export interface CatchGameplay {
   durationSec: number;
   positiveOnly: boolean;
   swipeHintText: string;
-  spawnIntervalMinMs: number;
-  spawnIntervalMaxMs: number;
+  /** Ms between spawns at round start (higher = slower). */
+  spawnIntervalStartMs: number;
+  /** Ms between spawns at round end (lower = faster). */
+  spawnIntervalEndMs: number;
   fallSpeedStart: number;
   fallSpeedEnd: number;
+  /** Positive spawn share at round start (0–100). */
+  positivePercentStart: number;
+  /** Positive spawn share at round end (0–100). */
+  positivePercentEnd: number;
   itemSize: number;
   catcherWidth: number;
   catcherHeight: number;
-  /** When on, +1s per positive catch and −1s per negative catch. */
+  /** When on, catch points add/remove seconds by the item's point value. */
   pointsAddTime: boolean;
 }
 
@@ -140,7 +183,7 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       logoUrl: "",
       logoAlign: "center",
     },
-    sprites: { positiveUrl: "", negativeUrl: "" },
+    sprites: { positive: [], negative: [] },
     catcherSpriteUrl: "",
     sounds: {
       positiveCatch: null,
@@ -160,13 +203,15 @@ export function emptyCatch(partial: { id: string; slug: string }): CatchRecord {
       durationSec: 60,
       positiveOnly: false,
       swipeHintText: "Swipe to move",
-      spawnIntervalMinMs: 550,
-      spawnIntervalMaxMs: 950,
+      spawnIntervalStartMs: 950,
+      spawnIntervalEndMs: 550,
       fallSpeedStart: 220,
       fallSpeedEnd: 420,
+      positivePercentStart: 50,
+      positivePercentEnd: 10,
       itemSize: 72,
       catcherWidth: 140,
-      catcherHeight: 72,
+      catcherHeight: 120,
       pointsAddTime: false,
     },
     intro: {
@@ -201,23 +246,36 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
   const defaults = emptyCatch({ id: doc.id, slug: doc.slug });
   const rawGameplay = { ...defaults.gameplay, ...(doc.gameplay || {}) } as CatchGameplay & {
     spawnIntervalMs?: number;
+    spawnIntervalMinMs?: number;
+    spawnIntervalMaxMs?: number;
     fallSpeed?: number;
   };
-  if (rawGameplay.spawnIntervalMinMs == null || rawGameplay.spawnIntervalMaxMs == null) {
-    const base = Number(rawGameplay.spawnIntervalMs) || defaults.gameplay.spawnIntervalMaxMs;
-    rawGameplay.spawnIntervalMinMs = Math.round(base * 0.6);
-    rawGameplay.spawnIntervalMaxMs = base;
+  if (rawGameplay.spawnIntervalStartMs == null || rawGameplay.spawnIntervalEndMs == null) {
+    const legacyMin = Number(rawGameplay.spawnIntervalMinMs);
+    const legacyMax = Number(rawGameplay.spawnIntervalMaxMs);
+    const base = Number(rawGameplay.spawnIntervalMs) || defaults.gameplay.spawnIntervalEndMs;
+    if (Number.isFinite(legacyMin) && Number.isFinite(legacyMax)) {
+      rawGameplay.spawnIntervalStartMs = Math.max(legacyMin, legacyMax);
+      rawGameplay.spawnIntervalEndMs = Math.min(legacyMin, legacyMax);
+    } else {
+      rawGameplay.spawnIntervalStartMs = Math.round(base * 1.2);
+      rawGameplay.spawnIntervalEndMs = base;
+    }
   }
   if (rawGameplay.fallSpeedStart == null || rawGameplay.fallSpeedEnd == null) {
     const base = Number(rawGameplay.fallSpeed) || defaults.gameplay.fallSpeedStart;
     rawGameplay.fallSpeedStart = base;
     rawGameplay.fallSpeedEnd = Math.round(base * 1.75);
   }
-  rawGameplay.spawnIntervalMinMs = Math.max(200, Math.min(rawGameplay.spawnIntervalMinMs, rawGameplay.spawnIntervalMaxMs));
-  rawGameplay.spawnIntervalMaxMs = Math.max(rawGameplay.spawnIntervalMinMs, Math.min(2500, rawGameplay.spawnIntervalMaxMs));
+  rawGameplay.spawnIntervalStartMs = Math.max(200, Math.min(2500, Number(rawGameplay.spawnIntervalStartMs) || 950));
+  rawGameplay.spawnIntervalEndMs = Math.max(200, Math.min(2500, Number(rawGameplay.spawnIntervalEndMs) || 550));
   rawGameplay.fallSpeedStart = Math.max(80, rawGameplay.fallSpeedStart);
   rawGameplay.fallSpeedEnd = Math.max(rawGameplay.fallSpeedStart, rawGameplay.fallSpeedEnd);
+  rawGameplay.positivePercentStart = Math.max(0, Math.min(100, Number(rawGameplay.positivePercentStart ?? 50)));
+  rawGameplay.positivePercentEnd = Math.max(0, Math.min(100, Number(rawGameplay.positivePercentEnd ?? 10)));
   rawGameplay.itemSize = Math.max(32, Math.min(160, Number(rawGameplay.itemSize) || defaults.gameplay.itemSize));
+  rawGameplay.catcherWidth = Math.max(40, Math.min(420, Number(rawGameplay.catcherWidth) || defaults.gameplay.catcherWidth));
+  rawGameplay.catcherHeight = Math.max(40, Math.min(420, Number(rawGameplay.catcherHeight) || defaults.gameplay.catcherHeight));
   rawGameplay.pointsAddTime = rawGameplay.pointsAddTime === true;
 
   const rawBanner = { ...defaults.banner, ...(doc.banner || {}) };
@@ -230,7 +288,7 @@ export function normalizeCatch(doc: Partial<CatchRecord> & { id: string; slug: s
     gameType: "catch",
     backgrounds: { ...defaults.backgrounds, ...(doc.backgrounds || {}) },
     banner: rawBanner,
-    sprites: { ...defaults.sprites, ...(doc.sprites || {}) },
+    sprites: normalizeCatchSprites(doc.sprites as CatchItemSprites & { positiveUrl?: string; negativeUrl?: string }),
     sounds: { ...defaults.sounds, ...(doc.sounds || {}) },
     fonts: { ...defaults.fonts, ...(doc.fonts || {}) },
     fontUploads: { ...(doc.fontUploads || {}) },

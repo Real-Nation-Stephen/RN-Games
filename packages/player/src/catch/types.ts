@@ -1,4 +1,6 @@
-import type { CatchRecord } from "@rngames/shared";
+import type { CatchRecord, CatchItemVariant } from "@rngames/shared";
+
+export type { CatchItemVariant };
 
 export type CatchConfig = Pick<
   CatchRecord,
@@ -31,6 +33,8 @@ export interface FallingItem {
   x: number;
   y: number;
   kind: "positive" | "negative";
+  variantId: string;
+  points: number;
   rotation: number;
   rotSpeed: number;
   size: number;

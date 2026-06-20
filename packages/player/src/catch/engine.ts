@@ -1,18 +1,12 @@
 import { CATCH_DESIGN_H, CATCH_DESIGN_W } from "@rngames/shared";
-import type { CatchConfig, CatchGameState, FallingItem } from "./types";
+import type { CatchConfig, CatchGameState, CatchItemVariant, FallingItem } from "./types";
 
 const BANNER_H = 132;
 const CATCHER_BOTTOM_PAD = 120;
 const SPAWN_EDGE_PAD = 20;
-const POSITIVE_RATIO_START = 0.5;
-const POSITIVE_RATIO_END = 0.1;
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
-}
-
-function randBetween(min: number, max: number) {
-  return min + Math.random() * (max - min);
 }
 
 function shuffleKinds(kinds: ("positive" | "negative")[]) {
@@ -20,6 +14,12 @@ function shuffleKinds(kinds: ("positive" | "negative")[]) {
     const j = Math.floor(Math.random() * (i + 1));
     [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
   }
+}
+
+function pickRandomVariant(list: CatchItemVariant[]): CatchItemVariant | null {
+  const usable = list.filter((v) => v.url);
+  if (!usable.length) return null;
+  return usable[Math.floor(Math.random() * usable.length)];
 }
 
 export class CatchEngine {
@@ -30,6 +30,7 @@ export class CatchEngine {
   state: CatchGameState = "idle";
   score = 0;
   timeLeft = 0;
+  elapsedSec = 0;
   countdownValue = 3;
   catcherX = CATCH_DESIGN_W / 2;
   items: FallingItem[] = [];
@@ -52,19 +53,29 @@ export class CatchEngine {
     return CATCH_DESIGN_H - CATCHER_BOTTOM_PAD - this.cfg.gameplay.catcherHeight / 2;
   }
 
-  private scheduleNextSpawn() {
-    const g = this.cfg.gameplay;
-    this.nextSpawnMs = randBetween(g.spawnIntervalMinMs, g.spawnIntervalMaxMs);
-  }
-
   private roundProgress() {
     const total = this.cfg.gameplay.durationSec;
     if (total <= 0) return 1;
-    return Math.min(1, Math.max(0, 1 - this.timeLeft / total));
+    return Math.min(1, Math.max(0, this.elapsedSec / total));
   }
 
   private targetPositiveRatio(progress = this.roundProgress()) {
-    return lerp(POSITIVE_RATIO_START, POSITIVE_RATIO_END, progress);
+    const g = this.cfg.gameplay;
+    return lerp(g.positivePercentStart, g.positivePercentEnd, progress) / 100;
+  }
+
+  private currentFallSpeed() {
+    const g = this.cfg.gameplay;
+    return lerp(g.fallSpeedStart, g.fallSpeedEnd, this.roundProgress());
+  }
+
+  private currentSpawnIntervalMs() {
+    const g = this.cfg.gameplay;
+    return lerp(g.spawnIntervalStartMs, g.spawnIntervalEndMs, this.roundProgress());
+  }
+
+  private scheduleNextSpawn() {
+    this.nextSpawnMs = this.currentSpawnIntervalMs();
   }
 
   private buildSpawnPlan() {
@@ -75,7 +86,7 @@ export class CatchEngine {
       return;
     }
 
-    const avgMs = (g.spawnIntervalMinMs + g.spawnIntervalMaxMs) / 2;
+    const avgMs = (g.spawnIntervalStartMs + g.spawnIntervalEndMs) / 2;
     const n = Math.max(12, Math.round((g.durationSec * 1000) / avgMs));
     const kinds: ("positive" | "negative")[] = [];
     let expectedPos = 0;
@@ -116,16 +127,12 @@ export class CatchEngine {
     return Math.random() < this.targetPositiveRatio() ? "positive" : "negative";
   }
 
-  private currentFallSpeed() {
-    const g = this.cfg.gameplay;
-    return lerp(g.fallSpeedStart, g.fallSpeedEnd, this.roundProgress());
-  }
-
   reset(cfg?: CatchConfig) {
     if (cfg) this.cfg = cfg;
     this.state = "idle";
     this.score = 0;
     this.timeLeft = this.cfg.gameplay.durationSec;
+    this.elapsedSec = 0;
     this.countdownValue = 3;
     this.countdownAcc = 0;
     this.spawnAcc = 0;
@@ -155,6 +162,14 @@ export class CatchEngine {
     this.setCatcherX(this.catcherX + dx * speed * dt);
   }
 
+  setCatcherHitSize(width: number, height: number) {
+    this.catcherHitW = Math.max(8, width);
+    this.catcherHitH = Math.max(8, height);
+  }
+
+  private catcherHitW = 140;
+  private catcherHitH = 120;
+
   update(dt: number) {
     if (this.state === "countdown") {
       this.countdownAcc += dt;
@@ -164,6 +179,7 @@ export class CatchEngine {
         if (this.countdownValue <= 0) {
           this.state = "playing";
           this.spawnAcc = 0;
+          this.elapsedSec = 0;
           this.buildSpawnPlan();
           this.spawnItem();
           this.scheduleNextSpawn();
@@ -174,6 +190,7 @@ export class CatchEngine {
 
     if (this.state !== "playing") return;
 
+    this.elapsedSec += dt;
     this.timeLeft -= dt;
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
@@ -199,11 +216,11 @@ export class CatchEngine {
       if (item.y - item.size / 2 > this.designH + 40) continue;
       if (this.hitTest(item)) {
         if (item.kind === "positive") {
-          this.score += 1;
-          if (g.pointsAddTime) this.timeLeft += 1;
+          this.score += item.points;
+          if (g.pointsAddTime) this.timeLeft += item.points;
         } else if (!g.positiveOnly) {
-          this.score = Math.max(0, this.score - 1);
-          if (g.pointsAddTime) this.timeLeft = Math.max(0, this.timeLeft - 1);
+          this.score = Math.max(0, this.score - item.points);
+          if (g.pointsAddTime) this.timeLeft = Math.max(0, this.timeLeft - item.points);
         }
         continue;
       }
@@ -216,6 +233,8 @@ export class CatchEngine {
     const g = this.cfg.gameplay;
     const size = g.itemSize;
     const kind = this.pickSpawnKind();
+    const variants = kind === "positive" ? this.cfg.sprites.positive : this.cfg.sprites.negative;
+    const variant = pickRandomVariant(variants) || { id: "default", url: "", points: 1 };
     const half = size / 2;
     const pad = half + SPAWN_EDGE_PAD;
     const minX = pad;
@@ -226,6 +245,8 @@ export class CatchEngine {
       x: minX + Math.random() * (maxX - minX),
       y: this.bannerH + half,
       kind,
+      variantId: variant.id,
+      points: variant.points,
       rotation: Math.random() * Math.PI * 2,
       rotSpeed: (Math.random() - 0.5) * 4,
       size,
@@ -233,11 +254,10 @@ export class CatchEngine {
   }
 
   private hitTest(item: FallingItem): boolean {
-    const g = this.cfg.gameplay;
     const cx = this.catcherX;
     const cy = this.catcherY;
-    const hw = g.catcherWidth / 2;
-    const hh = g.catcherHeight / 2;
+    const hw = this.catcherHitW / 2;
+    const hh = this.catcherHitH / 2;
     const closestX = Math.max(cx - hw, Math.min(item.x, cx + hw));
     const closestY = Math.max(cy - hh, Math.min(item.y, cy + hh));
     const dx = item.x - closestX;

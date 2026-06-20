@@ -1,5 +1,33 @@
 /** Catch arcade game — record helpers and public payload. */
 
+function normalizeItemVariants(raw, legacyUrl) {
+  const list = Array.isArray(raw) ? raw : [];
+  const normalized = [];
+  for (let i = 0; i < list.length; i++) {
+    const v = list[i];
+    if (!v || typeof v !== "object") continue;
+    const url = String(v.url || "").trim();
+    if (!url) continue;
+    normalized.push({
+      id: String(v.id || `v${i + 1}`),
+      url,
+      points: Math.max(1, Math.min(99, Number(v.points) || 1)),
+    });
+  }
+  const legacy = String(legacyUrl || "").trim();
+  if (!normalized.length && legacy) {
+    return [{ id: "v1", url: legacy, points: 1 }];
+  }
+  return normalized;
+}
+
+function normalizeSprites(raw = {}) {
+  return {
+    positive: normalizeItemVariants(raw.positive, raw.positiveUrl),
+    negative: normalizeItemVariants(raw.negative, raw.negativeUrl),
+  };
+}
+
 export function emptyCatchRecord(id, slug) {
   return {
     id,
@@ -21,7 +49,7 @@ export function emptyCatchRecord(id, slug) {
       logoUrl: "",
       logoAlign: "center",
     },
-    sprites: { positiveUrl: "", negativeUrl: "" },
+    sprites: { positive: [], negative: [] },
     catcherSpriteUrl: "",
     sounds: {
       positiveCatch: null,
@@ -41,13 +69,15 @@ export function emptyCatchRecord(id, slug) {
       durationSec: 60,
       positiveOnly: false,
       swipeHintText: "Swipe to move",
-      spawnIntervalMinMs: 550,
-      spawnIntervalMaxMs: 950,
+      spawnIntervalStartMs: 950,
+      spawnIntervalEndMs: 550,
       fallSpeedStart: 220,
       fallSpeedEnd: 420,
+      positivePercentStart: 50,
+      positivePercentEnd: 10,
       itemSize: 72,
       catcherWidth: 140,
-      catcherHeight: 72,
+      catcherHeight: 120,
       pointsAddTime: false,
     },
     intro: {
@@ -83,7 +113,7 @@ export function normalizeCatchRecord(doc) {
   const defaults = emptyCatchRecord(doc.id || "", doc.slug || "");
   doc.backgrounds = { ...defaults.backgrounds, ...(doc.backgrounds || {}) };
   doc.banner = { ...defaults.banner, ...(doc.banner || {}) };
-  doc.sprites = { ...defaults.sprites, ...(doc.sprites || {}) };
+  doc.sprites = normalizeSprites(doc.sprites || {});
   doc.sounds = { ...defaults.sounds, ...(doc.sounds || {}) };
   doc.fonts = { ...defaults.fonts, ...(doc.fonts || {}) };
   doc.fontUploads = doc.fontUploads || {};
@@ -100,21 +130,32 @@ export function normalizeCatchRecord(doc) {
   doc.gameplay.durationSec = Math.min(300, Math.max(10, Number(doc.gameplay.durationSec) || 60));
   doc.gameplay.positiveOnly = !!doc.gameplay.positiveOnly;
   const g = doc.gameplay;
-  if (g.spawnIntervalMinMs == null || g.spawnIntervalMaxMs == null) {
-    const base = Number(g.spawnIntervalMs) || 900;
-    g.spawnIntervalMinMs = Math.round(base * 0.6);
-    g.spawnIntervalMaxMs = base;
+  if (g.spawnIntervalStartMs == null || g.spawnIntervalEndMs == null) {
+    const legacyMin = Number(g.spawnIntervalMinMs);
+    const legacyMax = Number(g.spawnIntervalMaxMs);
+    const base = Number(g.spawnIntervalMs) || defaults.gameplay.spawnIntervalEndMs;
+    if (Number.isFinite(legacyMin) && Number.isFinite(legacyMax)) {
+      g.spawnIntervalStartMs = Math.max(legacyMin, legacyMax);
+      g.spawnIntervalEndMs = Math.min(legacyMin, legacyMax);
+    } else {
+      g.spawnIntervalStartMs = Math.round(base * 1.2);
+      g.spawnIntervalEndMs = base;
+    }
   }
   if (g.fallSpeedStart == null || g.fallSpeedEnd == null) {
     const base = Number(g.fallSpeed) || 220;
     g.fallSpeedStart = base;
     g.fallSpeedEnd = Math.round(base * 1.75);
   }
-  g.spawnIntervalMinMs = Math.max(200, Math.min(g.spawnIntervalMinMs, g.spawnIntervalMaxMs));
-  g.spawnIntervalMaxMs = Math.max(g.spawnIntervalMinMs, Math.min(2500, g.spawnIntervalMaxMs));
+  g.spawnIntervalStartMs = Math.max(200, Math.min(2500, Number(g.spawnIntervalStartMs) || 950));
+  g.spawnIntervalEndMs = Math.max(200, Math.min(2500, Number(g.spawnIntervalEndMs) || 550));
   g.fallSpeedStart = Math.max(80, Number(g.fallSpeedStart) || 220);
   g.fallSpeedEnd = Math.max(g.fallSpeedStart, Number(g.fallSpeedEnd) || 420);
+  g.positivePercentStart = Math.max(0, Math.min(100, Number(g.positivePercentStart ?? 50)));
+  g.positivePercentEnd = Math.max(0, Math.min(100, Number(g.positivePercentEnd ?? 10)));
   g.itemSize = Math.max(32, Math.min(160, Number(g.itemSize) || 72));
+  g.catcherWidth = Math.max(40, Math.min(420, Number(g.catcherWidth) || 140));
+  g.catcherHeight = Math.max(40, Math.min(420, Number(g.catcherHeight) || 120));
   g.pointsAddTime = g.pointsAddTime === true;
   const align = String(doc.banner.logoAlign || "center");
   doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
