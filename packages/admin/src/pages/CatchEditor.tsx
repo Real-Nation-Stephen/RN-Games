@@ -68,6 +68,31 @@ function ItemVariantEditor({
       <label className="field">{label}</label>
       {rows.map((v, i) => (
         <div key={v.id || i} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+          {v.url ? (
+            <img
+              src={v.url}
+              alt=""
+              width={52}
+              height={52}
+              style={{
+                objectFit: "contain",
+                borderRadius: 6,
+                background: negative ? "rgba(224, 93, 93, 0.25)" : "rgba(62, 207, 142, 0.25)",
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 6,
+                background: negative ? "rgba(224, 93, 93, 0.35)" : "rgba(62, 207, 142, 0.35)",
+                flexShrink: 0,
+              }}
+            />
+          )}
           <input
             type="file"
             accept="image/*"
@@ -96,7 +121,6 @@ function ItemVariantEditor({
           <span className="muted" style={{ fontSize: "0.82rem" }}>
             {negative ? "penalty" : "pts"}
           </span>
-          {v.url ? <span className="muted"> ✓</span> : null}
           {rows.length > 1 ? (
             <button
               type="button"

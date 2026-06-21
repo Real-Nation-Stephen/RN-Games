@@ -18,7 +18,7 @@ import {
   setCatchMuted,
   unlockCatchAudio,
 } from "./audio";
-import { bindCatchKeyboard, pollHorizontalInput } from "./gamepad";
+import { bindCatchKeyboard, pollHorizontalInput, pollMenuAction } from "./gamepad";
 import { bindCatchLayout, layoutCatchStage, pointerToStageX as mapPointerX } from "./layout";
 import type { CatchConfig } from "./types";
 
@@ -442,21 +442,46 @@ function stagePointerX(clientX: number): number {
   return mapPointerX(clientX, els.fit);
 }
 
+function beginRound() {
+  if (!engine || !cfg || engine.state !== "idle") return;
+  void unlockCatchAudio();
+  engine.beginFromTouch();
+  lastCountdownBeep = 0;
+  lastTimerBeepSec = -1;
+  if (!isCatchMuted()) void els.music.play().catch(() => undefined);
+  track({
+    type: "catch.round_start",
+    gameId: cfg.id || cfg.slug,
+    payload: { slug: cfg.slug },
+  });
+}
+
 function onPointer(clientX: number) {
   if (!engine || !cfg) return;
   void unlockCatchAudio();
   const x = stagePointerX(clientX);
   engine.setCatcherX(x);
-  if (engine.state === "idle") {
-    engine.beginFromTouch();
-    lastCountdownBeep = 0;
-    lastTimerBeepSec = -1;
-    if (!isCatchMuted()) void els.music.play().catch(() => undefined);
-    track({
-      type: "catch.round_start",
-      gameId: cfg.id || cfg.slug,
-      payload: { slug: cfg.slug },
-    });
+  if (engine.state === "idle") beginRound();
+}
+
+function handleMenuGamepad() {
+  const action = pollMenuAction();
+  if (!action || !engine || !cfg) return;
+
+  if (!els.nameScreen.hidden) {
+    if (action === "advance") els.nameContinue.click();
+    return;
+  }
+  if (!els.intro.hidden) {
+    if (action === "advance") els.introNext.click();
+    return;
+  }
+  if (!els.end.hidden) {
+    if (action === "replay") els.endPlay.click();
+    return;
+  }
+  if (!els.startOverlay.hidden && engine.state === "idle" && action === "start") {
+    beginRound();
   }
 }
 
@@ -561,6 +586,8 @@ function drawFrame() {
   const dt = lastTs ? Math.min(0.05, (now - lastTs) / 1000) : 0;
   lastTs = now;
   engine.update(dt);
+
+  handleMenuGamepad();
 
   const padX = pollHorizontalInput();
   if (padX && (engine.state === "playing" || engine.state === "countdown" || engine.state === "idle")) {

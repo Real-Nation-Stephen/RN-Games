@@ -204,6 +204,9 @@ body.catch-muted .catch-mute__icon--off {
   width: 100%;
   max-width: 640px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .catch-name-screen__title {
@@ -220,7 +223,8 @@ body.catch-muted .catch-mute__icon--off {
 }
 
 .catch-name-screen__input {
-  width: min(420px, 88vw);
+  width: 100%;
+  max-width: 420px;
   padding: 24px 30px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -340,6 +344,9 @@ body.catch-muted .catch-mute__icon--off {
 .catch-intro__section {
   width: 100%;
   margin-bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .catch-intro__variants {
@@ -394,11 +401,13 @@ body.catch-muted .catch-mute__icon--off {
 }
 
 .catch-intro__text {
-  margin: 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 640px;
   font-size: 45px;
   line-height: 1.35;
   color: #eef2f7;
-  max-width: 640px;
+  text-align: center;
 }
 
 .catch-intro__btn {
