@@ -4,6 +4,7 @@ import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.m
 import { toPublicPinboard } from "./lib/pinboard.mjs";
 import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
 import { toPublicCatch } from "./lib/catch.mjs";
+import { toPublicRunner } from "./lib/runner.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -166,7 +167,9 @@ export const handler = async (event) => {
                 ? toPublicLeaderboard(doc)
                 : doc.gameType === "catch"
                   ? toPublicCatch(doc)
-                  : toPublicWheel(doc);
+                  : doc.gameType === "runner"
+                    ? toPublicRunner(doc)
+                    : toPublicWheel(doc);
     return {
       statusCode: 200,
       headers,

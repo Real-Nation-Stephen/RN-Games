@@ -15,6 +15,7 @@ export const RESERVED_SLUGS = new Set([
   "pinboard",
   "leaderboard",
   "catch",
+  "runner",
 ]);
 
 export function validateSlug(raw) {

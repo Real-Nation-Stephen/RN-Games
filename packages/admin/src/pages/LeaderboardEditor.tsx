@@ -373,7 +373,7 @@ export default function LeaderboardEditor() {
           <h3 style={{ marginTop: 0 }}>Data source</h3>
           <p className="muted" style={{ fontSize: "0.9rem" }}>
             <strong>Manual</strong> — facilitator maintains scores on the moderator page.
-            <strong> Linked</strong> — scores arrive from a score-based arcade game (catch, dino, etc.).
+            <strong> Linked</strong> — scores arrive from a score-based arcade game (catch, runner, etc.).
             Wheels, scratchers, flip cards, pin boards, and quizzes cannot be linked (quizzes use their own session
             leaderboard).
           </p>
@@ -418,7 +418,7 @@ export default function LeaderboardEditor() {
               </select>
               {linkableGames.length === 0 ? (
                 <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
-                  No linkable games in this Studio yet. Arcade modules (catch, dino) will appear here when added. Use
+                  No linkable games in this Studio yet. Arcade modules (catch, runner) will appear here when added. Use
                   Manual mode for in-person events.
                 </p>
               ) : null}

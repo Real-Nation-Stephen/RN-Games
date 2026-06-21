@@ -51,28 +51,61 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export async function apiGet(path: string) {
-  const res = await fetch(path, { headers: authHeaders() });
-  if (res.status === 401) {
-    netlifyIdentity.open();
-    throw new Error("Unauthorized");
+function apiErrorMessage(status: number, body: string): string {
+  if (status === 429) {
+    return "Too many requests — please wait a moment and try again.";
   }
-  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
-  return res.json();
+  const formatted = formatApiErrorBody(body);
+  if (formatted) return formatted;
+  return `Request failed (${status})`;
+}
+
+async function fetchWithRetry(path: string, init: RequestInit, retries = 3): Promise<Response> {
+  let res = await fetch(path, init);
+  for (let attempt = 0; attempt < retries && res.status === 429; attempt++) {
+    const delay = Math.min(8000, 400 * 2 ** attempt + Math.random() * 200);
+    await new Promise((r) => setTimeout(r, delay));
+    res = await fetch(path, init);
+  }
+  return res;
+}
+
+const inflightGet = new Map<string, Promise<unknown>>();
+
+export async function apiGet(path: string) {
+  const existing = inflightGet.get(path);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const res = await fetchWithRetry(path, { headers: authHeaders() });
+    if (res.status === 401) {
+      netlifyIdentity.open();
+      throw new Error("Unauthorized");
+    }
+    if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
+    return res.json();
+  })();
+
+  inflightGet.set(path, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightGet.delete(path);
+  }
 }
 
 export async function apiDelete(path: string) {
-  const res = await fetch(path, { method: "DELETE", headers: authHeaders() });
+  const res = await fetchWithRetry(path, { method: "DELETE", headers: authHeaders() });
   if (res.status === 401) {
     netlifyIdentity.open();
     throw new Error("Unauthorized");
   }
   if (res.status === 204) return;
-  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
+  if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
 }
 
 export async function apiSend(path: string, method: string, body?: unknown) {
-  const res = await fetch(path, {
+  const res = await fetchWithRetry(path, {
     method,
     headers: authHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -82,7 +115,7 @@ export async function apiSend(path: string, method: string, body?: unknown) {
     throw new Error("Unauthorized");
   }
   if (res.status === 204) return null;
-  if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
+  if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
   const t = await res.text();
   return t ? JSON.parse(t) : null;
 }

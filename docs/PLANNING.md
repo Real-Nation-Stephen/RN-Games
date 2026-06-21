@@ -2,7 +2,7 @@
 
 Companion to [INFRASTRUCTURE.md](./INFRASTRUCTURE.md). Captures product decisions as we go; update when answers change.
 
-**Last updated:** May 2026 (concerns review)
+**Last updated:** June 2026 (Runner game Phase E spec locked)
 
 ---
 
@@ -40,7 +40,7 @@ Build slices in this order; tracking/reporting architecture is a **separate phas
 | **B** | Shared editor components + **platform hygiene** (see above) |
 | **C** | Leaderboard module (API + live + moderator) |
 | **D** | Catch POC (isolated test → Studio) |
-| **E** | Dino runner POC (isolated test → Studio) |
+| **E** | Runner game POC (isolated test → Studio) |
 | **F** | Console + cartridge (fresh in monorepo; Prowler as reference only) |
 | **G** | Tracking ingest + dashboards (after D/E inform event shapes) |
 | **H** | Campaign landing pages |
@@ -90,7 +90,7 @@ New editors should match the established shell unless there is a documented reas
 
 ### Leaderboard linkable game types
 
-Only game types in `LEADERBOARD_LINKABLE_GAME_TYPES` (`@rngames/shared`) appear in the Studio linker and may `POST` scores. **Not linkable:** spinning wheel, scratcher, flip cards, pin board, quiz (session LB built-in). **Linkable when shipped:** catch, dino runner. API enforces the same list.
+Only game types in `LEADERBOARD_LINKABLE_GAME_TYPES` (`@rngames/shared`) appear in the Studio linker and may `POST` scores. **Not linkable:** spinning wheel, scratcher, flip cards, pin board, quiz (session LB built-in). **Linkable when shipped:** catch, runner. API enforces the same list.
 
 ---
 
@@ -122,7 +122,7 @@ These are **different mechanisms** — a game can use either, both, or neither.
 | Typical use | Arcade “best run” on the game over screen | Event projection, manual in-person scoring, linked game aggregation |
 | Coexistence | Yes — e.g. catch shows local high score **and** POSTs to a linked leaderboard on submit | Linked mode accepts scores from one connected game (1:1 for now) |
 
-**Quiz play-along** already has a session leaderboard (`/quiz/:slug/live/:code/leaderboard`) tied to quiz participants — that stays quiz-specific. The standalone module is for catch/dino and other games plus manual event boards.
+**Quiz play-along** already has a session leaderboard (`/quiz/:slug/live/:code/leaderboard`) tied to quiz participants — that stays quiz-specific. The standalone module is for catch, runner, and other games plus manual event boards.
 
 High score settings on game records (`highScore.enabled`, `nameMaxLength`) ship with arcade POCs (Phase D+). Linked submit uses `POST /api/leaderboard-state` with `sourceGameId`.
 
@@ -143,24 +143,86 @@ High score settings on game records (`highScore.enabled`, `nameMaxLength`) ship 
 
 ---
 
-## Dino / runner (POC)
+## Runner game (Phase E)
+
+**Naming:** UI = **Runner game** · `gameType` = `runner` · public URL = `/runner/:slug` · editor = `/runner/:id`. Do not use “dino” in product copy or code identifiers.
 
 | Item | Decision |
 |------|----------|
-| Build path | Isolated test first → Studio |
-| Orientation | **Responsive** (same approach as catch) |
-| Input | Tap / Space **jump only** (no duck v1) |
-| Score | **Time survived** |
-| Art | Designer uploads **two sprite sheets** (walk + jump), **fixed frame counts** |
-| Leaderboard | Submit on run end (same hook as catch) |
+| Build path | Same slice order as catch: shared types → API → player → editor → router → leaderboard link |
+| User flow | Match catch: name (if linked LB) → intro → start → play → end → play again |
+| Input | Tap / Space / gamepad **A** = jump only (no duck v1). **Start** = begin run · **B** = play again (same as catch) |
+| Leaderboard | End-of-run submit; **designer picks** primary metric (points, time survived, distance, etc.) in editor |
+| Intro / outro | Same pattern as catch (item explainer intro, branded end screen, optional link button) |
 
-### Responsive arcade games (catch & dino)
+### Responsive layout (differs from catch)
 
-Dungeon Prowler uses **tile grids** that change per breakpoint — great for maze games, heavy for simple arcade.
+| Breakpoint | Canvas | Viewport |
+|------------|--------|----------|
+| **Mobile** | Portrait logical canvas (1080×1920) | **Full screen** — scale to fill viewport |
+| **Desktop** | Landscape logical canvas (1920×1080) | **Full screen** — use entire viewport (not a centred letterbox column) |
+| **Tablet** | Landscape (same as desktop) | **Rotate to start** overlay if portrait — shown **after** name/details entry (not before signup/name) |
 
-For catch and dino, use the **same pattern as the spinning wheel player**: a fixed **logical resolution** (e.g. 360×640 portrait or 16∶9 landscape — pick per game in Studio) and **scale-to-fit** the canvas inside the viewport (`object-fit` / letterbox). Game logic stays in logical coordinates; CSS handles screen size. This is **straightforward** and already familiar in the monorepo (`#fit` / `#stage` layout).
+Game logic stays in logical coordinates per breakpoint; layout layer picks canvas + scale mode (`cover` / fill on runner vs catch’s contain column).
 
-Not difficult — different tool than tile profiles, simpler for these game types.
+### HUD (three slots)
+
+Designer assigns **left · centre · right** each to one of: **Timer** · **Health** · **Score** · **None**.
+
+- **Timer** — optional module-wide toggle; when off, run is **endless** until health loss (see end conditions).
+- **Health** — max **1–10**; display style **hearts** or **bar** (designer choice + colours).
+- **Score** — points and/or derived stats per designer metric config.
+
+### Health, timer & end conditions
+
+Health and “lives” are the **same meter** — always called **health** in UI and editor.
+
+| Condition | Result |
+|-----------|--------|
+| Timer enabled and reaches **0** | **Round end** → end screen (even if health remains) |
+| Timer not expired and **health → 0** | **Game over** → respawn or end screen (see below) |
+| Timer **off** and **health → 0** | **Game over** → respawn or end screen |
+
+**Obstacles** (negative items) reduce health on hit — **not** instant death. Obstacles render **in front of** the player to sell collision.
+
+**Respawns:** designer chooses **respawn** vs **end on zero health**. `maxRespawns` = **extra attempts** after the first run (**`0` = single attempt** — one death/end → end screen; useful for signup/redemption gimmicks).
+
+On respawn (attempts remaining): **full reset** — player back at run start, **score and progress at zero**, timer/difficulty back to start. Not a mid-run checkpoint — it is **multiple separate tries at a high score** in one session. Brief invincibility flash on restart optional.
+
+When attempts are exhausted (or end-on-zero mode): **end screen**. Linked leaderboard / session best uses the **best score across attempts** (per designer metric), submitted once at session end.
+
+**Pickup effects:** positive items can add health and/or points and/or time (per-variant toggles). Negative items can remove time and/or health and/or points.
+
+**Feedback:** damage **flash** (custom colour); pickup **glow** overlay (custom colour) on health/points gains.
+
+### Difficulty & scrolling
+
+- **Scroll speed:** designer sets **start → end** (lerp over round when timer on; or over distance/time when endless).
+- **Parallax midground:** up to **5** wide PNG layers; each has **parallax speed**; loops horizontally; **no collision**.
+- **Ground strip:** optional single wide PNG; loops horizontally; **purely visual** — adjustable height and Y. **No box collider ground** — character uses designer **ground Y**, **character Y**, and **jump height** only (simple arcade jump arc, not Unity-style ground physics).
+
+### Character sprites
+
+Three sprite sheets: **run**, **jump**, **death**.
+
+- Upload PNG + **cell width/height**; frames read **row-major** top-left → bottom-right; frame count inferred from sheet dimensions.
+- Reasonable caps flagged in editor (e.g. max cell size, max frames per sheet).
+- Designer adjusts **character size**, **ground Y**, **jump height**.
+
+### Items
+
+Two lists (same language as catch):
+
+- **Positive items (collectibles)** — spawn from off-screen right; per-variant size, Y, effect flags (+health / +points / +time).
+- **Negative items (obstacles)** — spawn from off-screen right; per-variant size, Y; collision reduces health / time / points per flags.
+
+### Sounds & shared chrome
+
+Same families as catch: positive/negative SFX, game end, music + volume; backgrounds (desktop/tablet/mobile); banner; fonts; end-screen branding; linked leaderboard; high-score name collection; reporting toggle; embed code in editor.
+
+### Responsive note (catch vs runner)
+
+Catch uses **contain** scaling in a centred stage. Runner uses **full-viewport fill** with breakpoint-specific logical resolution — see table above.
 
 ---
 
@@ -206,7 +268,7 @@ Not difficult — different tool than tile profiles, simpler for these game type
 
 | Bucket | Status | Examples |
 |--------|--------|----------|
-| **Results metrics** | Active | Quiz answers, wheel spins, redemptions, pin board images/notes/unique users, catch/dino scores |
+| **Results metrics** | Active | Quiz answers, wheel spins, redemptions, pin board images/notes/unique users, catch/runner scores |
 | **Campaign performance** | **TBC** — may rename/split (e.g. analytics vs advanced analytics) | — |
 | **Analytic performance** | **First-party only** for now | Clicks, dwell, funnel; no GA4 dependency |
 

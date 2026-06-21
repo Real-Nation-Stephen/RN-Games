@@ -38,6 +38,7 @@ export default defineConfig({
         "leaderboard-board": resolve(__dirname, "leaderboard-board.html"),
         "leaderboard-moderate": resolve(__dirname, "leaderboard-moderate.html"),
         catch: resolve(__dirname, "catch.html"),
+        runner: resolve(__dirname, "runner.html"),
       },
     },
   },

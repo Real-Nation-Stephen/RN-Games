@@ -17,6 +17,8 @@ const RESERVED = new Set([
   "pinboard",
   "leaderboard",
   "catch",
+  /** Runner arcade game public routes */
+  "runner",
 ]);
 
 export default async (request, context) => {
@@ -42,6 +44,15 @@ export default async (request, context) => {
     if (seg.length >= 2 && seg[0] === "catch") {
       const slug = seg[1];
       return fetch(new URL(`/play/catch.html?slug=${encodeURIComponent(slug)}`, url));
+    }
+  }
+
+  // Runner game: /runner/:slug
+  if (path === "/runner" || path.startsWith("/runner/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "runner") {
+      const slug = seg[1];
+      return fetch(new URL(`/play/runner.html?slug=${encodeURIComponent(slug)}`, url));
     }
   }
 

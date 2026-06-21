@@ -41,7 +41,7 @@ export async function moderateAction(
   return (data as { state: LeaderboardPublicState }).state;
 }
 
-/** Linked games call this after a scored round (catch/dino/quiz handoff). */
+/** Linked games call this after a scored round (catch/runner/quiz handoff). */
 export async function submitLinkedScore(opts: {
   leaderboardSlug: string;
   sourceGameId: string;

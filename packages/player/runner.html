@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Runner game</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+    <link rel="stylesheet" href="/src/runner/runner.css" />
+  </head>
+  <body class="runner-game">
+    <div id="runner-viewport-bg" class="runner-viewport-bg" aria-hidden="true"></div>
+    <button type="button" id="runner-mute" class="runner-mute" aria-label="Toggle sound" title="Sound" hidden>
+      <span class="runner-mute__icon runner-mute__icon--on" aria-hidden="true">🔊</span>
+      <span class="runner-mute__icon runner-mute__icon--off" aria-hidden="true">🔇</span>
+    </button>
+    <div id="app" hidden>
+      <div id="fit">
+        <div id="stage">
+          <canvas id="runner-canvas" aria-hidden="true"></canvas>
+          <header id="runner-banner" class="runner-banner runner-banner--center"></header>
+          <div class="runner-hud">
+            <div class="runner-hud__slot runner-hud__slot--left" id="runner-hud-left"></div>
+            <div class="runner-hud__slot runner-hud__slot--center" id="runner-hud-center"></div>
+            <div class="runner-hud__slot runner-hud__slot--right" id="runner-hud-right"></div>
+          </div>
+          <div id="runner-name-screen" class="runner-name-screen" hidden>
+            <div class="runner-name-screen__card">
+              <h2 class="runner-name-screen__title">Enter your name</h2>
+              <p class="runner-name-screen__hint">For the leaderboard</p>
+              <input id="runner-name-start" class="runner-name-screen__input" type="text" autocomplete="name" />
+              <button type="button" id="runner-name-continue" class="runner-name-screen__btn">Continue</button>
+            </div>
+          </div>
+          <div id="runner-intro" class="runner-intro" hidden>
+            <div class="runner-intro__card">
+              <div class="runner-intro__section">
+                <p id="runner-intro-positive-text" class="runner-intro__text"></p>
+                <div id="runner-intro-positive-list" class="runner-intro__variants"></div>
+              </div>
+              <div id="runner-intro-negative-wrap" class="runner-intro__section">
+                <p id="runner-intro-negative-text" class="runner-intro__text"></p>
+                <div id="runner-intro-negative-list" class="runner-intro__variants"></div>
+              </div>
+              <button type="button" id="runner-intro-next" class="runner-intro__btn">Next</button>
+            </div>
+          </div>
+          <div id="runner-jump-hint" class="runner-jump-hint" hidden>
+            <div id="runner-jump-text">Tap or press A to jump</div>
+          </div>
+          <div id="runner-start-overlay" class="runner-overlay" hidden></div>
+          <div id="runner-countdown-overlay" class="runner-overlay runner-overlay--pass" hidden>
+            <div id="runner-countdown-num" class="runner-countdown-num">3</div>
+          </div>
+          <div id="runner-end" class="runner-end" hidden>
+            <div class="runner-end__card">
+              <img id="runner-end-logo" class="runner-end__logo" alt="" hidden />
+              <h2 id="runner-end-headline" class="runner-end__headline">Run complete!</h2>
+              <p id="runner-end-subhead" class="runner-end__subhead"></p>
+              <p id="runner-end-score" class="runner-end__score">Score: 0</p>
+              <div class="runner-end__actions">
+                <button type="button" id="runner-end-play" class="runner-end__btn">Play again</button>
+                <a id="runner-end-link" class="runner-end__btn runner-end__link" hidden target="_blank" rel="noopener noreferrer">Learn more</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="runner-rotate" class="runner-rotate" hidden>
+      <div class="runner-rotate__card">
+        <p class="runner-rotate__title">Rotate to start</p>
+        <p class="runner-rotate__hint">Turn your device sideways to play</p>
+      </div>
+    </div>
+    <div id="runner-error" class="player-error" hidden>
+      <div>
+        <h2>Could not load game</h2>
+        <p class="muted" id="runner-error-msg"></p>
+      </div>
+    </div>
+    <a
+      id="powered-by-rn"
+      class="powered-by-rn"
+      href="https://www.realnation.ie"
+      target="_blank"
+      rel="noopener noreferrer"
+      hidden
+    >
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
+    </a>
+    <audio id="runner-music" loop playsinline></audio>
+    <script type="module" src="/src/runner/main.ts"></script>
+  </body>
+</html>

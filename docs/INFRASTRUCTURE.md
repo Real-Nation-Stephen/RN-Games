@@ -322,7 +322,7 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 
 - **Modular data collection / GDPR / tracking** — broad ingest + configurable dashboards; Sheets as export, Blobs/SQL as source of truth
 - **Leaderboard module** — `/leaderboard/:slug` + moderator PIN; linked or manual mode ✅ (Phase C)
-- **New game types** — catch + dino runner POCs, then console + cartridge (fresh in monorepo)
+- **New game types** — catch + runner game POCs, then console + cartridge (fresh in monorepo)
 - **Editor standardisation** — shared `ColorField` / asset components; preview stays at bottom
 - **Campaign landing pages** — same Netlify site; tracked CTAs/QRs
 - **Rename** — folder `rn-game-studio`, UI **RN Game Studio**; production URL unchanged for now

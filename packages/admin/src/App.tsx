@@ -8,6 +8,7 @@ import FlipCardEditor from "./pages/FlipCardEditor";
 import PinboardEditor from "./pages/PinboardEditor";
 import LeaderboardEditor from "./pages/LeaderboardEditor";
 import CatchEditor from "./pages/CatchEditor";
+import RunnerEditor from "./pages/RunnerEditor";
 import WheelEditor from "./pages/WheelEditor";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/pinboards/:id" element={<PinboardEditor />} />
           <Route path="/leaderboards/:id" element={<LeaderboardEditor />} />
           <Route path="/catch/:id" element={<CatchEditor />} />
+          <Route path="/runner/:id" element={<RunnerEditor />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

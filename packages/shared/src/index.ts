@@ -12,6 +12,37 @@ export {
   isLeaderboardLinkableGameType,
 } from "./leaderboard-linkable.js";
 export {
+  RUNNER_LANDSCAPE_H,
+  RUNNER_LANDSCAPE_W,
+  RUNNER_MAX_PARALLAX_LAYERS,
+  RUNNER_MAX_SHEET_FRAMES,
+  RUNNER_MAX_SPRITE_CELL,
+  RUNNER_PORTRAIT_H,
+  RUNNER_PORTRAIT_W,
+  RUNNER_BG_SIZE_HINTS,
+  emptyRunner,
+  emptyRunnerItemEffects,
+  normalizeRunner,
+  type RunnerRecord,
+  type RunnerBanner,
+  type RunnerBreakpointBg,
+  type RunnerCharacter,
+  type RunnerEndScreen,
+  type RunnerFeedback,
+  type RunnerGameplay,
+  type RunnerGround,
+  type RunnerHud,
+  type RunnerHudSlotKind,
+  type RunnerItemEffects,
+  type RunnerItemVariant,
+  type RunnerItems,
+  type RunnerLeaderboardMetric,
+  type RunnerParallaxLayer,
+  type RunnerRespawnMode,
+  type RunnerSounds,
+  type RunnerSpriteSheet,
+} from "./runner.js";
+export {
   CATCH_DESIGN_W,
   CATCH_DESIGN_H,
   CATCH_BG_SIZE_HINTS,
@@ -51,10 +82,12 @@ export const RESERVED_SLUGS = new Set([
   "leaderboard",
   /** Catch arcade game (Phase D) */
   "catch",
+  /** Runner arcade game (Phase E) */
+  "runner",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard" | "catch";
+export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard" | "catch" | "runner";
 
 export type QuizPresentation = "frame16x9" | "responsive";
 export type QuizMotion = "static" | "videoSequences";

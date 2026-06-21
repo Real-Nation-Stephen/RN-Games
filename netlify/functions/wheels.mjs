@@ -4,6 +4,7 @@ import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.m
 import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs";
 import { emptyLeaderboardRecord, normalizeLeaderboardRecord } from "./lib/leaderboard.mjs";
 import { emptyCatchRecord, normalizeCatchRecord } from "./lib/catch.mjs";
+import { emptyRunnerRecord, normalizeRunnerRecord } from "./lib/runner.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -287,9 +288,14 @@ export const handler = async (event, context) => {
         }
         if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
+        if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
-      const list = await readIndex();
+      let list = await readIndex();
+      const gameType = String(event.queryStringParameters?.gameType || "").trim();
+      if (gameType) {
+        list = list.filter((x) => x.gameType === gameType);
+      }
       return { statusCode: 200, body: JSON.stringify({ wheels: list }), headers };
     }
 
@@ -321,13 +327,15 @@ export const handler = async (event, context) => {
         else if (wheel.gameType === "pinboard") normalizePinboardRecord(wheel);
         else if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         else if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
+        else if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
         else if (
           wheel.gameType !== "scratcher" &&
           wheel.gameType !== "flip-cards" &&
           wheel.gameType !== "quiz" &&
           wheel.gameType !== "pinboard" &&
           wheel.gameType !== "leaderboard" &&
-          wheel.gameType !== "catch"
+          wheel.gameType !== "catch" &&
+          wheel.gameType !== "runner"
         ) {
           syncSegmentArrays(wheel);
         }
@@ -338,6 +346,7 @@ export const handler = async (event, context) => {
         const isPinboard = body.gameType === "pinboard";
         const isLeaderboard = body.gameType === "leaderboard";
         const isCatch = body.gameType === "catch";
+        const isRunner = body.gameType === "runner";
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
           : isFlipCards
@@ -350,7 +359,9 @@ export const handler = async (event, context) => {
                   ? emptyLeaderboardRecord(id, slugCheck.slug)
                   : isCatch
                     ? emptyCatchRecord(id, slugCheck.slug)
-                    : emptyWheelRecord(id, slugCheck.slug);
+                    : isRunner
+                      ? emptyRunnerRecord(id, slugCheck.slug)
+                      : emptyWheelRecord(id, slugCheck.slug);
         wheel.title = body.title || wheel.title;
         wheel.clientName = body.clientName || "";
       }
@@ -398,13 +409,15 @@ export const handler = async (event, context) => {
       const isPinboard = existing.gameType === "pinboard";
       const isLeaderboard = existing.gameType === "leaderboard";
       const isCatch = existing.gameType === "catch";
+      const isRunner = existing.gameType === "runner";
       const isWheel =
         existing.gameType !== "scratcher" &&
         existing.gameType !== "flip-cards" &&
         existing.gameType !== "quiz" &&
         existing.gameType !== "pinboard" &&
         existing.gameType !== "leaderboard" &&
-        existing.gameType !== "catch";
+        existing.gameType !== "catch" &&
+        existing.gameType !== "runner";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -532,6 +545,36 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         normalizeCatchRecord(existing);
+      } else if (isRunner) {
+        const assign = [
+          "title",
+          "clientName",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "backgroundHex",
+          "backgrounds",
+          "banner",
+          "character",
+          "items",
+          "parallax",
+          "ground",
+          "sounds",
+          "fonts",
+          "fontUploads",
+          "hud",
+          "feedback",
+          "gameplay",
+          "intro",
+          "endScreen",
+          "highScore",
+          "linkedLeaderboardSlug",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        normalizeRunnerRecord(existing);
       } else if (isWheel) {
         const assign = [
           "title",
