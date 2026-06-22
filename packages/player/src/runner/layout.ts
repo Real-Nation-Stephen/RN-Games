@@ -7,8 +7,9 @@ import {
 import type { RunnerOrientation } from "./types";
 
 export const RUNNER_BANNER_H = 132;
-const RUNNER_HUD_TOP = 156;
-const MOBILE_ZOOM_OUT = 0.9;
+const HUD_BELOW_BANNER_GAP = 20;
+/** In-canvas gameplay zoom on mobile portrait (1 = full size). Not a viewport letterbox. */
+const MOBILE_SCENE_SCALE = 0.9;
 
 let runnerScale = 1;
 let runnerOffsetX = 0;
@@ -29,13 +30,19 @@ export function getRunnerLayoutMetrics() {
     designW: runnerDesignW,
     designH: runnerDesignH,
     bannerH: RUNNER_BANNER_H,
-    hudTop: RUNNER_HUD_TOP,
+    hudTop: RUNNER_BANNER_H + HUD_BELOW_BANNER_GAP,
   };
+}
+
+export function getRunnerSceneScale() {
+  return isMobilePortrait() ? MOBILE_SCENE_SCALE : 1;
 }
 
 export function layoutRunnerHud(hud: HTMLElement) {
   const { scale, offsetY } = getRunnerLayoutMetrics();
-  hud.style.top = `${offsetY + RUNNER_HUD_TOP * scale}px`;
+  const bannerTop = Math.max(0, offsetY);
+  const hudTop = bannerTop + (RUNNER_BANNER_H + HUD_BELOW_BANNER_GAP) * scale;
+  hud.style.top = `${hudTop}px`;
   hud.style.setProperty("--runner-hud-scale", String(scale));
 }
 
@@ -97,7 +104,6 @@ export function layoutRunnerStage(
   const scaleW = vw / runnerDesignW;
   const scaleH = vh / runnerDesignH;
   runnerScale = Math.max(scaleW, scaleH);
-  if (isMobilePortrait()) runnerScale *= MOBILE_ZOOM_OUT;
   const scaledW = runnerDesignW * runnerScale;
   const scaledH = runnerDesignH * runnerScale;
   const offsetX = (vw - scaledW) / 2;

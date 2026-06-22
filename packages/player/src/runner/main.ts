@@ -26,6 +26,7 @@ import { bindRunnerKeyboard, pollJumpInput, pollMenuAction } from "./gamepad";
 import {
   bindRunnerLayout,
   getRunnerDesignSize,
+  getRunnerSceneScale,
   layoutRunnerBanner,
   layoutRunnerHud,
   layoutRunnerStage,
@@ -1040,7 +1041,19 @@ function drawFrame() {
 
   const { w: designW, h: designH } = getRunnerDesignSize();
   const authorH = runnerAuthorHeight(engine.activeCharacter().groundY);
+  const sceneScale = getRunnerSceneScale();
   ctx.clearRect(0, 0, designW, designH);
+  if (sceneScale !== 1) {
+    ctx.fillStyle = cfg.backgroundHex || "#87c38f";
+    ctx.fillRect(0, 0, designW, designH);
+  }
+
+  ctx.save();
+  if (sceneScale !== 1) {
+    ctx.translate(designW / 2, designH);
+    ctx.scale(sceneScale, sceneScale);
+    ctx.translate(-designW / 2, -designH);
+  }
 
   const scroll = engine.scrollOffset;
   const backLayers = cfg.parallax.filter((l) => !l.renderInFront);
@@ -1071,6 +1084,8 @@ function drawFrame() {
   }
 
   drawParallaxLayers(frontLayers, scroll, designW, designH, authorH);
+
+  ctx.restore();
 
   if (engine.damageFlash > 0 && cfg.feedback.damageFlashEnabled !== false) {
     const alpha = Math.min(1, engine.damageFlash / 0.35) * 0.45;
