@@ -2,6 +2,7 @@ import {
   type RunnerHudSlotKind,
   type RunnerItemVariant,
   type RunnerSpriteSheet,
+  runnerCharacterList,
 } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
 import { submitLinkedScore } from "../leaderboard/api";
@@ -25,6 +26,7 @@ import { bindRunnerKeyboard, pollJumpInput, pollMenuAction } from "./gamepad";
 import {
   bindRunnerLayout,
   getRunnerDesignSize,
+  layoutRunnerBanner,
   layoutRunnerHud,
   layoutRunnerStage,
   needsLandscapeLock,
@@ -54,6 +56,8 @@ const els = {
   introNegativeText: document.getElementById("runner-intro-negative-text")!,
   introNegativeList: document.getElementById("runner-intro-negative-list")!,
   introNext: document.getElementById("runner-intro-next") as HTMLButtonElement,
+  charSelect: document.getElementById("runner-char-select")!,
+  charSelectList: document.getElementById("runner-char-select-list")!,
   nameScreen: document.getElementById("runner-name-screen")!,
   nameStart: document.getElementById("runner-name-start") as HTMLInputElement,
   nameContinue: document.getElementById("runner-name-continue") as HTMLButtonElement,
@@ -83,6 +87,7 @@ let unbindKeyboard: (() => void) | null = null;
 let lastCountdownBeep = 0;
 let lastTimerBeepSec = -1;
 let pastNameGate = false;
+let charSelectAnimAcc = 0;
 
 const imageCache = new Map<string, HTMLImageElement>();
 const hudRefs = {
@@ -100,6 +105,37 @@ function nameStorageKey(slug: string) {
 
 function externalIdStorageKey(slug: string) {
   return `runner-lb-ext:${slug}`;
+}
+
+function charStorageKey(slug: string) {
+  return `runner-char:${slug}`;
+}
+
+function needsCharSelect() {
+  if (!cfg) return false;
+  return runnerCharacterList(cfg).length > 1;
+}
+
+function showCharSelectOrIntro() {
+  if (needsCharSelect()) showCharSelectUi();
+  else showIntroUi();
+}
+
+function restoreCharacterIndex() {
+  if (!cfg || !engine) return;
+  const list = runnerCharacterList(cfg);
+  if (list.length <= 1) {
+    engine.setCharacterIndex(0);
+    return;
+  }
+  const saved = localStorage.getItem(charStorageKey(cfg.slug));
+  const idx = saved ? Number.parseInt(saved, 10) : 0;
+  engine.setCharacterIndex(Number.isFinite(idx) ? idx : 0);
+}
+
+function saveCharacterIndex(index: number) {
+  if (!cfg) return;
+  localStorage.setItem(charStorageKey(cfg.slug), String(index));
 }
 
 function needsPlayerName() {
@@ -314,11 +350,9 @@ function tryPlayMusic() {
 }
 
 async function preloadAssets(c: RunnerConfig) {
-  const char = c.character;
+  const chars = runnerCharacterList(c);
   const urls = [
-    char.run.url,
-    char.jump.url,
-    char.death.url,
+    ...chars.flatMap((char) => [char.run.url, char.jump.url, char.death.url]),
     ...c.items.positive.map((v) => v.url),
     ...c.items.negative.map((v) => v.url),
     ...c.parallax.map((l) => l.url),
@@ -469,6 +503,7 @@ function setHudVisible(visible: boolean) {
 
 function showNameUi() {
   els.nameScreen.hidden = false;
+  els.charSelect.hidden = true;
   els.intro.hidden = true;
   setHudVisible(false);
   els.startOverlay.hidden = true;
@@ -484,8 +519,24 @@ function showNameUi() {
   }
 }
 
+function showCharSelectUi() {
+  els.nameScreen.hidden = true;
+  els.charSelect.hidden = false;
+  els.intro.hidden = true;
+  setHudVisible(false);
+  els.startOverlay.hidden = true;
+  els.countdownOverlay.hidden = true;
+  els.jumpHint.hidden = true;
+  els.end.hidden = true;
+  setViewportBackground("game");
+  charSelectAnimAcc = 0;
+  if (cfg) renderCharSelect(cfg);
+  updateRotateOverlay();
+}
+
 function showIntroUi() {
   els.nameScreen.hidden = true;
+  els.charSelect.hidden = true;
   els.intro.hidden = false;
   setHudVisible(false);
   els.startOverlay.hidden = true;
@@ -498,6 +549,7 @@ function showIntroUi() {
 
 function showStartUi() {
   els.nameScreen.hidden = true;
+  els.charSelect.hidden = true;
   els.intro.hidden = true;
   setHudVisible(true);
   els.startOverlay.hidden = false;
@@ -510,6 +562,7 @@ function showStartUi() {
 
 function showCountdownUi(n: number) {
   els.nameScreen.hidden = true;
+  els.charSelect.hidden = true;
   els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = false;
@@ -520,6 +573,7 @@ function showCountdownUi(n: number) {
 
 function showPlayingUi() {
   els.nameScreen.hidden = true;
+  els.charSelect.hidden = true;
   els.intro.hidden = true;
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
@@ -583,6 +637,7 @@ async function showEndUi() {
   engine.damageFlash = 0;
   engine.pickupGlow = 0;
   els.nameScreen.hidden = true;
+  els.charSelect.hidden = true;
   els.intro.hidden = true;
   els.end.hidden = false;
   els.end.classList.remove("runner-end--animate");
@@ -622,7 +677,7 @@ function beginRound() {
 
 function handleJumpInput() {
   if (!engine || !cfg) return;
-  if (!els.nameScreen.hidden || !els.intro.hidden || !els.end.hidden) return;
+  if (!els.nameScreen.hidden || !els.charSelect.hidden || !els.intro.hidden || !els.end.hidden) return;
   const onStart =
     engine.state === "idle" && !els.startOverlay.hidden;
   const active =
@@ -647,6 +702,7 @@ function handleMenuGamepad() {
     if (action === "advance") els.nameContinue.click();
     return;
   }
+  if (!els.charSelect.hidden) return;
   if (!els.intro.hidden) {
     if (action === "advance") els.introNext.click();
     return;
@@ -662,7 +718,7 @@ function handleMenuGamepad() {
 
 function bindInput() {
   const onDown = (e: PointerEvent) => {
-    if (!els.nameScreen.hidden || !els.intro.hidden || !els.end.hidden) return;
+    if (!els.nameScreen.hidden || !els.charSelect.hidden || !els.intro.hidden || !els.end.hidden) return;
     const target = e.currentTarget as HTMLElement;
     if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
     void unlockRunnerAudio();
@@ -685,7 +741,7 @@ function bindInput() {
     savePlayerName(name);
     getLeaderboardExternalId();
     pastNameGate = true;
-    showIntroUi();
+    showCharSelectOrIntro();
   });
   els.nameStart.addEventListener("keydown", (e) => {
     if (e.key === "Enter") els.nameContinue.click();
@@ -704,7 +760,7 @@ function bindInput() {
     lastCountdownBeep = 0;
     lastTimerBeepSec = -1;
     updateHud();
-    showIntroUi();
+    showCharSelectOrIntro();
   });
   unbindKeyboard?.();
   unbindKeyboard = bindRunnerKeyboard();
@@ -823,10 +879,84 @@ function hexWithAlpha(hex: string, alpha: number) {
   return `rgba(255,255,255,${alpha})`;
 }
 
-function drawCharacter(c: RunnerConfig) {
-  if (!ctx || !engine) return;
-  const char = c.character;
-  const authorH = runnerAuthorHeight(c);
+function renderCharSelect(c: RunnerConfig) {
+  const list = runnerCharacterList(c);
+  els.charSelectList.innerHTML = "";
+  list.forEach((char, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "runner-char-select__option";
+    const canvas = document.createElement("canvas");
+    canvas.className = "runner-char-select__preview";
+    canvas.width = 120;
+    canvas.height = 120;
+    canvas.dataset.charIndex = String(index);
+    const label = document.createElement("span");
+    label.className = "runner-char-select__label";
+    label.textContent = char.label || `Character ${index + 1}`;
+    btn.appendChild(canvas);
+    btn.appendChild(label);
+    btn.addEventListener("click", () => {
+      if (!engine) return;
+      engine.setCharacterIndex(index);
+      saveCharacterIndex(index);
+      showIntroUi();
+    });
+    els.charSelectList.appendChild(btn);
+  });
+  paintCharSelectPreviews(0);
+}
+
+function paintCharSelectPreviews(dt: number) {
+  if (els.charSelect.hidden || !cfg) return;
+  charSelectAnimAcc += dt;
+  const list = runnerCharacterList(cfg);
+  const canvases = els.charSelectList.querySelectorAll<HTMLCanvasElement>(".runner-char-select__preview");
+  canvases.forEach((canvas) => {
+    const index = Number(canvas.dataset.charIndex);
+    const char = list[index];
+    if (!char) return;
+    const ctx2 = canvas.getContext("2d");
+    if (!ctx2) return;
+    const sheet = char.run;
+    const img = sheet.url ? imageCache.get(sheet.url) : null;
+    ctx2.clearRect(0, 0, canvas.width, canvas.height);
+    if (!img?.complete || !img.naturalWidth) {
+      ctx2.fillStyle = "#f4d35e";
+      ctx2.fillRect(40, 20, 40, 80);
+      return;
+    }
+    const total = sheetFrameCount(sheet, img);
+    const fps = 3;
+    const frame = Math.floor(charSelectAnimAcc * fps) % total;
+    const destH = Math.min(canvas.height - 8, char.height);
+    const destW = (char.width / char.height) * destH;
+    drawSpriteFrame(ctx2, img, sheet, frame, canvas.width / 2, canvas.height - 8, destW, destH);
+  });
+}
+
+function drawParallaxLayers(
+  layers: RunnerConfig["parallax"],
+  scroll: number,
+  designW: number,
+  designH: number,
+  authorH: number,
+) {
+  if (!ctx) return;
+  for (const layer of layers) {
+    const img = layer.url ? imageCache.get(layer.url) : null;
+    if (!img?.complete || !img.naturalWidth) continue;
+    const layerScroll = scroll * layer.speed;
+    const layerY = scaleRunnerY(layer.y, designH, authorH);
+    const destH = parallaxDrawHeight(layer.height, img.naturalHeight, designH, authorH);
+    drawLoopingStrip(ctx, img, layerScroll, layerY, destH, designW);
+  }
+}
+
+function drawCharacter() {
+  if (!ctx || !engine || !cfg) return;
+  const char = engine.activeCharacter();
+  const authorH = runnerAuthorHeight(char.groundY);
   const { h: designH } = getRunnerDesignSize();
   let sheet: RunnerSpriteSheet;
   let frame = 0;
@@ -906,26 +1036,25 @@ function drawFrame() {
 
   updateHud();
 
+  if (!els.charSelect.hidden) paintCharSelectPreviews(dt);
+
   const { w: designW, h: designH } = getRunnerDesignSize();
-  const authorH = runnerAuthorHeight(cfg);
+  const authorH = runnerAuthorHeight(engine.activeCharacter().groundY);
   ctx.clearRect(0, 0, designW, designH);
 
   const scroll = engine.scrollOffset;
-  for (const layer of cfg.parallax) {
-    const img = layer.url ? imageCache.get(layer.url) : null;
-    if (!img?.complete || !img.naturalWidth) continue;
-    const layerScroll = scroll * layer.speed;
-    const layerY = scaleRunnerY(layer.y, designH, authorH);
-    const destH = parallaxDrawHeight(layer.height, img.naturalHeight, designH, authorH);
-    drawLoopingStrip(ctx, img, layerScroll, layerY, destH, designW);
-  }
+  const backLayers = cfg.parallax.filter((l) => !l.renderInFront);
+  const frontLayers = cfg.parallax.filter((l) => l.renderInFront);
+
+  drawParallaxLayers(backLayers, scroll, designW, designH, authorH);
 
   if (cfg.ground.enabled && cfg.ground.url) {
     const gImg = imageCache.get(cfg.ground.url);
     if (gImg?.complete && gImg.naturalWidth) {
       const groundY = scaleRunnerY(cfg.ground.y, designH, authorH);
       const groundH = scaleRunnerSize(cfg.ground.height, designH, authorH);
-      drawLoopingStrip(ctx, gImg, scroll, groundY, groundH, designW);
+      const extendH = Math.max(groundH, designH - groundY);
+      drawLoopingStrip(ctx, gImg, scroll, groundY, extendH, designW);
     }
   }
 
@@ -934,12 +1063,14 @@ function drawFrame() {
   }
 
   if (engine.state !== "ended") {
-    drawCharacter(cfg);
+    drawCharacter();
   }
 
   for (const item of engine.items) {
     if (item.kind === "negative") drawItem(cfg, item, scroll);
   }
+
+  drawParallaxLayers(frontLayers, scroll, designW, designH, authorH);
 
   if (engine.damageFlash > 0 && cfg.feedback.damageFlashEnabled !== false) {
     const alpha = Math.min(1, engine.damageFlash / 0.35) * 0.45;
@@ -970,21 +1101,24 @@ function resizeCanvas() {
 function mountGame(c: RunnerConfig) {
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
   layoutRunnerHud(els.hud);
+  layoutRunnerBanner(els.banner);
   cfg = c;
   document.title = c.title || "Runner game";
   applyFavicon(c.faviconUrl);
   applyTheme(c);
   const { w, h } = getRunnerDesignSize();
   engine = new RunnerEngine(c, w, h);
+  restoreCharacterIndex();
   resizeCanvas();
   unbindLayout?.();
-  unbindLayout = bindRunnerLayout(els.fit, els.stage, els.hud);
+  unbindLayout = bindRunnerLayout(els.fit, els.stage, els.hud, els.banner);
+  layoutRunnerBanner(els.banner);
   updateHud();
   lastCountdownBeep = 0;
   lastTimerBeepSec = -1;
   pastNameGate = !needsPlayerName();
   if (needsPlayerName()) showNameUi();
-  else showIntroUi();
+  else showCharSelectOrIntro();
   els.app.hidden = false;
   els.muteBtn.hidden = false;
   lastTs = 0;
@@ -996,6 +1130,7 @@ function onBreakpointChange() {
   if (!cfg) return;
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
   layoutRunnerHud(els.hud);
+  layoutRunnerBanner(els.banner);
   const { w, h } = getRunnerDesignSize();
   resizeCanvas();
   if (engine && (engine.designW !== w || engine.designH !== h)) {

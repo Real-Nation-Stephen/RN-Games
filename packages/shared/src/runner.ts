@@ -8,6 +8,7 @@ export const RUNNER_LANDSCAPE_W = 1920;
 export const RUNNER_LANDSCAPE_H = 1080;
 
 export const RUNNER_MAX_PARALLAX_LAYERS = 5;
+export const RUNNER_MAX_CHARACTERS = 8;
 export const RUNNER_MAX_SPRITE_CELL = 512;
 export const RUNNER_MAX_SHEET_FRAMES = 32;
 
@@ -37,6 +38,8 @@ export interface RunnerSpriteSheet {
 }
 
 export interface RunnerCharacter {
+  id: string;
+  label: string;
   run: RunnerSpriteSheet;
   jump: RunnerSpriteSheet;
   death: RunnerSpriteSheet;
@@ -81,6 +84,8 @@ export interface RunnerParallaxLayer {
   y: number;
   /** Scale offset %: 0 = 100%, -50 = half, 50 = 150%. Width follows aspect ratio. */
   height: number;
+  /** When true, draws above player, items, and ground. */
+  renderInFront: boolean;
 }
 
 export interface RunnerGround {
@@ -193,6 +198,8 @@ export interface RunnerRecord {
   backgroundHex: string;
   backgrounds: RunnerBreakpointBg;
   banner: RunnerBanner;
+  /** Playable characters (1–8). Use characters[0] via `character` for legacy tools. */
+  characters: RunnerCharacter[];
   character: RunnerCharacter;
   items: RunnerItems;
   parallax: RunnerParallaxLayer[];
@@ -207,6 +214,72 @@ export interface RunnerRecord {
   endScreen: RunnerEndScreen;
   highScore: HighScoreSettings;
   linkedLeaderboardSlug: string;
+}
+
+export function emptyRunnerCharacter(partial?: Partial<RunnerCharacter> & { id?: string; label?: string }): RunnerCharacter {
+  const run = emptySpriteSheet();
+  const jump = emptySpriteSheet();
+  const death = emptySpriteSheet();
+  return {
+    id: partial?.id || "c1",
+    label: partial?.label || "Character 1",
+    width: 96,
+    height: 96,
+    groundY: 980,
+    jumpHeight: 280,
+    ...partial,
+    run: { ...run, ...(partial?.run || {}) },
+    jump: { ...jump, ...(partial?.jump || {}) },
+    death: { ...death, ...(partial?.death || {}) },
+  };
+}
+
+export function normalizeRunnerCharacter(
+  raw: Partial<RunnerCharacter> | undefined,
+  defaults: RunnerCharacter,
+  index: number,
+): RunnerCharacter {
+  const c = { ...defaults, ...(raw || {}) };
+  c.id = String(c.id || `c${index + 1}`);
+  c.label = String(c.label || `Character ${index + 1}`).slice(0, 32);
+  c.run = { ...defaults.run, ...(c.run || {}) };
+  c.jump = { ...defaults.jump, ...(c.jump || {}) };
+  c.death = { ...defaults.death, ...(c.death || {}) };
+  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellWidth) || 64));
+  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellHeight) || 64));
+  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellWidth) || c.run.cellWidth));
+  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellHeight) || c.run.cellHeight));
+  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellWidth) || c.run.cellWidth));
+  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellHeight) || c.run.cellHeight));
+  c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
+  c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
+  c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
+  c.jumpHeight = Math.max(40, Math.min(600, Number(c.jumpHeight) || 280));
+  return c;
+}
+
+export function normalizeRunnerCharacters(
+  doc: { characters?: RunnerCharacter[]; character?: RunnerCharacter },
+  defaultChar: RunnerCharacter,
+): RunnerCharacter[] {
+  const raw =
+    Array.isArray(doc.characters) && doc.characters.length > 0
+      ? doc.characters
+      : doc.character
+        ? [doc.character]
+        : [defaultChar];
+  return raw
+    .slice(0, RUNNER_MAX_CHARACTERS)
+    .map((c, i) => normalizeRunnerCharacter(c, defaultChar, i));
+}
+
+export function runnerCharacterList(doc: {
+  characters?: RunnerCharacter[];
+  character?: RunnerCharacter;
+}): RunnerCharacter[] {
+  if (Array.isArray(doc.characters) && doc.characters.length > 0) return doc.characters;
+  if (doc.character) return [doc.character];
+  return [];
 }
 
 export function emptyRunnerItemEffects(negative = false): RunnerItemEffects {
@@ -271,6 +344,7 @@ function emptySpriteSheet(): RunnerSpriteSheet {
 }
 
 export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord {
+  const starter = emptyRunnerCharacter();
   return {
     id: partial.id,
     gameType: "runner",
@@ -287,15 +361,8 @@ export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord
     backgroundHex: "#87c38f",
     backgrounds: { desktop: "", tablet: "", mobile: "" },
     banner: { backgroundHex: "#5a8f62", logoUrl: "", logoAlign: "center" },
-    character: {
-      run: emptySpriteSheet(),
-      jump: emptySpriteSheet(),
-      death: emptySpriteSheet(),
-      width: 96,
-      height: 96,
-      groundY: 980,
-      jumpHeight: 280,
-    },
+    characters: [starter],
+    character: starter,
     items: { positive: [], negative: [] },
     parallax: [],
     ground: { enabled: false, url: "", y: 980, height: 48 },
@@ -387,20 +454,8 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
   slots.center = slotKind(slots.center);
   slots.right = slotKind(slots.right);
 
-  const char = { ...defaults.character, ...(doc.character || {}) };
-  char.run = { ...defaults.character.run, ...(char.run || {}) };
-  char.jump = { ...defaults.character.jump, ...(char.jump || {}) };
-  char.death = { ...defaults.character.death, ...(char.death || {}) };
-  char.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.run.cellWidth) || 64));
-  char.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.run.cellHeight) || 64));
-  char.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.jump.cellWidth) || char.run.cellWidth));
-  char.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.jump.cellHeight) || char.run.cellHeight));
-  char.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.death.cellWidth) || char.run.cellWidth));
-  char.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(char.death.cellHeight) || char.run.cellHeight));
-  char.width = Math.max(32, Math.min(240, Number(char.width) || 96));
-  char.height = Math.max(32, Math.min(240, Number(char.height) || 96));
-  char.groundY = Math.max(100, Math.min(1900, Number(char.groundY) || defaults.character.groundY));
-  char.jumpHeight = Math.max(40, Math.min(600, Number(char.jumpHeight) || 280));
+  const characters = normalizeRunnerCharacters(doc, defaults.character);
+  const character = characters[0];
 
   const parallax = (Array.isArray(doc.parallax) ? doc.parallax : [])
     .slice(0, RUNNER_MAX_PARALLAX_LAYERS)
@@ -412,6 +467,7 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
         height: Math.max(-99, Math.min(200, Number(l.height) || 0)),
+        renderInFront: l.renderInFront === true,
       };
     })
     .filter((l) => l.url);
@@ -426,7 +482,8 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
     gameType: "runner",
     backgrounds: { ...defaults.backgrounds, ...(doc.backgrounds || {}) },
     banner,
-    character: char,
+    characters,
+    character,
     items: normalizeRunnerItems(doc.items),
     parallax,
     ground: { ...defaults.ground, ...(doc.ground || {}) },

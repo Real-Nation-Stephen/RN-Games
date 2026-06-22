@@ -169,18 +169,17 @@ body.runner-game {
 
 .runner-banner {
   position: absolute;
-  top: 0;
   left: 0;
   right: 0;
-  height: 132px;
-  z-index: 4;
+  z-index: 7;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 20px;
+  padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
   background: var(--runner-banner-bg, #0d1b2a);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
 .runner-banner--center {
@@ -200,7 +199,8 @@ body.runner-game {
   align-items: center;
   justify-content: inherit;
   height: 100%;
-  max-height: 132px;
+  width: 100%;
+  max-height: 100%;
 }
 
 .runner-banner--center .runner-banner__logo {
@@ -217,12 +217,13 @@ body.runner-game {
 
 .runner-banner img {
   display: block;
-  max-height: min(96px, 100%);
+  max-height: calc(100% - 8px);
   height: auto;
   width: auto;
-  max-width: min(420px, 70%);
+  max-width: min(420px, 72%);
   object-fit: contain;
   object-position: center center;
+  margin: auto 0;
 }
 
 .runner-hud__label {
@@ -267,6 +268,7 @@ body.runner-game {
 .runner-overlay[hidden],
 .runner-jump-hint[hidden],
 .runner-intro[hidden],
+.runner-char-select[hidden],
 .runner-end[hidden],
 .runner-name-screen[hidden] {
   display: none !important;
@@ -452,6 +454,71 @@ body.runner-muted .runner-mute__icon--off {
   padding: 48px 40px;
   box-sizing: border-box;
   background: rgba(8, 14, 22, 0.9);
+}
+
+.runner-char-select {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  box-sizing: border-box;
+  background: rgba(8, 14, 22, 0.92);
+}
+
+.runner-char-select__card {
+  width: 100%;
+  max-width: 880px;
+  text-align: center;
+}
+
+.runner-char-select__title {
+  margin: 0 0 32px;
+  font-family: var(--runner-font-heading, system-ui, sans-serif);
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.15;
+}
+
+.runner-char-select__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.runner-char-select__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+  min-width: 140px;
+  font: inherit;
+}
+
+.runner-char-select__option:hover,
+.runner-char-select__option:focus-visible {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.runner-char-select__preview {
+  width: 120px;
+  height: 120px;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.runner-char-select__label {
+  font-size: clamp(18px, 2.5vw, 24px);
+  font-weight: 700;
 }
 
 .runner-intro__card {

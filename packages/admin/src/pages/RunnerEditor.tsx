@@ -3,12 +3,15 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import {
   RUNNER_BG_SIZE_HINTS,
+  RUNNER_MAX_CHARACTERS,
   RUNNER_MAX_PARALLAX_LAYERS,
   RUNNER_MAX_SPRITE_CELL,
   RUNNER_MAX_SHEET_FRAMES,
+  emptyRunnerCharacter,
   normalizeRunner,
   emptyRunnerItemEffects,
   type RunnerRecord,
+  type RunnerCharacter,
   type RunnerItemVariant,
   type RunnerHudSlotKind,
   type RunnerParallaxLayer,
@@ -45,6 +48,7 @@ function publicConfig(g: RunnerGame) {
     backgroundHex: g.backgroundHex,
     backgrounds: g.backgrounds,
     banner: g.banner,
+    characters: g.characters,
     character: g.character,
     items: g.items,
     parallax: g.parallax,
@@ -70,6 +74,55 @@ function newParallaxId() {
   return `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function newCharacterId() {
+  return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function CollapsibleSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ border: "1px solid var(--rn-border)", borderRadius: 8, marginBottom: 12 }}>
+      <button
+        type="button"
+        className="btn"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "10px 12px",
+          border: "none",
+          borderRadius: open ? "8px 8px 0 0" : 8,
+          background: "rgba(255,255,255,0.04)",
+        }}
+      >
+        <span style={{ fontWeight: 600 }}>
+          {open ? "▼" : "▶"} {title}
+        </span>
+        {!open && summary ? (
+          <span className="muted" style={{ fontSize: "0.82rem", fontWeight: 400 }}>
+            {summary}
+          </span>
+        ) : null}
+      </button>
+      {open ? <div style={{ padding: "0 12px 12px" }}>{children}</div> : null}
+    </div>
+  );
+}
+
 function defaultItemVariant(negative = false): RunnerItemVariant {
   return {
     id: newVariantId(),
@@ -87,12 +140,14 @@ function ItemVariantEditor({
   onChange,
   uploadFile,
   negative = false,
+  collapsible = false,
 }: {
   label: string;
   variants: RunnerItemVariant[];
   onChange: (next: RunnerItemVariant[]) => void;
   uploadFile: (f: File) => Promise<{ url: string }>;
   negative?: boolean;
+  collapsible?: boolean;
 }) {
   const rows = variants.length ? variants : [defaultItemVariant(negative)];
   const effectKeys = negative
@@ -107,9 +162,11 @@ function ItemVariantEditor({
     return "timeAmount" as const;
   };
 
-  return (
-    <div style={{ marginTop: 12 }}>
-      <label className="field">{label}</label>
+  const configured = rows.filter((v) => v.url).length;
+  const summary = `${configured} of ${rows.length} with sprites`;
+
+  const body = (
+    <>
       {rows.map((v, i) => (
         <div
           key={v.id || i}
@@ -262,6 +319,23 @@ function ItemVariantEditor({
       >
         Add {negative ? "negative" : "positive"} item
       </button>
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <CollapsibleSection title={label} summary={summary}>
+          {body}
+        </CollapsibleSection>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label className="field">{label}</label>
+      {body}
     </div>
   );
 }
@@ -359,6 +433,18 @@ function ParallaxLayerEditor({
               }}
             />
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.82rem" }}>
+            <input
+              type="checkbox"
+              checked={layer.renderInFront === true}
+              onChange={(e) => {
+                const next = [...rows];
+                next[i] = { ...next[i], renderInFront: e.target.checked };
+                onChange(next);
+              }}
+            />
+            Render in front
+          </label>
           <button type="button" className="btn" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
             Remove
           </button>
@@ -369,7 +455,7 @@ function ParallaxLayerEditor({
           type="button"
           className="btn"
           onClick={() =>
-            onChange([...rows, { id: newParallaxId(), url: "", speed: 0.5, y: 0, height: 0 }])
+            onChange([...rows, { id: newParallaxId(), url: "", speed: 0.5, y: 0, height: 0, renderInFront: false }])
           }
         >
           Add parallax layer
@@ -430,6 +516,95 @@ function SpriteSheetRow({
         Up to {RUNNER_MAX_SHEET_FRAMES} frames in a horizontal strip.
       </p>
     </div>
+  );
+}
+
+function CharacterEditor({
+  character,
+  index,
+  onChange,
+  onRemove,
+  canRemove,
+}: {
+  character: RunnerCharacter;
+  index: number;
+  onChange: (next: RunnerCharacter) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const hasSprites = Boolean(character.run.url || character.jump.url || character.death.url);
+  const summary = hasSprites ? character.label || `Character ${index + 1}` : "No sprites yet";
+
+  return (
+    <CollapsibleSection title={`Character ${index + 1}`} summary={summary}>
+      <label className="field">Display name</label>
+      <input
+        type="text"
+        maxLength={32}
+        value={character.label}
+        onChange={(e) => onChange({ ...character, label: e.target.value })}
+      />
+      <SpriteSheetRow
+        label="Run sprite sheet"
+        sheet={character.run}
+        onChange={(run) => onChange({ ...character, run })}
+      />
+      <SpriteSheetRow
+        label="Jump sprite sheet"
+        sheet={character.jump}
+        onChange={(jump) => onChange({ ...character, jump })}
+      />
+      <SpriteSheetRow
+        label="Death sprite sheet"
+        sheet={character.death}
+        onChange={(death) => onChange({ ...character, death })}
+      />
+      <label className="field" style={{ marginTop: 12 }}>
+        Character width (px)
+      </label>
+      <input
+        type="number"
+        min={32}
+        max={240}
+        value={character.width}
+        onChange={(e) => onChange({ ...character, width: Number(e.target.value) })}
+      />
+      <label className="field" style={{ marginTop: 12 }}>
+        Character height (px)
+      </label>
+      <input
+        type="number"
+        min={32}
+        max={240}
+        value={character.height}
+        onChange={(e) => onChange({ ...character, height: Number(e.target.value) })}
+      />
+      <label className="field" style={{ marginTop: 12 }}>
+        Ground Y (design space)
+      </label>
+      <input
+        type="number"
+        min={100}
+        max={1900}
+        value={character.groundY}
+        onChange={(e) => onChange({ ...character, groundY: Number(e.target.value) })}
+      />
+      <label className="field" style={{ marginTop: 12 }}>
+        Jump height (px)
+      </label>
+      <input
+        type="number"
+        min={40}
+        max={600}
+        value={character.jumpHeight}
+        onChange={(e) => onChange({ ...character, jumpHeight: Number(e.target.value) })}
+      />
+      {canRemove ? (
+        <button type="button" className="btn" style={{ marginTop: 12 }} onClick={onRemove}>
+          Remove character
+        </button>
+      ) : null}
+    </CollapsibleSection>
   );
 }
 
@@ -1019,82 +1194,54 @@ export default function RunnerEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Character</h3>
-          <SpriteSheetRow
-            label="Run sprite sheet"
-            sheet={game.character.run}
-            onChange={(run) => patch((g) => ({ ...g, character: { ...g.character, run } }))}
-          />
-          <SpriteSheetRow
-            label="Jump sprite sheet"
-            sheet={game.character.jump}
-            onChange={(jump) => patch((g) => ({ ...g, character: { ...g.character, jump } }))}
-          />
-          <SpriteSheetRow
-            label="Death sprite sheet"
-            sheet={game.character.death}
-            onChange={(death) => patch((g) => ({ ...g, character: { ...g.character, death } }))}
-          />
-          <label className="field" style={{ marginTop: 12 }}>
-            Character width (px)
-          </label>
-          <input
-            type="number"
-            min={32}
-            max={240}
-            value={game.character.width}
-            onChange={(e) =>
-              patch((g) => ({
-                ...g,
-                character: { ...g.character, width: Number(e.target.value) },
-              }))
-            }
-          />
-          <label className="field" style={{ marginTop: 12 }}>
-            Character height (px)
-          </label>
-          <input
-            type="number"
-            min={32}
-            max={240}
-            value={game.character.height}
-            onChange={(e) =>
-              patch((g) => ({
-                ...g,
-                character: { ...g.character, height: Number(e.target.value) },
-              }))
-            }
-          />
-          <label className="field" style={{ marginTop: 12 }}>
-            Ground Y (design space)
-          </label>
-          <input
-            type="number"
-            min={100}
-            max={1900}
-            value={game.character.groundY}
-            onChange={(e) =>
-              patch((g) => ({
-                ...g,
-                character: { ...g.character, groundY: Number(e.target.value) },
-              }))
-            }
-          />
-          <label className="field" style={{ marginTop: 12 }}>
-            Jump height (px)
-          </label>
-          <input
-            type="number"
-            min={40}
-            max={600}
-            value={game.character.jumpHeight}
-            onChange={(e) =>
-              patch((g) => ({
-                ...g,
-                character: { ...g.character, jumpHeight: Number(e.target.value) },
-              }))
-            }
-          />
+          <h3 style={{ marginTop: 0 }}>Characters</h3>
+          <p className="muted" style={{ fontSize: "0.85rem", marginTop: 0 }}>
+            Add up to {RUNNER_MAX_CHARACTERS} playable characters. Players choose on a selector screen when more than one is configured.
+          </p>
+          {(game.characters?.length ? game.characters : [game.character]).map((char, i) => (
+            <CharacterEditor
+              key={char.id || i}
+              character={char}
+              index={i}
+              canRemove={(game.characters?.length || 1) > 1}
+              onChange={(next) =>
+                patch((g) => {
+                  const list = [...(g.characters?.length ? g.characters : [g.character])];
+                  list[i] = next;
+                  return { ...g, characters: list, character: list[0] };
+                })
+              }
+              onRemove={() =>
+                patch((g) => {
+                  const list = [...(g.characters?.length ? g.characters : [g.character])];
+                  list.splice(i, 1);
+                  if (!list.length) list.push(emptyRunnerCharacter());
+                  return { ...g, characters: list, character: list[0] };
+                })
+              }
+            />
+          ))}
+          {(game.characters?.length || 1) < RUNNER_MAX_CHARACTERS ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() =>
+                patch((g) => {
+                  const list = [...(g.characters?.length ? g.characters : [g.character])];
+                  const n = list.length + 1;
+                  list.push(
+                    emptyRunnerCharacter({
+                      id: newCharacterId(),
+                      label: `Character ${n}`,
+                    }),
+                  );
+                  return { ...g, characters: list, character: list[0] };
+                })
+              }
+            >
+              Add character
+            </button>
+          ) : null}
         </div>
 
         <div className="card">
@@ -1103,6 +1250,7 @@ export default function RunnerEditor() {
             label="Positive items"
             variants={game.items.positive}
             uploadFile={uploadFile}
+            collapsible
             onChange={(positive) => patch((g) => ({ ...g, items: { ...g.items, positive } }))}
           />
           <ItemVariantEditor
@@ -1110,6 +1258,7 @@ export default function RunnerEditor() {
             variants={game.items.negative}
             uploadFile={uploadFile}
             negative
+            collapsible
             onChange={(negative) => patch((g) => ({ ...g, items: { ...g.items, negative } }))}
           />
         </div>

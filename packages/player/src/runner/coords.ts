@@ -18,13 +18,13 @@ export function scaleRunnerSize(size: number, designH: number, authorH: number) 
   return (size / authorH) * designH;
 }
 
-export function runnerAuthorHeight(cfg: { character: { groundY: number } }) {
-  return inferRunnerAuthorHeight(cfg.character.groundY);
+export function runnerAuthorHeight(groundY: number) {
+  return inferRunnerAuthorHeight(groundY);
 }
 
-export function scaledGroundY(cfg: { character: { groundY: number } }, designH: number) {
-  const authorH = runnerAuthorHeight(cfg);
-  const y = scaleRunnerY(cfg.character.groundY, designH, authorH);
+export function scaledGroundY(groundY: number, designH: number) {
+  const authorH = runnerAuthorHeight(groundY);
+  const y = scaleRunnerY(groundY, designH, authorH);
   return Math.min(designH - 24, Math.max(132 + 60, y));
 }
 

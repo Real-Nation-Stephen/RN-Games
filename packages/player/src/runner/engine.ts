@@ -1,4 +1,5 @@
-import type { RunnerItemVariant } from "@rngames/shared";
+import { runnerCharacterList } from "@rngames/shared";
+import type { RunnerCharacter, RunnerItemVariant } from "@rngames/shared";
 import type { RunnerConfig, RunnerGameState, RunnerWorldItem } from "./types";
 import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
 import {
@@ -65,6 +66,7 @@ export class RunnerEngine {
   damageFlash = 0;
   pickupGlow = 0;
   invincible = 0;
+  characterIndex = 0;
 
   private cfg: RunnerConfig;
   private spawnAcc = 0;
@@ -81,11 +83,22 @@ export class RunnerEngine {
     this.resetAttemptState();
   }
 
+  activeCharacter(): RunnerCharacter {
+    const list = runnerCharacterList(this.cfg);
+    return list[this.characterIndex] ?? list[0];
+  }
+
+  setCharacterIndex(index: number) {
+    const list = runnerCharacterList(this.cfg);
+    this.characterIndex = Math.max(0, Math.min(list.length - 1, index));
+  }
+
   get charX() {
-    const cw = scaleRunnerSize(this.cfg.character.width, this.designH, this.authorH());
+    const char = this.activeCharacter();
+    const cw = scaleRunnerSize(char.width, this.designH, this.authorH());
     const defaultX = this.designW * CHAR_X_RATIO;
     const { left } = getRunnerVisibleDesignInset();
-    const hudPad = pickRunnerOrientation() === "portrait" ? 56 : 48;
+    const hudPad = pickRunnerOrientation() === "portrait" ? 28 : 24;
     const safeX = left + hudPad + cw / 2;
     if (left > 2) return Math.max(defaultX, safeX);
     if (pickRunnerOrientation() === "portrait" && isTabletViewport()) {
@@ -95,11 +108,11 @@ export class RunnerEngine {
   }
 
   get groundY() {
-    return scaledGroundY(this.cfg, this.designH);
+    return scaledGroundY(this.activeCharacter().groundY, this.designH);
   }
 
   private authorH() {
-    return runnerAuthorHeight(this.cfg);
+    return runnerAuthorHeight(this.activeCharacter().groundY);
   }
 
   private computeMaxAttempts() {
@@ -237,7 +250,7 @@ export class RunnerEngine {
 
   jump() {
     if (this.state !== "playing" || !this.onGround) return;
-    const h = scaleRunnerSize(this.cfg.character.jumpHeight, this.designH, this.authorH());
+    const h = scaleRunnerSize(this.activeCharacter().jumpHeight, this.designH, this.authorH());
     this.charVy = -Math.sqrt(2 * GRAVITY * h);
     this.onGround = false;
     this.jumpAnimFrame = 0;
@@ -267,7 +280,7 @@ export class RunnerEngine {
       this.distance += speed * dt;
       this.charVy += GRAVITY * dt;
       this.charY += this.charVy * dt;
-      const charH = scaleRunnerSize(this.cfg.character.height, this.designH, this.authorH());
+      const charH = scaleRunnerSize(this.activeCharacter().height, this.designH, this.authorH());
       const fellOff = this.charY > this.designH + charH;
       if (fellOff || this.deathAnimAcc >= DEATH_FALL_MAX_SEC) {
         if (this.attemptsUsed + 1 < this.maxAttempts) {
@@ -349,8 +362,8 @@ export class RunnerEngine {
     if (this.invincible > 0) this.invincible = Math.max(0, this.invincible - dt);
 
     const cx = this.charX;
-    const cw = scaleRunnerSize(this.cfg.character.width, this.designH, this.authorH());
-    const ch = scaleRunnerSize(this.cfg.character.height, this.designH, this.authorH());
+    const cw = scaleRunnerSize(this.activeCharacter().width, this.designH, this.authorH());
+    const ch = scaleRunnerSize(this.activeCharacter().height, this.designH, this.authorH());
     const charLeft = cx - cw / 2;
     const charRight = cx + cw / 2;
     const charTop = this.charY - ch;

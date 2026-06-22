@@ -6,8 +6,9 @@ import {
 } from "@rngames/shared";
 import type { RunnerOrientation } from "./types";
 
-const RUNNER_BANNER_H = 132;
+export const RUNNER_BANNER_H = 132;
 const RUNNER_HUD_TOP = 156;
+const MOBILE_ZOOM_OUT = 0.9;
 
 let runnerScale = 1;
 let runnerOffsetX = 0;
@@ -38,6 +39,14 @@ export function layoutRunnerHud(hud: HTMLElement) {
   hud.style.setProperty("--runner-hud-scale", String(scale));
 }
 
+export function layoutRunnerBanner(banner: HTMLElement) {
+  const { scale, offsetY } = getRunnerLayoutMetrics();
+  const top = Math.max(0, offsetY);
+  banner.style.top = `${top}px`;
+  banner.style.height = `${RUNNER_BANNER_H * scale}px`;
+  banner.style.setProperty("--runner-banner-scale", String(scale));
+}
+
 export function getRunnerDesignSize() {
   return { w: runnerDesignW, h: runnerDesignH };
 }
@@ -48,6 +57,11 @@ function viewportSize() {
     w: Math.max(1, vv?.width ?? window.innerWidth),
     h: Math.max(1, vv?.height ?? window.innerHeight),
   };
+}
+
+export function isMobilePortrait() {
+  const { w, h } = viewportSize();
+  return h > w && w < 768;
 }
 
 export function pickRunnerOrientation(): RunnerOrientation {
@@ -83,6 +97,7 @@ export function layoutRunnerStage(
   const scaleW = vw / runnerDesignW;
   const scaleH = vh / runnerDesignH;
   runnerScale = Math.max(scaleW, scaleH);
+  if (isMobilePortrait()) runnerScale *= MOBILE_ZOOM_OUT;
   const scaledW = runnerDesignW * runnerScale;
   const scaledH = runnerDesignH * runnerScale;
   const offsetX = (vw - scaledW) / 2;
@@ -99,10 +114,16 @@ export function layoutRunnerStage(
   stage.style.top = "0";
 }
 
-export function bindRunnerLayout(fit: HTMLElement, stage: HTMLElement, hud?: HTMLElement | null) {
+export function bindRunnerLayout(
+  fit: HTMLElement,
+  stage: HTMLElement,
+  hud?: HTMLElement | null,
+  banner?: HTMLElement | null,
+) {
   const run = () => {
     layoutRunnerStage(fit, stage, pickRunnerOrientation());
     if (hud) layoutRunnerHud(hud);
+    if (banner) layoutRunnerBanner(banner);
   };
   run();
   window.addEventListener("resize", run);

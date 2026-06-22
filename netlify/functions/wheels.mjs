@@ -557,6 +557,7 @@ export const handler = async (event, context) => {
           "backgrounds",
           "banner",
           "character",
+          "characters",
           "items",
           "parallax",
           "ground",

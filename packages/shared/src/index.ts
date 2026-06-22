@@ -14,6 +14,7 @@ export {
 export {
   RUNNER_LANDSCAPE_H,
   RUNNER_LANDSCAPE_W,
+  RUNNER_MAX_CHARACTERS,
   RUNNER_MAX_PARALLAX_LAYERS,
   RUNNER_MAX_SHEET_FRAMES,
   RUNNER_MAX_SPRITE_CELL,
@@ -21,8 +22,10 @@ export {
   RUNNER_PORTRAIT_W,
   RUNNER_BG_SIZE_HINTS,
   emptyRunner,
+  emptyRunnerCharacter,
   emptyRunnerItemEffects,
   normalizeRunner,
+  runnerCharacterList,
   type RunnerRecord,
   type RunnerBanner,
   type RunnerBreakpointBg,

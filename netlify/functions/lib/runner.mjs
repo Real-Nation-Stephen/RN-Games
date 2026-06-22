@@ -1,6 +1,7 @@
 /** Runner arcade game — record helpers and public payload. */
 
 export const RUNNER_MAX_PARALLAX_LAYERS = 5;
+export const RUNNER_MAX_CHARACTERS = 8;
 export const RUNNER_MAX_SPRITE_CELL = 512;
 
 function emptyItemEffects(negative = false) {
@@ -64,7 +65,52 @@ function emptySheet() {
   return { url: "", cellWidth: 64, cellHeight: 64 };
 }
 
+function emptyCharacter() {
+  return {
+    id: "c1",
+    label: "Character 1",
+    run: emptySheet(),
+    jump: emptySheet(),
+    death: emptySheet(),
+    width: 96,
+    height: 96,
+    groundY: 980,
+    jumpHeight: 280,
+  };
+}
+
+function normalizeCharacter(raw, defaults, index) {
+  const c = { ...defaults, ...(raw || {}) };
+  c.id = String(c.id || `c${index + 1}`);
+  c.label = String(c.label || `Character ${index + 1}`).slice(0, 32);
+  c.run = { ...defaults.run, ...(c.run || {}) };
+  c.jump = { ...defaults.jump, ...(c.jump || {}) };
+  c.death = { ...defaults.death, ...(c.death || {}) };
+  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellWidth) || 64));
+  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellHeight) || 64));
+  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellWidth) || c.run.cellWidth));
+  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellHeight) || c.run.cellHeight));
+  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellWidth) || c.run.cellWidth));
+  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellHeight) || c.run.cellHeight));
+  c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
+  c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
+  c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
+  c.jumpHeight = Math.max(40, Math.min(600, Number(c.jumpHeight) || 280));
+  return c;
+}
+
+function normalizeCharacters(doc, defaultChar) {
+  const raw =
+    Array.isArray(doc.characters) && doc.characters.length > 0
+      ? doc.characters
+      : doc.character
+        ? [doc.character]
+        : [defaultChar];
+  return raw.slice(0, RUNNER_MAX_CHARACTERS).map((c, i) => normalizeCharacter(c, defaultChar, i));
+}
+
 export function emptyRunnerRecord(id, slug) {
+  const starter = emptyCharacter();
   return {
     id,
     gameType: "runner",
@@ -81,15 +127,8 @@ export function emptyRunnerRecord(id, slug) {
     backgroundHex: "#87c38f",
     backgrounds: { desktop: "", tablet: "", mobile: "" },
     banner: { backgroundHex: "#5a8f62", logoUrl: "", logoAlign: "center" },
-    character: {
-      run: emptySheet(),
-      jump: emptySheet(),
-      death: emptySheet(),
-      width: 96,
-      height: 96,
-      groundY: 980,
-      jumpHeight: 280,
-    },
+    characters: [starter],
+    character: starter,
     items: { positive: [], negative: [] },
     parallax: [],
     ground: { enabled: false, url: "", y: 980, height: 48 },
@@ -162,10 +201,8 @@ export function normalizeRunnerRecord(doc) {
   const defaults = emptyRunnerRecord(doc.id || "", doc.slug || "");
   doc.backgrounds = { ...defaults.backgrounds, ...(doc.backgrounds || {}) };
   doc.banner = { ...defaults.banner, ...(doc.banner || {}) };
-  doc.character = { ...defaults.character, ...(doc.character || {}) };
-  doc.character.run = { ...defaults.character.run, ...(doc.character.run || {}) };
-  doc.character.jump = { ...defaults.character.jump, ...(doc.character.jump || {}) };
-  doc.character.death = { ...defaults.character.death, ...(doc.character.death || {}) };
+  doc.characters = normalizeCharacters(doc, defaults.character);
+  doc.character = doc.characters[0];
   doc.items = normalizeItems(doc.items || {});
   doc.parallax = (Array.isArray(doc.parallax) ? doc.parallax : [])
     .slice(0, RUNNER_MAX_PARALLAX_LAYERS)
@@ -177,6 +214,7 @@ export function normalizeRunnerRecord(doc) {
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
         height: Math.max(-99, Math.min(200, Number(l.height) || 0)),
+        renderInFront: l.renderInFront === true,
       };
     })
     .filter((l) => l.url);
@@ -235,6 +273,7 @@ export function toPublicRunner(doc) {
     backgroundHex: g.backgroundHex || "#87c38f",
     backgrounds: g.backgrounds,
     banner: g.banner,
+    characters: g.characters,
     character: g.character,
     items: g.items,
     parallax: g.parallax,
