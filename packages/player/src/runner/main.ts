@@ -25,11 +25,12 @@ import { bindRunnerKeyboard, pollJumpInput, pollMenuAction } from "./gamepad";
 import {
   bindRunnerLayout,
   getRunnerDesignSize,
+  layoutRunnerHud,
   layoutRunnerStage,
   needsLandscapeLock,
   pickRunnerOrientation,
 } from "./layout";
-import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY } from "./coords";
+import { parallaxDrawHeight, runnerAuthorHeight, scaleRunnerSize, scaleRunnerY } from "./coords";
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
@@ -286,16 +287,27 @@ function setViewportBackground(mode: "game" | "end") {
 }
 
 function setupMusic(c: RunnerConfig) {
-  const url = c.sounds.music;
+  const url = (c.sounds.music || "").trim();
   if (!url) {
     els.music.pause();
     els.music.removeAttribute("src");
     return;
   }
-  if (els.music.src !== new URL(url, window.location.origin).href) {
+  const absolute = new URL(url, window.location.origin).href;
+  if (els.music.src !== absolute) {
     els.music.src = url;
-    els.music.volume = c.sounds.musicVolume ?? 0.35;
+    els.music.loop = true;
+    els.music.load();
   }
+  applyMusicVolume();
+}
+
+function tryPlayMusic() {
+  if (!cfg?.sounds.music?.trim() || isRunnerMuted()) return;
+  applyMusicVolume();
+  void unlockRunnerAudio().then(() => {
+    if (els.music.paused) void els.music.play().catch(() => undefined);
+  });
 }
 
 async function preloadAssets(c: RunnerConfig) {
@@ -587,7 +599,7 @@ function beginRound() {
   engine.beginFromTouch();
   lastCountdownBeep = 0;
   lastTimerBeepSec = -1;
-  if (!isRunnerMuted()) void els.music.play().catch(() => undefined);
+  if (!isRunnerMuted()) tryPlayMusic();
   track({
     type: "runner.round_start",
     gameId: cfg.id || cfg.slug,
@@ -613,6 +625,8 @@ function handleJumpInput() {
 }
 
 function handleMenuGamepad() {
+  if (!engine || !cfg) return;
+  if (engine.state === "playing" || engine.state === "dying") return;
   const action = pollMenuAction();
   if (!action || !engine || !cfg) return;
 
@@ -639,6 +653,7 @@ function bindInput() {
     const target = e.currentTarget as HTMLElement;
     if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
     void unlockRunnerAudio();
+    tryPlayMusic();
     if (engine?.state === "idle" && !els.startOverlay.hidden) {
       beginRound();
       return;
@@ -807,11 +822,12 @@ function drawCharacter(c: RunnerConfig) {
     sheet = char.death;
     const deathImg = sheet.url ? imageCache.get(sheet.url) : null;
     const total = deathImg ? sheetFrameCount(sheet, deathImg) : 1;
-    const t = Math.min(1, engine.deathAnimAcc / 1.1);
-    frame = Math.min(total - 1, Math.floor(t * total));
+    frame = Math.min(total - 1, Math.floor(engine.deathAnimAcc / 0.12));
   } else if (engine.state === "playing" && !engine.onGround) {
     sheet = char.jump;
-    frame = engine.animFrame;
+    const jumpImg = sheet.url ? imageCache.get(sheet.url) : null;
+    const total = jumpImg ? sheetFrameCount(sheet, jumpImg) : 1;
+    frame = Math.min(total - 1, engine.jumpAnimFrame);
   } else {
     sheet = char.run;
     frame = engine.animFrame;
@@ -867,9 +883,13 @@ function drawFrame() {
     lastTimerBeepSec = -1;
   }
 
-  if (engine.state === "countdown") showCountdownUi(engine.countdownValue);
-  else if (engine.state === "playing" || engine.state === "dying") showPlayingUi();
-  else if (engine.state === "ended" && prevState !== "ended") void showEndUi();
+  if (engine.state === "countdown") {
+    showCountdownUi(engine.countdownValue);
+    tryPlayMusic();
+  } else if (engine.state === "playing" || engine.state === "dying") {
+    showPlayingUi();
+    tryPlayMusic();
+  } else if (engine.state === "ended" && prevState !== "ended") void showEndUi();
 
   updateHud();
 
@@ -884,10 +904,7 @@ function drawFrame() {
     if (!img?.complete || !img.naturalWidth) continue;
     const layerScroll = scroll * layer.speed;
     const layerY = scaleRunnerY(layer.y, designH, authorH);
-    const destH =
-      layer.height > 0
-        ? scaleRunnerSize(layer.height, designH, authorH)
-        : scaleRunnerSize(img.naturalHeight, designH, authorH);
+    const destH = parallaxDrawHeight(layer.height, img.naturalHeight, designH, authorH);
     drawLoopingStrip(ctx, img, layerScroll, layerY, destH, designW);
   }
 
@@ -938,6 +955,7 @@ function resizeCanvas() {
 
 function mountGame(c: RunnerConfig) {
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
+  layoutRunnerHud(document.querySelector(".runner-hud") as HTMLElement);
   cfg = c;
   document.title = c.title || "Runner game";
   applyFavicon(c.faviconUrl);
@@ -946,7 +964,7 @@ function mountGame(c: RunnerConfig) {
   engine = new RunnerEngine(c, w, h);
   resizeCanvas();
   unbindLayout?.();
-  unbindLayout = bindRunnerLayout(els.fit, els.stage);
+  unbindLayout = bindRunnerLayout(els.fit, els.stage, document.querySelector(".runner-hud"));
   updateHud();
   lastCountdownBeep = 0;
   lastTimerBeepSec = -1;
@@ -963,6 +981,7 @@ function mountGame(c: RunnerConfig) {
 function onBreakpointChange() {
   if (!cfg) return;
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
+  layoutRunnerHud(document.querySelector(".runner-hud") as HTMLElement);
   const { w, h } = getRunnerDesignSize();
   resizeCanvas();
   if (engine && (engine.designW !== w || engine.designH !== h)) {

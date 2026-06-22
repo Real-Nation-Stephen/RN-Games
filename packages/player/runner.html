@@ -15,14 +15,14 @@
     </button>
     <div id="app" hidden>
       <div id="fit">
+        <div class="runner-hud">
+          <div class="runner-hud__slot runner-hud__slot--left" id="runner-hud-left"></div>
+          <div class="runner-hud__slot runner-hud__slot--center" id="runner-hud-center"></div>
+          <div class="runner-hud__slot runner-hud__slot--right" id="runner-hud-right"></div>
+        </div>
         <div id="stage">
           <canvas id="runner-canvas" aria-hidden="true"></canvas>
           <header id="runner-banner" class="runner-banner runner-banner--center"></header>
-          <div class="runner-hud">
-            <div class="runner-hud__slot runner-hud__slot--left" id="runner-hud-left"></div>
-            <div class="runner-hud__slot runner-hud__slot--center" id="runner-hud-center"></div>
-            <div class="runner-hud__slot runner-hud__slot--right" id="runner-hud-right"></div>
-          </div>
           <div id="runner-name-screen" class="runner-name-screen" hidden>
             <div class="runner-name-screen__card">
               <h2 class="runner-name-screen__title">Enter your name</h2>
@@ -88,7 +88,7 @@
     >
       <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" decoding="async" />
     </a>
-    <audio id="runner-music" loop playsinline></audio>
+    <audio id="runner-music" loop playsinline preload="auto" crossorigin="anonymous"></audio>
     <script type="module" src="/src/runner/main.ts"></script>
   </body>
 </html>

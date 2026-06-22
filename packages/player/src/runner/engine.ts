@@ -6,7 +6,7 @@ const BANNER_H = 132;
 const GRAVITY = 2400;
 const CHAR_X_RATIO = 0.18;
 const INVINCIBLE_SEC = 1.2;
-const DEATH_ANIM_SEC = 1.1;
+const DEATH_FALL_MAX_SEC = 3;
 const GLOW_SEC = 0.45;
 
 function lerp(a: number, b: number, t: number) {
@@ -53,6 +53,8 @@ export class RunnerEngine {
   onGround = true;
   animFrame = 0;
   animAcc = 0;
+  jumpAnimFrame = 0;
+  jumpAnimAcc = 0;
   deathAnimAcc = 0;
 
   damageFlash = 0;
@@ -201,6 +203,8 @@ export class RunnerEngine {
     this.onGround = true;
     this.animFrame = 0;
     this.animAcc = 0;
+    this.jumpAnimFrame = 0;
+    this.jumpAnimAcc = 0;
     this.deathAnimAcc = 0;
     this.damageFlash = 0;
     this.pickupGlow = 0;
@@ -222,6 +226,8 @@ export class RunnerEngine {
     const h = scaleRunnerSize(this.cfg.character.jumpHeight, this.designH, this.authorH());
     this.charVy = -Math.sqrt(2 * GRAVITY * h);
     this.onGround = false;
+    this.jumpAnimFrame = 0;
+    this.jumpAnimAcc = 0;
   }
 
   update(dt: number) {
@@ -242,8 +248,14 @@ export class RunnerEngine {
 
     if (this.state === "dying") {
       this.deathAnimAcc += dt;
-      this.animAcc += dt;
-      if (this.deathAnimAcc >= DEATH_ANIM_SEC) {
+      const speed = this.scrollSpeed();
+      this.scrollOffset += speed * dt;
+      this.distance += speed * dt;
+      this.charVy += GRAVITY * dt;
+      this.charY += this.charVy * dt;
+      const charH = scaleRunnerSize(this.cfg.character.height, this.designH, this.authorH());
+      const fellOff = this.charY > this.designH + charH;
+      if (fellOff || this.deathAnimAcc >= DEATH_FALL_MAX_SEC) {
         if (this.attemptsUsed + 1 < this.maxAttempts) {
           this.attemptsUsed += 1;
           this.resetAttemptState();
@@ -294,13 +306,21 @@ export class RunnerEngine {
         this.charY = this.groundY;
         this.charVy = 0;
         this.onGround = true;
+        this.jumpAnimFrame = 0;
+        this.jumpAnimAcc = 0;
+      } else {
+        this.jumpAnimAcc += dt;
+        if (this.jumpAnimAcc >= 0.06) {
+          this.jumpAnimAcc = 0;
+          this.jumpAnimFrame += 1;
+        }
       }
-    }
-
-    this.animAcc += dt;
-    if (this.animAcc >= 0.08) {
-      this.animAcc = 0;
-      this.animFrame += 1;
+    } else {
+      this.animAcc += dt;
+      if (this.animAcc >= 0.08) {
+        this.animAcc = 0;
+        this.animFrame += 1;
+      }
     }
 
     if (this.damageFlash > 0) this.damageFlash = Math.max(0, this.damageFlash - dt);
@@ -379,6 +399,8 @@ export class RunnerEngine {
     this.updateSessionBest();
     this.state = "dying";
     this.deathAnimAcc = 0;
+    this.charVy = 180;
+    this.onGround = false;
     this.items = [];
   }
 

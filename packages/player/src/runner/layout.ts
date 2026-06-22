@@ -6,13 +6,36 @@ import {
 } from "@rngames/shared";
 import type { RunnerOrientation } from "./types";
 
+const RUNNER_BANNER_H = 132;
+const RUNNER_HUD_TOP = 148;
+
 let runnerScale = 1;
+let runnerOffsetX = 0;
+let runnerOffsetY = 0;
 let runnerDesignW = RUNNER_PORTRAIT_W;
 let runnerDesignH = RUNNER_PORTRAIT_H;
 let unbindViewport: (() => void) | null = null;
 
 export function getRunnerScale() {
   return runnerScale;
+}
+
+export function getRunnerLayoutMetrics() {
+  return {
+    scale: runnerScale,
+    offsetX: runnerOffsetX,
+    offsetY: runnerOffsetY,
+    designW: runnerDesignW,
+    designH: runnerDesignH,
+    bannerH: RUNNER_BANNER_H,
+    hudTop: RUNNER_HUD_TOP,
+  };
+}
+
+export function layoutRunnerHud(hud: HTMLElement) {
+  const { scale, offsetY } = getRunnerLayoutMetrics();
+  hud.style.top = `${offsetY + RUNNER_HUD_TOP * scale}px`;
+  hud.style.setProperty("--runner-hud-scale", String(scale));
 }
 
 export function getRunnerDesignSize() {
@@ -55,6 +78,8 @@ export function layoutRunnerStage(
   const scaledH = runnerDesignH * runnerScale;
   const offsetX = (vw - scaledW) / 2;
   const offsetY = (vh - scaledH) / 2;
+  runnerOffsetX = offsetX;
+  runnerOffsetY = offsetY;
   fit.style.width = `${vw}px`;
   fit.style.height = `${vh}px`;
   stage.style.transformOrigin = "0 0";
@@ -65,8 +90,11 @@ export function layoutRunnerStage(
   stage.style.top = "0";
 }
 
-export function bindRunnerLayout(fit: HTMLElement, stage: HTMLElement) {
-  const run = () => layoutRunnerStage(fit, stage, pickRunnerOrientation());
+export function bindRunnerLayout(fit: HTMLElement, stage: HTMLElement, hud?: HTMLElement | null) {
+  const run = () => {
+    layoutRunnerStage(fit, stage, pickRunnerOrientation());
+    if (hud) layoutRunnerHud(hud);
+  };
   run();
   window.addEventListener("resize", run);
   window.addEventListener("orientationchange", run);

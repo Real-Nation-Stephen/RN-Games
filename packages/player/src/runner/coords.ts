@@ -27,3 +27,16 @@ export function scaledGroundY(cfg: { character: { groundY: number } }, designH: 
   const y = scaleRunnerY(cfg.character.groundY, designH, authorH);
   return Math.min(designH - 24, Math.max(132 + 60, y));
 }
+
+/** Parallax draw height: 0 = natural, positive = px, negative = % of natural (e.g. -50 = half). */
+export function parallaxDrawHeight(
+  layerHeight: number,
+  naturalH: number,
+  designH: number,
+  authorH: number,
+) {
+  const naturalScaled = scaleRunnerSize(naturalH, designH, authorH);
+  if (!layerHeight) return naturalScaled;
+  if (layerHeight < 0) return naturalScaled * (Math.abs(layerHeight) / 100);
+  return scaleRunnerSize(layerHeight, designH, authorH);
+}

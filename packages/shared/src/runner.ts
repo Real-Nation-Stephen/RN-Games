@@ -79,7 +79,7 @@ export interface RunnerParallaxLayer {
   speed: number;
   /** Top Y in authoring coordinates (scaled per device). */
   y: number;
-  /** Draw height in px (authoring coords); 0 = use image natural height scaled to design. */
+  /** Draw height in authoring coords: 0 = natural, positive = px, negative = % of natural (e.g. -50 = half). */
   height: number;
 }
 
@@ -411,7 +411,7 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
         url: String(l.url || "").trim(),
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
-        height: Math.max(0, Math.min(800, Number(l.height) || 0)),
+        height: Math.max(-100, Math.min(800, Number(l.height) || 0)),
       };
     })
     .filter((l) => l.url);

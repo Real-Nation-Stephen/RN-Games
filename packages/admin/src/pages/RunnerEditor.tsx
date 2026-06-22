@@ -345,11 +345,11 @@ function ParallaxLayerEditor({
             Height
             <input
               type="number"
-              min={0}
+              min={-100}
               max={800}
               value={layer.height ?? 0}
               style={{ width: 72, marginLeft: 4 }}
-              title="Draw height in px (0 = auto from image)"
+              title="0 = auto; positive = px; negative = % of image (e.g. -50 = half size)"
               onChange={(e) => {
                 const next = [...rows];
                 next[i] = { ...next[i], height: Number(e.target.value) || 0 };
