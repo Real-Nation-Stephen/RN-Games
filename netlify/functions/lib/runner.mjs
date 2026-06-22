@@ -87,12 +87,12 @@ export function emptyRunnerRecord(id, slug) {
       death: emptySheet(),
       width: 96,
       height: 96,
-      groundY: 1600,
+      groundY: 980,
       jumpHeight: 280,
     },
     items: { positive: [], negative: [] },
     parallax: [],
-    ground: { enabled: false, url: "", y: 1650, height: 48 },
+    ground: { enabled: false, url: "", y: 980, height: 48 },
     sounds: {
       positiveItem: null,
       negativeItem: null,
@@ -111,7 +111,7 @@ export function emptyRunnerRecord(id, slug) {
       labelHex: "#e8f5e9",
       healthDisplay: "hearts",
     },
-    feedback: { damageFlashHex: "#ff4444", pickupGlowHex: "#ffe066" },
+    feedback: { damageFlashEnabled: true, damageFlashHex: "#ff4444", pickupGlowHex: "#ffe066" },
     gameplay: {
       timerEnabled: false,
       durationSec: 60,
@@ -131,6 +131,7 @@ export function emptyRunnerRecord(id, slug) {
       positiveLine: "Collect these for bonuses",
       negativeLine: "Avoid these obstacles",
       nextLabel: "Next",
+      pointsLabel: "Pts",
     },
     endScreen: {
       logoUrl: "",
@@ -144,6 +145,7 @@ export function emptyRunnerRecord(id, slug) {
       headlineHex: "#ffffff",
       subheadHex: "#c8d4e0",
       backgrounds: { desktop: "", tablet: "", mobile: "" },
+      overlayHex: "rgba(8, 14, 22, 0.88)",
       linkEnabled: false,
       linkLabel: "Learn more",
       linkUrl: "",
@@ -167,7 +169,17 @@ export function normalizeRunnerRecord(doc) {
   doc.items = normalizeItems(doc.items || {});
   doc.parallax = (Array.isArray(doc.parallax) ? doc.parallax : [])
     .slice(0, RUNNER_MAX_PARALLAX_LAYERS)
-    .filter((l) => l && l.url);
+    .map((layer, i) => {
+      const l = layer || {};
+      return {
+        id: String(l.id || `p${i + 1}`),
+        url: String(l.url || "").trim(),
+        speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
+        y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
+        height: Math.max(0, Math.min(800, Number(l.height) || 0)),
+      };
+    })
+    .filter((l) => l.url);
   doc.ground = { ...defaults.ground, ...(doc.ground || {}) };
   doc.sounds = { ...defaults.sounds, ...(doc.sounds || {}) };
   doc.fonts = { ...defaults.fonts, ...(doc.fonts || {}) };
@@ -200,6 +212,9 @@ export function normalizeRunnerRecord(doc) {
     g.leaderboardMetric === "time" || g.leaderboardMetric === "distance" ? g.leaderboardMetric : "points";
 
   doc.hud.healthDisplay = doc.hud.healthDisplay === "bar" ? "bar" : "hearts";
+  doc.feedback.damageFlashEnabled = doc.feedback.damageFlashEnabled !== false;
+  doc.intro.pointsLabel = String(doc.intro.pointsLabel || "Pts").slice(0, 16);
+  doc.endScreen.overlayHex = String(doc.endScreen.overlayHex || defaults.endScreen.overlayHex);
   const align = String(doc.banner.logoAlign || "center");
   doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
   doc.endScreen.linkEnabled = doc.endScreen.linkEnabled === true;

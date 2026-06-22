@@ -42,7 +42,8 @@ body.runner-game {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
-  padding: 0 24px;
+  padding: 0 clamp(72px, 7.5%, 128px);
+  box-sizing: border-box;
   pointer-events: none;
   font-family: var(--runner-font-score, var(--runner-font-body, system-ui, sans-serif));
 }
@@ -59,15 +60,31 @@ body.runner-game {
   text-align: right;
 }
 
-.runner-health-hearts {
-  font-size: 48px;
-  letter-spacing: 6px;
+.runner-health-hearts,
+.runner-hud__hearts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  min-height: 72px;
+  font-size: 56px;
   line-height: 1;
 }
 
+.runner-hud__heart {
+  display: inline-block;
+  font-size: 1em;
+  line-height: 1;
+}
+
+.runner-hud__bar-wrap {
+  margin-top: 18px;
+}
+
 .runner-health-bar {
-  width: min(220px, 100%);
-  height: 22px;
+  width: min(240px, 100%);
+  height: 28px;
   border-radius: 999px;
   background: var(--runner-hud-health-empty, #4a4a4a);
   overflow: hidden;
@@ -153,7 +170,9 @@ body.runner-game {
   z-index: 4;
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 0 20px;
+  box-sizing: border-box;
   background: var(--runner-banner-bg, #0d1b2a);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
 }
@@ -171,9 +190,13 @@ body.runner-game {
 }
 
 .runner-banner img {
-  max-height: 72px;
+  display: block;
+  max-height: 88px;
+  height: auto;
+  width: auto;
   max-width: min(420px, 70%);
   object-fit: contain;
+  object-position: center center;
 }
 
 .runner-hud__label {
@@ -500,7 +523,34 @@ body.runner-muted .runner-mute__icon--off {
   background: transparent;
 }
 
+.runner-end::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--runner-end-overlay, rgba(8, 14, 22, 0.88));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.runner-end--animate::before {
+  animation: runner-end-overlay-fade 0.7s ease forwards;
+}
+
+@keyframes runner-end-overlay-fade {
+  0% {
+    background: var(--runner-end-flash-start, transparent);
+    opacity: 1;
+  }
+  100% {
+    background: var(--runner-end-overlay, rgba(8, 14, 22, 0.88));
+    opacity: 1;
+  }
+}
+
 .runner-end__card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 720px;
   text-align: center;

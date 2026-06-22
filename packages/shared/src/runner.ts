@@ -77,7 +77,10 @@ export interface RunnerParallaxLayer {
   id: string;
   url: string;
   speed: number;
+  /** Top Y in authoring coordinates (scaled per device). */
   y: number;
+  /** Draw height in px (authoring coords); 0 = use image natural height scaled to design. */
+  height: number;
 }
 
 export interface RunnerGround {
@@ -104,6 +107,7 @@ export interface RunnerHud {
 }
 
 export interface RunnerFeedback {
+  damageFlashEnabled: boolean;
   damageFlashHex: string;
   pickupGlowHex: string;
 }
@@ -148,6 +152,8 @@ export interface RunnerIntro {
   positiveLine: string;
   negativeLine: string;
   nextLabel: string;
+  /** Label after +N on intro for point pickups, e.g. "Pts", "Coins". */
+  pointsLabel: string;
 }
 
 export interface RunnerEndScreen {
@@ -162,6 +168,8 @@ export interface RunnerEndScreen {
   headlineHex: string;
   subheadHex: string;
   backgrounds: RunnerBreakpointBg;
+  /** Tint over frozen game on end screen (fades in after damage flash). */
+  overlayHex: string;
   linkEnabled: boolean;
   linkLabel: string;
   linkUrl: string;
@@ -285,12 +293,12 @@ export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord
       death: emptySpriteSheet(),
       width: 96,
       height: 96,
-      groundY: 1600,
+      groundY: 980,
       jumpHeight: 280,
     },
     items: { positive: [], negative: [] },
     parallax: [],
-    ground: { enabled: false, url: "", y: 1650, height: 48 },
+    ground: { enabled: false, url: "", y: 980, height: 48 },
     sounds: {
       positiveItem: null,
       negativeItem: null,
@@ -309,7 +317,7 @@ export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord
       labelHex: "#e8f5e9",
       healthDisplay: "hearts",
     },
-    feedback: { damageFlashHex: "#ff4444", pickupGlowHex: "#ffe066" },
+    feedback: { damageFlashEnabled: true, damageFlashHex: "#ff4444", pickupGlowHex: "#ffe066" },
     gameplay: {
       timerEnabled: false,
       durationSec: 60,
@@ -329,6 +337,7 @@ export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord
       positiveLine: "Collect these for bonuses",
       negativeLine: "Avoid these obstacles",
       nextLabel: "Next",
+      pointsLabel: "Pts",
     },
     endScreen: {
       logoUrl: "",
@@ -342,6 +351,7 @@ export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord
       headlineHex: "#ffffff",
       subheadHex: "#c8d4e0",
       backgrounds: { desktop: "", tablet: "", mobile: "" },
+      overlayHex: "rgba(8, 14, 22, 0.88)",
       linkEnabled: false,
       linkLabel: "Learn more",
       linkUrl: "",
@@ -401,6 +411,7 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
         url: String(l.url || "").trim(),
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
+        height: Math.max(0, Math.min(800, Number(l.height) || 0)),
       };
     })
     .filter((l) => l.url);
@@ -438,7 +449,9 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
     },
     highScore: { ...defaults.highScore, ...(doc.highScore || {}) },
   };
-  out.endScreen.linkEnabled = out.endScreen.linkEnabled === true;
+  out.feedback.damageFlashEnabled = out.feedback.damageFlashEnabled !== false;
+  out.intro.pointsLabel = String(out.intro.pointsLabel || "Pts").slice(0, 16);
+  out.endScreen.overlayHex = String(out.endScreen.overlayHex || defaults.endScreen.overlayHex);
   out.highScore.nameMaxLength = Math.min(32, Math.max(1, Number(out.highScore.nameMaxLength) || 3));
   return out;
 }

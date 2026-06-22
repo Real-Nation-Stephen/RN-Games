@@ -1,5 +1,6 @@
 import type { RunnerItemVariant } from "@rngames/shared";
 import type { RunnerConfig, RunnerGameState, RunnerWorldItem } from "./types";
+import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
 
 const BANNER_H = 132;
 const GRAVITY = 2400;
@@ -78,9 +79,11 @@ export class RunnerEngine {
   }
 
   get groundY() {
-    const g = this.cfg.character.groundY;
-    if (g > this.designH * 0.5) return Math.min(g, this.designH - 48);
-    return Math.max(this.designH * 0.72, g);
+    return scaledGroundY(this.cfg, this.designH);
+  }
+
+  private authorH() {
+    return runnerAuthorHeight(this.cfg);
   }
 
   private computeMaxAttempts() {
@@ -216,7 +219,7 @@ export class RunnerEngine {
 
   jump() {
     if (this.state !== "playing" || !this.onGround) return;
-    const h = this.cfg.character.jumpHeight;
+    const h = scaleRunnerSize(this.cfg.character.jumpHeight, this.designH, this.authorH());
     this.charVy = -Math.sqrt(2 * GRAVITY * h);
     this.onGround = false;
   }
@@ -249,6 +252,8 @@ export class RunnerEngine {
           this.countdownAcc = 0;
         } else {
           this.updateSessionBest();
+          this.damageFlash = 0;
+          this.pickupGlow = 0;
           this.state = "ended";
         }
       }
@@ -263,6 +268,8 @@ export class RunnerEngine {
       if (this.timeLeft <= 0) {
         this.timeLeft = 0;
         this.updateSessionBest();
+        this.damageFlash = 0;
+        this.pickupGlow = 0;
         this.state = "ended";
         this.items = [];
         return;
@@ -301,8 +308,8 @@ export class RunnerEngine {
     if (this.invincible > 0) this.invincible = Math.max(0, this.invincible - dt);
 
     const cx = this.charX;
-    const cw = this.cfg.character.width;
-    const ch = this.cfg.character.height;
+    const cw = scaleRunnerSize(this.cfg.character.width, this.designH, this.authorH());
+    const ch = scaleRunnerSize(this.cfg.character.height, this.designH, this.authorH());
     const charLeft = cx - cw / 2;
     const charRight = cx + cw / 2;
     const charTop = this.charY - ch;
@@ -359,7 +366,9 @@ export class RunnerEngine {
     }
     const dmg = fx.removeHealth ? fx.healthAmount : 1;
     this.health = Math.max(0, this.health - dmg);
-    this.damageFlash = 0.35;
+    if (this.cfg.feedback.damageFlashEnabled !== false) {
+      this.damageFlash = 0.35;
+    }
     this.invincible = INVINCIBLE_SEC;
     if (this.health <= 0) {
       this.onHealthDepleted();
@@ -378,16 +387,19 @@ export class RunnerEngine {
     const list = kind === "positive" ? this.cfg.items.positive : this.cfg.items.negative;
     const variant = pickRandomVariant(list);
     if (!variant) return;
+    const authorH = this.authorH();
     const worldX = this.scrollOffset + this.designW + 120 + Math.random() * 80;
-    const y = variant.y > 0 ? variant.y : this.groundY;
+    const y = variant.y > 0 ? scaleRunnerY(variant.y, this.designH, authorH) : this.groundY;
+    const width = scaleRunnerSize(variant.width, this.designH, authorH);
+    const height = scaleRunnerSize(variant.height, this.designH, authorH);
     this.items.push({
       id: this.nextId++,
       kind,
       variantId: variant.id,
       worldX,
       y,
-      width: variant.width,
-      height: variant.height,
+      width,
+      height,
       effects: variant.effects,
     });
   }

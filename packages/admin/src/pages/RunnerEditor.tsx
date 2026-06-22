@@ -341,6 +341,22 @@ function ParallaxLayerEditor({
               }}
             />
           </label>
+          <label className="muted" style={{ fontSize: "0.82rem" }}>
+            Height
+            <input
+              type="number"
+              min={0}
+              max={800}
+              value={layer.height ?? 0}
+              style={{ width: 72, marginLeft: 4 }}
+              title="Draw height in px (0 = auto from image)"
+              onChange={(e) => {
+                const next = [...rows];
+                next[i] = { ...next[i], height: Number(e.target.value) || 0 };
+                onChange(next);
+              }}
+            />
+          </label>
           <button type="button" className="btn" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
             Remove
           </button>
@@ -351,7 +367,7 @@ function ParallaxLayerEditor({
           type="button"
           className="btn"
           onClick={() =>
-            onChange([...rows, { id: newParallaxId(), url: "", speed: 0.5, y: 0 }])
+            onChange([...rows, { id: newParallaxId(), url: "", speed: 0.5, y: 0, height: 0 }])
           }
         >
           Add parallax layer
@@ -950,6 +966,18 @@ export default function RunnerEditor() {
             onChange={(e) => patch((g) => ({ ...g, intro: { ...g.intro, nextLabel: e.target.value } }))}
           />
           <label className="field" style={{ marginTop: 12 }}>
+            Points label (intro)
+          </label>
+          <input
+            value={game.intro.pointsLabel}
+            placeholder="Pts"
+            maxLength={16}
+            onChange={(e) => patch((g) => ({ ...g, intro: { ...g.intro, pointsLabel: e.target.value } }))}
+          />
+          <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0" }}>
+            Shown after positive item values, e.g. +1 Pts or +5 Coins.
+          </p>
+          <label className="field" style={{ marginTop: 12 }}>
             Linked leaderboard (slug)
           </label>
           <select
@@ -1236,6 +1264,19 @@ export default function RunnerEditor() {
 
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Feedback</h3>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <input
+              type="checkbox"
+              checked={game.feedback.damageFlashEnabled !== false}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  feedback: { ...g.feedback, damageFlashEnabled: e.target.checked },
+                }))
+              }
+            />
+            Damage flash on hit
+          </label>
           <HexField
             label="Damage flash hex"
             value={game.feedback.damageFlashHex}
@@ -1358,6 +1399,19 @@ export default function RunnerEditor() {
             value={game.endScreen.subheadHex}
             onChange={(v) => patch((g) => ({ ...g, endScreen: { ...g.endScreen, subheadHex: v } }))}
           />
+          <label className="field" style={{ marginTop: 12 }}>
+            Overlay colour (CSS)
+          </label>
+          <input
+            value={game.endScreen.overlayHex}
+            placeholder="rgba(8, 14, 22, 0.88)"
+            onChange={(e) =>
+              patch((g) => ({ ...g, endScreen: { ...g.endScreen, overlayHex: e.target.value } }))
+            }
+          />
+          <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0" }}>
+            Fades in over the frozen game; starts from damage flash if enabled.
+          </p>
           <HexField
             label="Button hex"
             value={game.endScreen.buttonHex}

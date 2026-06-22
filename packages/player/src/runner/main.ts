@@ -29,6 +29,7 @@ import {
   needsLandscapeLock,
   pickRunnerOrientation,
 } from "./layout";
+import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY } from "./coords";
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
@@ -218,6 +219,8 @@ function applyTheme(c: RunnerConfig) {
   const endBg = pickEndBackgroundUrl(c);
   root.style.setProperty("--runner-end-bg-solid", c.backgroundHex || "#0f1a24");
   root.style.setProperty("--runner-end-bg-image", endBg ? `url("${endBg}")` : "none");
+  root.style.setProperty("--runner-end-overlay", end.overlayHex || "rgba(8, 14, 22, 0.88)");
+  root.style.setProperty("--runner-end-flash-start", "transparent");
 
   els.endHeadline.textContent = end.headline || "Run complete!";
   els.endSubhead.textContent = end.subhead || "";
@@ -247,11 +250,11 @@ function applyTheme(c: RunnerConfig) {
   els.introPositiveText.textContent = intro.positiveLine || "Collect these for bonuses";
   els.introNegativeText.textContent = intro.negativeLine || "Avoid these obstacles";
   els.introNext.textContent = intro.nextLabel || "Next";
-  renderIntroVariants(els.introPositiveList, c.items.positive, "runner-intro__sprite--positive");
+  renderIntroVariants(els.introPositiveList, c.items.positive, "runner-intro__sprite--positive", false, c);
   const hasNegative = c.items.negative.some((v) => v.url);
   els.introNegativeWrap.hidden = !hasNegative;
   if (hasNegative) {
-    renderIntroVariants(els.introNegativeList, c.items.negative, "runner-intro__sprite--negative", true);
+    renderIntroVariants(els.introNegativeList, c.items.negative, "runner-intro__sprite--negative", true, c);
   } else {
     els.introNegativeList.innerHTML = "";
   }
@@ -317,6 +320,7 @@ function renderIntroVariants(
   variants: RunnerItemVariant[],
   placeholderClass: string,
   negative = false,
+  c?: RunnerConfig,
 ) {
   container.innerHTML = "";
   const usable = variants.filter((v) => v.url);
@@ -335,16 +339,17 @@ function renderIntroVariants(
     img.alt = "";
     const pts = document.createElement("p");
     pts.className = "runner-intro__points";
-    pts.textContent = variantIntroLabel(v, negative);
+    pts.textContent = variantIntroLabel(v, negative, c);
     row.appendChild(img);
     row.appendChild(pts);
     container.appendChild(row);
   }
 }
 
-function variantIntroLabel(v: RunnerItemVariant, negative: boolean) {
+function variantIntroLabel(v: RunnerItemVariant, negative: boolean, c?: RunnerConfig) {
   const fx = v.effects;
-  if (fx.addPoints) return fx.pointsAmount === 1 ? "+1" : `+${fx.pointsAmount}`;
+  const ptsLabel = (c?.intro.pointsLabel || "Pts").trim() || "Pts";
+  if (fx.addPoints) return fx.pointsAmount === 1 ? `+1 ${ptsLabel}` : `+${fx.pointsAmount} ${ptsLabel}`;
   if (fx.removePoints) return `−${fx.pointsAmount}`;
   if (fx.addHealth) return `+${fx.healthAmount} ♥`;
   if (fx.removeHealth) return `−${fx.healthAmount} ♥`;
@@ -514,7 +519,7 @@ function updateHud() {
     const cur = engine.health;
     if (cfg.hud.healthDisplay === "bar") {
       const pct = max > 0 ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
-      hudRefs.health.innerHTML = `<div class="runner-hud__bar"><div class="runner-hud__bar-fill" style="width:${pct}%"></div></div>`;
+      hudRefs.health.innerHTML = `<div class="runner-health-bar"><div class="runner-health-bar__fill" style="width:${pct}%"></div></div>`;
     } else {
       hudRefs.health.innerHTML = "";
       for (let i = 0; i < max; i++) {
@@ -522,6 +527,7 @@ function updateHud() {
         heart.className =
           i < cur ? "runner-hud__heart runner-hud__heart--full" : "runner-hud__heart runner-hud__heart--empty";
         heart.textContent = "♥";
+        heart.style.color = i < cur ? cfg.hud.healthHex : cfg.hud.healthEmptyHex;
         hudRefs.health.appendChild(heart);
       }
     }
@@ -545,9 +551,19 @@ async function submitToLeaderboard() {
 
 async function showEndUi() {
   if (!engine || !cfg) return;
+  const flashStart =
+    cfg.feedback.damageFlashEnabled !== false && engine.damageFlash > 0
+      ? hexWithAlpha(cfg.feedback.damageFlashHex, 0.45)
+      : "transparent";
+  document.documentElement.style.setProperty("--runner-end-flash-start", flashStart);
+  engine.damageFlash = 0;
+  engine.pickupGlow = 0;
   els.nameScreen.hidden = true;
   els.intro.hidden = true;
   els.end.hidden = false;
+  els.end.classList.remove("runner-end--animate");
+  void els.end.offsetWidth;
+  els.end.classList.add("runner-end--animate");
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.jumpHint.hidden = true;
@@ -782,6 +798,8 @@ function hexWithAlpha(hex: string, alpha: number) {
 function drawCharacter(c: RunnerConfig) {
   if (!ctx || !engine) return;
   const char = c.character;
+  const authorH = runnerAuthorHeight(c);
+  const { h: designH } = getRunnerDesignSize();
   let sheet: RunnerSpriteSheet;
   let frame = 0;
 
@@ -802,8 +820,8 @@ function drawCharacter(c: RunnerConfig) {
   const img = sheet.url ? imageCache.get(sheet.url) : null;
   const feetX = engine.charX;
   const feetY = engine.charY;
-  const w = char.width;
-  const h = char.height;
+  const w = scaleRunnerSize(char.width, designH, authorH);
+  const h = scaleRunnerSize(char.height, designH, authorH);
 
   if (img && img.complete && img.naturalWidth) {
     drawSpriteFrame(ctx, img, sheet, frame, feetX, feetY, w, h);
@@ -856,6 +874,7 @@ function drawFrame() {
   updateHud();
 
   const { w: designW, h: designH } = getRunnerDesignSize();
+  const authorH = runnerAuthorHeight(cfg);
   ctx.clearRect(0, 0, designW, designH);
 
   const scroll = engine.scrollOffset;
@@ -864,14 +883,20 @@ function drawFrame() {
     const img = layer.url ? imageCache.get(layer.url) : null;
     if (!img?.complete || !img.naturalWidth) continue;
     const layerScroll = scroll * layer.speed;
-    const destH = img.naturalHeight;
-    drawLoopingStrip(ctx, img, layerScroll, layer.y, destH, designW);
+    const layerY = scaleRunnerY(layer.y, designH, authorH);
+    const destH =
+      layer.height > 0
+        ? scaleRunnerSize(layer.height, designH, authorH)
+        : scaleRunnerSize(img.naturalHeight, designH, authorH);
+    drawLoopingStrip(ctx, img, layerScroll, layerY, destH, designW);
   }
 
   if (cfg.ground.enabled && cfg.ground.url) {
     const gImg = imageCache.get(cfg.ground.url);
     if (gImg?.complete && gImg.naturalWidth) {
-      drawLoopingStrip(ctx, gImg, scroll, cfg.ground.y, cfg.ground.height, designW);
+      const groundY = scaleRunnerY(cfg.ground.y, designH, authorH);
+      const groundH = scaleRunnerSize(cfg.ground.height, designH, authorH);
+      drawLoopingStrip(ctx, gImg, scroll, groundY, groundH, designW);
     }
   }
 
@@ -885,7 +910,7 @@ function drawFrame() {
     if (item.kind === "negative") drawItem(cfg, item, scroll);
   }
 
-  if (engine.damageFlash > 0) {
+  if (engine.damageFlash > 0 && cfg.feedback.damageFlashEnabled !== false) {
     const alpha = Math.min(1, engine.damageFlash / 0.35) * 0.45;
     ctx.fillStyle = hexWithAlpha(cfg.feedback.damageFlashHex, alpha);
     ctx.fillRect(0, 0, designW, designH);
