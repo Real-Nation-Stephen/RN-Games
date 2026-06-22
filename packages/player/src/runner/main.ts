@@ -3,6 +3,8 @@ import {
   type RunnerItemVariant,
   type RunnerSpriteSheet,
   runnerCharacterList,
+  runnerSheetFrameCount,
+  runnerSheetFrameRect,
 } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
 import { submitLinkedScore } from "../leaderboard/api";
@@ -768,12 +770,6 @@ function bindInput() {
   unbindKeyboard = bindRunnerKeyboard();
 }
 
-function sheetFrameCount(sheet: RunnerSpriteSheet, img: HTMLImageElement) {
-  const cols = Math.max(1, Math.floor(img.naturalWidth / sheet.cellWidth));
-  const rows = Math.max(1, Math.floor(img.naturalHeight / sheet.cellHeight));
-  return cols * rows;
-}
-
 function drawSpriteFrame(
   context: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -784,24 +780,13 @@ function drawSpriteFrame(
   destW: number,
   destH: number,
 ) {
-  const cols = Math.max(1, Math.floor(img.naturalWidth / sheet.cellWidth));
-  const total = sheetFrameCount(sheet, img);
-  const frame = ((frameIndex % total) + total) % total;
-  const col = frame % cols;
-  const row = Math.floor(frame / cols);
-  const sx = col * sheet.cellWidth;
-  const sy = row * sheet.cellHeight;
-  context.drawImage(
-    img,
-    sx,
-    sy,
-    sheet.cellWidth,
-    sheet.cellHeight,
-    feetX - destW / 2,
-    feetY - destH,
-    destW,
-    destH,
+  const { sx, sy, sw, sh } = runnerSheetFrameRect(
+    sheet,
+    frameIndex,
+    img.naturalWidth,
+    img.naturalHeight,
   );
+  context.drawImage(img, sx, sy, sw, sh, feetX - destW / 2, feetY - destH, destW, destH);
 }
 
 function drawImageContain(
@@ -946,7 +931,7 @@ function paintCharSelectPreviews(dt: number) {
       ctx2.fillRect(40, 20, 40, 80);
       return;
     }
-    const total = sheetFrameCount(sheet, img);
+    const total = runnerSheetFrameCount(sheet, img.naturalWidth, img.naturalHeight);
     const fps = 3;
     const frame = Math.floor(charSelectAnimAcc * fps) % total;
     const destH = Math.min(canvas.height - 8, char.height);
@@ -986,12 +971,16 @@ function drawCharacter() {
   if (engine.state === "dying") {
     sheet = char.death;
     const deathImg = sheet.url ? imageCache.get(sheet.url) : null;
-    const total = deathImg ? sheetFrameCount(sheet, deathImg) : 1;
+    const total = deathImg
+      ? runnerSheetFrameCount(sheet, deathImg.naturalWidth, deathImg.naturalHeight)
+      : 1;
     frame = Math.min(total - 1, Math.floor(engine.deathAnimAcc / 0.12));
   } else if (engine.state === "playing" && !engine.onGround) {
     sheet = char.jump;
     const jumpImg = sheet.url ? imageCache.get(sheet.url) : null;
-    const total = jumpImg ? sheetFrameCount(sheet, jumpImg) : 1;
+    const total = jumpImg
+      ? runnerSheetFrameCount(sheet, jumpImg.naturalWidth, jumpImg.naturalHeight)
+      : 1;
     frame = Math.min(total - 1, engine.jumpAnimFrame);
   } else {
     sheet = char.run;

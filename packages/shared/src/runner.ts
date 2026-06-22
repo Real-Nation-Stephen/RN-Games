@@ -343,6 +343,50 @@ function emptySpriteSheet(): RunnerSpriteSheet {
   return { url: "", cellWidth: 64, cellHeight: 64 };
 }
 
+/** Horizontal strip frame count; single-frame PNGs always return 1. */
+export function runnerSheetFrameCount(
+  sheet: RunnerSpriteSheet,
+  imgW: number,
+  imgH: number,
+): number {
+  if (imgW <= 0 || imgH <= 0) return 1;
+  const cellW = Math.max(1, sheet.cellWidth);
+  if (imgW <= cellW) return 1;
+  return Math.max(1, Math.min(RUNNER_MAX_SHEET_FRAMES, Math.floor(imgW / cellW)));
+}
+
+/** Source rect for a frame; uses the full PNG when only one frame. */
+export function runnerSheetFrameRect(
+  sheet: RunnerSpriteSheet,
+  frameIndex: number,
+  imgW: number,
+  imgH: number,
+): { sx: number; sy: number; sw: number; sh: number } {
+  if (imgW <= 0 || imgH <= 0) return { sx: 0, sy: 0, sw: 1, sh: 1 };
+  const total = runnerSheetFrameCount(sheet, imgW, imgH);
+  if (total <= 1) return { sx: 0, sy: 0, sw: imgW, sh: imgH };
+
+  const cellW = Math.max(1, sheet.cellWidth);
+  const cellH = Math.max(1, sheet.cellHeight);
+  const frame = ((frameIndex % total) + total) % total;
+  const sx = frame * cellW;
+  return {
+    sx,
+    sy: 0,
+    sw: Math.min(cellW, imgW - sx),
+    sh: Math.min(cellH, imgH),
+  };
+}
+
+/** Default cell size when a sprite PNG is first uploaded. */
+export function inferRunnerSpriteSheetCells(imgW: number, imgH: number) {
+  if (imgW <= 0 || imgH <= 0) return { cellWidth: 64, cellHeight: 64 };
+  return {
+    cellWidth: Math.min(RUNNER_MAX_SPRITE_CELL, imgW),
+    cellHeight: Math.min(RUNNER_MAX_SPRITE_CELL, imgH),
+  };
+}
+
 export function emptyRunner(partial: { id: string; slug: string }): RunnerRecord {
   const starter = emptyRunnerCharacter();
   return {

@@ -10,6 +10,8 @@ import {
   emptyRunnerCharacter,
   normalizeRunner,
   emptyRunnerItemEffects,
+  inferRunnerSpriteSheetCells,
+  runnerSheetFrameCount,
   type RunnerRecord,
   type RunnerCharacter,
   type RunnerItemVariant,
@@ -474,6 +476,25 @@ function SpriteSheetRow({
   sheet: RunnerSpriteSheet;
   onChange: (next: RunnerSpriteSheet) => void;
 }) {
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!sheet.url) {
+      setImgSize(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => setImgSize(null);
+    img.src = sheet.url;
+  }, [sheet.url]);
+
+  const frameCount =
+    imgSize != null ? runnerSheetFrameCount(sheet, imgSize.w, imgSize.h) : null;
+
+  const clampCell = (value: number, fallback: number) =>
+    Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(value) || fallback));
+
   return (
     <div style={{ marginTop: 12 }}>
       <label className="field">{label}</label>
@@ -484,7 +505,13 @@ function SpriteSheetRow({
           const f = e.target.files?.[0];
           if (!f) return;
           const { url } = await uploadFile(f);
-          onChange({ ...sheet, url });
+          const probe = new Image();
+          probe.onload = () => {
+            const cells = inferRunnerSpriteSheetCells(probe.naturalWidth, probe.naturalHeight);
+            onChange({ ...sheet, url, cellWidth: cells.cellWidth, cellHeight: cells.cellHeight });
+          };
+          probe.onerror = () => onChange({ ...sheet, url });
+          probe.src = url;
         }}
       />
       {sheet.url ? <span className="muted"> ✓</span> : null}
@@ -497,7 +524,9 @@ function SpriteSheetRow({
             max={RUNNER_MAX_SPRITE_CELL}
             value={sheet.cellWidth}
             style={{ width: 72, marginLeft: 4 }}
-            onChange={(e) => onChange({ ...sheet, cellWidth: Number(e.target.value) || 64 })}
+            onChange={(e) =>
+              onChange({ ...sheet, cellWidth: clampCell(Number(e.target.value), sheet.cellWidth) })
+            }
           />
         </label>
         <label className="muted" style={{ fontSize: "0.82rem" }}>
@@ -508,12 +537,56 @@ function SpriteSheetRow({
             max={RUNNER_MAX_SPRITE_CELL}
             value={sheet.cellHeight}
             style={{ width: 72, marginLeft: 4 }}
-            onChange={(e) => onChange({ ...sheet, cellHeight: Number(e.target.value) || 64 })}
+            onChange={(e) =>
+              onChange({ ...sheet, cellHeight: clampCell(Number(e.target.value), sheet.cellHeight) })
+            }
           />
         </label>
       </div>
+      {sheet.url && imgSize ? (
+        <div style={{ marginTop: 10 }}>
+          <div
+            style={{
+              position: "relative",
+              display: "inline-block",
+              maxWidth: 320,
+              borderRadius: 8,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.06)",
+            }}
+          >
+            <img
+              src={sheet.url}
+              alt=""
+              style={{ display: "block", width: "100%", height: "auto", imageRendering: "pixelated" }}
+            />
+            {frameCount && frameCount > 0
+              ? Array.from({ length: frameCount }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      left: `${((i * sheet.cellWidth) / imgSize.w) * 100}%`,
+                      top: 0,
+                      width: `${(sheet.cellWidth / imgSize.w) * 100}%`,
+                      height: `${(Math.min(sheet.cellHeight, imgSize.h) / imgSize.h) * 100}%`,
+                      border: "2px solid rgba(62, 207, 142, 0.9)",
+                      boxSizing: "border-box",
+                      pointerEvents: "none",
+                    }}
+                  />
+                ))
+              : null}
+          </div>
+          <p className="muted" style={{ fontSize: "0.78rem", margin: "6px 0 0" }}>
+            {frameCount} frame{frameCount === 1 ? "" : "s"} · sheet {imgSize.w}×{imgSize.h}px · cell{" "}
+            {sheet.cellWidth}×{sheet.cellHeight}px
+          </p>
+        </div>
+      ) : null}
       <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0" }}>
-        Up to {RUNNER_MAX_SHEET_FRAMES} frames in a horizontal strip.
+        Horizontal strip (left to right). Cell width and height can differ for non-square sprites. Single-frame
+        PNGs use the full image.
       </p>
     </div>
   );
