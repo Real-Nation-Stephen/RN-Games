@@ -362,7 +362,9 @@ function variantIntroLabel(v: RunnerItemVariant, negative: boolean, c?: RunnerCo
   const fx = v.effects;
   const ptsLabel = (c?.intro.pointsLabel || "Pts").trim() || "Pts";
   if (fx.addPoints) return fx.pointsAmount === 1 ? `+1 ${ptsLabel}` : `+${fx.pointsAmount} ${ptsLabel}`;
-  if (fx.removePoints) return `−${fx.pointsAmount}`;
+  if (fx.removePoints) {
+    return fx.pointsAmount === 1 ? `−1 ${ptsLabel}` : `−${fx.pointsAmount} ${ptsLabel}`;
+  }
   if (fx.addHealth) return `+${fx.healthAmount} ♥`;
   if (fx.removeHealth) return `−${fx.healthAmount} ♥`;
   if (fx.addTime) return `+${fx.timeAmount}s`;
@@ -921,7 +923,9 @@ function drawFrame() {
     if (item.kind === "positive") drawItem(cfg, item, scroll);
   }
 
-  drawCharacter(cfg);
+  if (engine.state !== "ended") {
+    drawCharacter(cfg);
+  }
 
   for (const item of engine.items) {
     if (item.kind === "negative") drawItem(cfg, item, scroll);

@@ -7,7 +7,7 @@ import {
 import type { RunnerOrientation } from "./types";
 
 const RUNNER_BANNER_H = 132;
-const RUNNER_HUD_TOP = 148;
+const RUNNER_HUD_TOP = 156;
 
 let runnerScale = 1;
 let runnerOffsetX = 0;

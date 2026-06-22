@@ -272,6 +272,13 @@ export class RunnerEngine {
       return;
     }
 
+    if (this.state === "ended") {
+      const speed = this.scrollSpeed();
+      this.scrollOffset += speed * dt;
+      this.distance += speed * dt;
+      return;
+    }
+
     if (this.state !== "playing") return;
 
     this.elapsedSec += dt;
@@ -384,15 +391,16 @@ export class RunnerEngine {
     if (fx.removeTime && this.cfg.gameplay.timerEnabled) {
       this.timeLeft = Math.max(0, this.timeLeft - fx.timeAmount);
     }
-    const dmg = fx.removeHealth ? fx.healthAmount : 1;
-    this.health = Math.max(0, this.health - dmg);
+    if (fx.removeHealth) {
+      this.health = Math.max(0, this.health - fx.healthAmount);
+      if (this.health <= 0) {
+        this.onHealthDepleted();
+      }
+    }
     if (this.cfg.feedback.damageFlashEnabled !== false) {
       this.damageFlash = 0.35;
     }
     this.invincible = INVINCIBLE_SEC;
-    if (this.health <= 0) {
-      this.onHealthDepleted();
-    }
   }
 
   private onHealthDepleted() {
