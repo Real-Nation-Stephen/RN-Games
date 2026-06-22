@@ -9,7 +9,12 @@ export const RUNNER_LANDSCAPE_H = 1080;
 
 export const RUNNER_MAX_PARALLAX_LAYERS = 5;
 export const RUNNER_MAX_CHARACTERS = 8;
-export const RUNNER_MAX_SPRITE_CELL = 512;
+/** Max sprite cell width (one frame in a horizontal strip). */
+export const RUNNER_MAX_SPRITE_CELL_W = 1024;
+/** Max sprite cell height (tall single-frame sprites). */
+export const RUNNER_MAX_SPRITE_CELL_H = 2048;
+/** @deprecated Use RUNNER_MAX_SPRITE_CELL_W */
+export const RUNNER_MAX_SPRITE_CELL = RUNNER_MAX_SPRITE_CELL_W;
 export const RUNNER_MAX_SHEET_FRAMES = 32;
 
 export const RUNNER_BG_SIZE_HINTS = {
@@ -245,12 +250,12 @@ export function normalizeRunnerCharacter(
   c.run = { ...defaults.run, ...(c.run || {}) };
   c.jump = { ...defaults.jump, ...(c.jump || {}) };
   c.death = { ...defaults.death, ...(c.death || {}) };
-  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellWidth) || 64));
-  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellHeight) || 64));
-  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellWidth) || c.run.cellWidth));
-  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellHeight) || c.run.cellHeight));
-  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellWidth) || c.run.cellWidth));
-  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellHeight) || c.run.cellHeight));
+  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.run.cellWidth) || 64));
+  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.run.cellHeight) || 64));
+  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.jump.cellWidth) || c.run.cellWidth));
+  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.jump.cellHeight) || c.run.cellHeight));
+  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.death.cellWidth) || c.run.cellWidth));
+  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.death.cellHeight) || c.run.cellHeight));
   c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
   c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
   c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
@@ -382,8 +387,8 @@ export function runnerSheetFrameRect(
 export function inferRunnerSpriteSheetCells(imgW: number, imgH: number) {
   if (imgW <= 0 || imgH <= 0) return { cellWidth: 64, cellHeight: 64 };
   return {
-    cellWidth: Math.min(RUNNER_MAX_SPRITE_CELL, imgW),
-    cellHeight: Math.min(RUNNER_MAX_SPRITE_CELL, imgH),
+    cellWidth: Math.min(RUNNER_MAX_SPRITE_CELL_W, imgW),
+    cellHeight: Math.min(RUNNER_MAX_SPRITE_CELL_H, imgH),
   };
 }
 

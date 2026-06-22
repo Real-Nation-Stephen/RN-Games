@@ -6,6 +6,8 @@ import {
   RUNNER_MAX_CHARACTERS,
   RUNNER_MAX_PARALLAX_LAYERS,
   RUNNER_MAX_SPRITE_CELL,
+  RUNNER_MAX_SPRITE_CELL_H,
+  RUNNER_MAX_SPRITE_CELL_W,
   RUNNER_MAX_SHEET_FRAMES,
   emptyRunnerCharacter,
   normalizeRunner,
@@ -492,8 +494,14 @@ function SpriteSheetRow({
   const frameCount =
     imgSize != null ? runnerSheetFrameCount(sheet, imgSize.w, imgSize.h) : null;
 
-  const clampCell = (value: number, fallback: number) =>
-    Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(value) || fallback));
+  const maxCellW = imgSize ? Math.min(RUNNER_MAX_SPRITE_CELL_W, imgSize.w) : RUNNER_MAX_SPRITE_CELL_W;
+  const maxCellH = imgSize ? Math.min(RUNNER_MAX_SPRITE_CELL_H, imgSize.h) : RUNNER_MAX_SPRITE_CELL_H;
+
+  const clampCellW = (value: number, fallback: number) =>
+    Math.max(8, Math.min(maxCellW, Number(value) || fallback));
+
+  const clampCellH = (value: number, fallback: number) =>
+    Math.max(8, Math.min(maxCellH, Number(value) || fallback));
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -521,11 +529,11 @@ function SpriteSheetRow({
           <input
             type="number"
             min={8}
-            max={RUNNER_MAX_SPRITE_CELL}
+            max={maxCellW}
             value={sheet.cellWidth}
             style={{ width: 72, marginLeft: 4 }}
             onChange={(e) =>
-              onChange({ ...sheet, cellWidth: clampCell(Number(e.target.value), sheet.cellWidth) })
+              onChange({ ...sheet, cellWidth: clampCellW(Number(e.target.value), sheet.cellWidth) })
             }
           />
         </label>
@@ -534,11 +542,11 @@ function SpriteSheetRow({
           <input
             type="number"
             min={8}
-            max={RUNNER_MAX_SPRITE_CELL}
+            max={maxCellH}
             value={sheet.cellHeight}
             style={{ width: 72, marginLeft: 4 }}
             onChange={(e) =>
-              onChange({ ...sheet, cellHeight: clampCell(Number(e.target.value), sheet.cellHeight) })
+              onChange({ ...sheet, cellHeight: clampCellH(Number(e.target.value), sheet.cellHeight) })
             }
           />
         </label>

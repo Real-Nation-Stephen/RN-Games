@@ -2,7 +2,9 @@
 
 export const RUNNER_MAX_PARALLAX_LAYERS = 5;
 export const RUNNER_MAX_CHARACTERS = 8;
-export const RUNNER_MAX_SPRITE_CELL = 512;
+export const RUNNER_MAX_SPRITE_CELL_W = 1024;
+export const RUNNER_MAX_SPRITE_CELL_H = 2048;
+export const RUNNER_MAX_SPRITE_CELL = RUNNER_MAX_SPRITE_CELL_W;
 
 function emptyItemEffects(negative = false) {
   return negative
@@ -86,12 +88,12 @@ function normalizeCharacter(raw, defaults, index) {
   c.run = { ...defaults.run, ...(c.run || {}) };
   c.jump = { ...defaults.jump, ...(c.jump || {}) };
   c.death = { ...defaults.death, ...(c.death || {}) };
-  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellWidth) || 64));
-  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.run.cellHeight) || 64));
-  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellWidth) || c.run.cellWidth));
-  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.jump.cellHeight) || c.run.cellHeight));
-  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellWidth) || c.run.cellWidth));
-  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL, Number(c.death.cellHeight) || c.run.cellHeight));
+  c.run.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.run.cellWidth) || 64));
+  c.run.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.run.cellHeight) || 64));
+  c.jump.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.jump.cellWidth) || c.run.cellWidth));
+  c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.jump.cellHeight) || c.run.cellHeight));
+  c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.death.cellWidth) || c.run.cellWidth));
+  c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.death.cellHeight) || c.run.cellHeight));
   c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
   c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
   c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
