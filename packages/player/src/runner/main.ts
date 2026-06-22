@@ -27,6 +27,7 @@ import {
   bindRunnerLayout,
   getRunnerDesignSize,
   getRunnerSceneScale,
+  getRunnerSceneStripBleed,
   layoutRunnerBanner,
   layoutRunnerHud,
   layoutRunnerStage,
@@ -825,7 +826,8 @@ function drawLoopingStrip(
   scrollX: number,
   y: number,
   destH: number,
-  viewportW: number,
+  drawX: number,
+  drawW: number,
 ) {
   const ih = img.naturalHeight || 1;
   const iw = img.naturalWidth || 1;
@@ -833,9 +835,26 @@ function drawLoopingStrip(
   const tileW = iw * scale;
   if (tileW <= 0) return;
   const offset = ((scrollX % tileW) + tileW) % tileW;
-  for (let x = -offset; x < viewportW + tileW; x += tileW) {
+  const startX = drawX - offset;
+  const endX = drawX + drawW + tileW;
+  for (let x = startX; x < endX; x += tileW) {
     context.drawImage(img, x, y, tileW, destH);
   }
+}
+
+function drawCanvasBackdrop(c: RunnerConfig, designW: number, designH: number) {
+  if (!ctx) return;
+  ctx.fillStyle = c.backgroundHex || "#87c38f";
+  ctx.fillRect(0, 0, designW, designH);
+  const url = pickBackgroundUrl(c);
+  const img = url ? imageCache.get(url) : null;
+  if (!img?.complete || !img.naturalWidth) return;
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+  const cover = Math.max(designW / iw, designH / ih);
+  const w = iw * cover;
+  const h = ih * cover;
+  ctx.drawImage(img, (designW - w) / 2, 0, w, h);
 }
 
 function drawItem(
@@ -942,6 +961,8 @@ function drawParallaxLayers(
   designW: number,
   designH: number,
   authorH: number,
+  stripX: number,
+  stripW: number,
 ) {
   if (!ctx) return;
   for (const layer of layers) {
@@ -950,7 +971,7 @@ function drawParallaxLayers(
     const layerScroll = scroll * layer.speed;
     const layerY = scaleRunnerY(layer.y, designH, authorH);
     const destH = parallaxDrawHeight(layer.height, img.naturalHeight, designH, authorH);
-    drawLoopingStrip(ctx, img, layerScroll, layerY, destH, designW);
+    drawLoopingStrip(ctx, img, layerScroll, layerY, destH, stripX, stripW);
   }
 }
 
@@ -1042,10 +1063,10 @@ function drawFrame() {
   const { w: designW, h: designH } = getRunnerDesignSize();
   const authorH = runnerAuthorHeight(engine.activeCharacter().groundY);
   const sceneScale = getRunnerSceneScale();
+  const stripBleed = getRunnerSceneStripBleed(designW, designH);
   ctx.clearRect(0, 0, designW, designH);
   if (sceneScale !== 1) {
-    ctx.fillStyle = cfg.backgroundHex || "#87c38f";
-    ctx.fillRect(0, 0, designW, designH);
+    drawCanvasBackdrop(cfg, designW, designH);
   }
 
   ctx.save();
@@ -1059,7 +1080,15 @@ function drawFrame() {
   const backLayers = cfg.parallax.filter((l) => !l.renderInFront);
   const frontLayers = cfg.parallax.filter((l) => l.renderInFront);
 
-  drawParallaxLayers(backLayers, scroll, designW, designH, authorH);
+  drawParallaxLayers(
+    backLayers,
+    scroll,
+    designW,
+    designH,
+    authorH,
+    stripBleed.x,
+    stripBleed.width,
+  );
 
   if (cfg.ground.enabled && cfg.ground.url) {
     const gImg = imageCache.get(cfg.ground.url);
@@ -1067,7 +1096,7 @@ function drawFrame() {
       const groundY = scaleRunnerY(cfg.ground.y, designH, authorH);
       const groundH = scaleRunnerSize(cfg.ground.height, designH, authorH);
       const extendH = Math.max(groundH, designH - groundY);
-      drawLoopingStrip(ctx, gImg, scroll, groundY, extendH, designW);
+      drawLoopingStrip(ctx, gImg, scroll, groundY, extendH, stripBleed.x, stripBleed.width);
     }
   }
 
@@ -1083,7 +1112,15 @@ function drawFrame() {
     if (item.kind === "negative") drawItem(cfg, item, scroll);
   }
 
-  drawParallaxLayers(frontLayers, scroll, designW, designH, authorH);
+  drawParallaxLayers(
+    frontLayers,
+    scroll,
+    designW,
+    designH,
+    authorH,
+    stripBleed.x,
+    stripBleed.width,
+  );
 
   ctx.restore();
 

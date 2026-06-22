@@ -38,6 +38,15 @@ export function getRunnerSceneScale() {
   return isMobilePortrait() ? MOBILE_SCENE_SCALE : 1;
 }
 
+/** Extra horizontal draw area so scaled gameplay still covers the canvas sides. */
+export function getRunnerSceneStripBleed(designW: number, designH: number) {
+  const sceneScale = getRunnerSceneScale();
+  if (sceneScale >= 1) return { x: 0, width: designW };
+  const extra = 1 / sceneScale - 1;
+  const padX = (designW * extra) / 2;
+  return { x: -padX, width: designW + padX * 2 };
+}
+
 export function layoutRunnerHud(hud: HTMLElement) {
   const { scale, offsetY } = getRunnerLayoutMetrics();
   const bannerTop = Math.max(0, offsetY);
