@@ -908,8 +908,7 @@ function drawFrame() {
   ctx.clearRect(0, 0, designW, designH);
 
   const scroll = engine.scrollOffset;
-  const sortedParallax = [...cfg.parallax].sort((a, b) => a.y - b.y);
-  for (const layer of sortedParallax) {
+  for (const layer of cfg.parallax) {
     const img = layer.url ? imageCache.get(layer.url) : null;
     if (!img?.complete || !img.naturalWidth) continue;
     const layerScroll = scroll * layer.speed;
