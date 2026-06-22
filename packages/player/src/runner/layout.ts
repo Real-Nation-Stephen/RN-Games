@@ -51,7 +51,8 @@ function viewportSize() {
 }
 
 export function pickRunnerOrientation(): RunnerOrientation {
-  return window.innerWidth < 768 ? "portrait" : "landscape";
+  const { w, h } = viewportSize();
+  return h > w ? "portrait" : "landscape";
 }
 
 export function isTabletViewport() {
@@ -59,8 +60,16 @@ export function isTabletViewport() {
   return w >= 768 && w < 1200;
 }
 
-export function needsLandscapeLock(orientation: RunnerOrientation) {
-  return isTabletViewport() && orientation === "portrait";
+export function needsLandscapeLock(_orientation: RunnerOrientation) {
+  return false;
+}
+
+export function getRunnerVisibleDesignInset() {
+  const { scale, offsetX, designW } = getRunnerLayoutMetrics();
+  const { w: vw } = viewportSize();
+  const left = Math.max(0, -offsetX / scale);
+  const right = Math.min(designW, left + vw / scale);
+  return { left, right, width: right - left };
 }
 
 export function layoutRunnerStage(

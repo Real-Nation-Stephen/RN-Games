@@ -1,6 +1,11 @@
 import type { RunnerItemVariant } from "@rngames/shared";
 import type { RunnerConfig, RunnerGameState, RunnerWorldItem } from "./types";
 import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
+import {
+  getRunnerVisibleDesignInset,
+  isTabletViewport,
+  pickRunnerOrientation,
+} from "./layout";
 
 const BANNER_H = 132;
 const GRAVITY = 2400;
@@ -77,7 +82,16 @@ export class RunnerEngine {
   }
 
   get charX() {
-    return this.designW * CHAR_X_RATIO;
+    const cw = scaleRunnerSize(this.cfg.character.width, this.designH, this.authorH());
+    const defaultX = this.designW * CHAR_X_RATIO;
+    const { left } = getRunnerVisibleDesignInset();
+    const hudPad = pickRunnerOrientation() === "portrait" ? 56 : 48;
+    const safeX = left + hudPad + cw / 2;
+    if (left > 2) return Math.max(defaultX, safeX);
+    if (pickRunnerOrientation() === "portrait" && isTabletViewport()) {
+      return Math.max(defaultX, cw / 2 + hudPad);
+    }
+    return defaultX;
   }
 
   get groundY() {

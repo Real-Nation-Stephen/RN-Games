@@ -176,7 +176,7 @@ export function normalizeRunnerRecord(doc) {
         url: String(l.url || "").trim(),
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
-        height: Math.max(-100, Math.min(800, Number(l.height) || 0)),
+        height: Math.max(-99, Math.min(200, Number(l.height) || 0)),
       };
     })
     .filter((l) => l.url);

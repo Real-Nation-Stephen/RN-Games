@@ -28,7 +28,13 @@ export function scaledGroundY(cfg: { character: { groundY: number } }, designH: 
   return Math.min(designH - 24, Math.max(132 + 60, y));
 }
 
-/** Parallax draw height: 0 = natural, positive = px, negative = % of natural (e.g. -50 = half). */
+/** Parallax scale: 0 = 100%, -50 = 50%, 50 = 150%, -1 = 99%. */
+export function parallaxScaleMultiplier(layerHeight: number) {
+  const mult = (100 + layerHeight) / 100;
+  return Math.max(0.05, Math.min(3, mult));
+}
+
+/** Scaled draw height; width follows image aspect ratio in drawLoopingStrip. */
 export function parallaxDrawHeight(
   layerHeight: number,
   naturalH: number,
@@ -36,7 +42,5 @@ export function parallaxDrawHeight(
   authorH: number,
 ) {
   const naturalScaled = scaleRunnerSize(naturalH, designH, authorH);
-  if (!layerHeight) return naturalScaled;
-  if (layerHeight < 0) return naturalScaled * (Math.abs(layerHeight) / 100);
-  return scaleRunnerSize(layerHeight, designH, authorH);
+  return naturalScaled * parallaxScaleMultiplier(layerHeight);
 }

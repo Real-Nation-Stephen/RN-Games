@@ -44,6 +44,7 @@ const els = {
   hudLeft: document.getElementById("runner-hud-left")!,
   hudCenter: document.getElementById("runner-hud-center")!,
   hudRight: document.getElementById("runner-hud-right")!,
+  hud: document.querySelector(".runner-hud") as HTMLElement,
   jumpHint: document.getElementById("runner-jump-hint")!,
   jumpText: document.getElementById("runner-jump-text")!,
   intro: document.getElementById("runner-intro")!,
@@ -199,7 +200,7 @@ function applyTheme(c: RunnerConfig) {
   const align = b.logoAlign === "left" || b.logoAlign === "right" ? b.logoAlign : "center";
   els.banner.className = `runner-banner runner-banner--${align}`;
   if (b.logoUrl) {
-    els.banner.innerHTML = `<img src="${b.logoUrl}" alt="" />`;
+    els.banner.innerHTML = `<span class="runner-banner__logo"><img src="${b.logoUrl}" alt="" /></span>`;
   } else {
     els.banner.innerHTML = "";
   }
@@ -460,9 +461,14 @@ function updateRotateOverlay() {
   els.rotate.hidden = !show;
 }
 
+function setHudVisible(visible: boolean) {
+  if (els.hud) els.hud.hidden = !visible;
+}
+
 function showNameUi() {
   els.nameScreen.hidden = false;
   els.intro.hidden = true;
+  setHudVisible(false);
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.jumpHint.hidden = true;
@@ -479,6 +485,7 @@ function showNameUi() {
 function showIntroUi() {
   els.nameScreen.hidden = true;
   els.intro.hidden = false;
+  setHudVisible(false);
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.jumpHint.hidden = true;
@@ -490,6 +497,7 @@ function showIntroUi() {
 function showStartUi() {
   els.nameScreen.hidden = true;
   els.intro.hidden = true;
+  setHudVisible(true);
   els.startOverlay.hidden = false;
   els.countdownOverlay.hidden = true;
   els.jumpHint.hidden = false;
@@ -959,7 +967,7 @@ function resizeCanvas() {
 
 function mountGame(c: RunnerConfig) {
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
-  layoutRunnerHud(document.querySelector(".runner-hud") as HTMLElement);
+  layoutRunnerHud(els.hud);
   cfg = c;
   document.title = c.title || "Runner game";
   applyFavicon(c.faviconUrl);
@@ -968,7 +976,7 @@ function mountGame(c: RunnerConfig) {
   engine = new RunnerEngine(c, w, h);
   resizeCanvas();
   unbindLayout?.();
-  unbindLayout = bindRunnerLayout(els.fit, els.stage, document.querySelector(".runner-hud"));
+  unbindLayout = bindRunnerLayout(els.fit, els.stage, els.hud);
   updateHud();
   lastCountdownBeep = 0;
   lastTimerBeepSec = -1;
@@ -985,7 +993,7 @@ function mountGame(c: RunnerConfig) {
 function onBreakpointChange() {
   if (!cfg) return;
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
-  layoutRunnerHud(document.querySelector(".runner-hud") as HTMLElement);
+  layoutRunnerHud(els.hud);
   const { w, h } = getRunnerDesignSize();
   resizeCanvas();
   if (engine && (engine.designW !== w || engine.designH !== h)) {

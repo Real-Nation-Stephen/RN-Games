@@ -342,17 +342,19 @@ function ParallaxLayerEditor({
             />
           </label>
           <label className="muted" style={{ fontSize: "0.82rem" }}>
-            Height
+            Scale %
             <input
               type="number"
-              min={-100}
-              max={800}
+              min={-99}
+              max={200}
+              step={1}
               value={layer.height ?? 0}
               style={{ width: 72, marginLeft: 4 }}
-              title="0 = auto; positive = px; negative = % of image (e.g. -50 = half size)"
+              title="0 = 100%; -50 = half size; 50 = 150%; scales width and height together"
               onChange={(e) => {
                 const next = [...rows];
-                next[i] = { ...next[i], height: Number(e.target.value) || 0 };
+                const raw = e.target.value;
+                next[i] = { ...next[i], height: raw === "" ? 0 : Number(raw) };
                 onChange(next);
               }}
             />
