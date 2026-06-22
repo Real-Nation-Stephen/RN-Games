@@ -1,7 +1,7 @@
 import { runnerCharacterList } from "@rngames/shared";
 import type { RunnerCharacter, RunnerItemVariant } from "@rngames/shared";
 import type { RunnerConfig, RunnerGameState, RunnerWorldItem } from "./types";
-import { runnerAuthorHeight, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
+import { runnerAuthorHeight, runnerCharacterDrawSize, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
 import {
   getRunnerVisibleDesignInset,
   isTabletViewport,
@@ -95,7 +95,7 @@ export class RunnerEngine {
 
   get charX() {
     const char = this.activeCharacter();
-    const cw = scaleRunnerSize(char.width, this.designH, this.authorH());
+    const { w: cw } = runnerCharacterDrawSize(char, this.designH, this.authorH());
     const defaultX = this.designW * CHAR_X_RATIO;
     const { left } = getRunnerVisibleDesignInset();
     const hudPad = pickRunnerOrientation() === "portrait" ? 28 : 24;
@@ -280,7 +280,7 @@ export class RunnerEngine {
       this.distance += speed * dt;
       this.charVy += GRAVITY * dt;
       this.charY += this.charVy * dt;
-      const charH = scaleRunnerSize(this.activeCharacter().height, this.designH, this.authorH());
+      const { h: charH } = runnerCharacterDrawSize(this.activeCharacter(), this.designH, this.authorH());
       const fellOff = this.charY > this.designH + charH;
       if (fellOff || this.deathAnimAcc >= DEATH_FALL_MAX_SEC) {
         if (this.attemptsUsed + 1 < this.maxAttempts) {
@@ -362,8 +362,8 @@ export class RunnerEngine {
     if (this.invincible > 0) this.invincible = Math.max(0, this.invincible - dt);
 
     const cx = this.charX;
-    const cw = scaleRunnerSize(this.activeCharacter().width, this.designH, this.authorH());
-    const ch = scaleRunnerSize(this.activeCharacter().height, this.designH, this.authorH());
+    const char = this.activeCharacter();
+    const { w: cw, h: ch } = runnerCharacterDrawSize(char, this.designH, this.authorH());
     const charLeft = cx - cw / 2;
     const charRight = cx + cw / 2;
     const charTop = this.charY - ch;

@@ -74,11 +74,27 @@ function emptyCharacter() {
     run: emptySheet(),
     jump: emptySheet(),
     death: emptySheet(),
-    width: 96,
-    height: 96,
+    scale: 0,
     groundY: 980,
     jumpHeight: 280,
   };
+}
+
+function normalizeCharacterScale(c) {
+  if (Number.isFinite(c.scale)) {
+    return Math.max(-99, Math.min(200, Number(c.scale)));
+  }
+  const cellH = Math.max(1, Number(c.run?.cellHeight) || 64);
+  const cellW = Math.max(1, Number(c.run?.cellWidth) || 64);
+  const legacyH = Number(c.height);
+  if (Number.isFinite(legacyH) && legacyH > 0) {
+    return Math.max(-99, Math.min(200, Math.round((legacyH / cellH - 1) * 100)));
+  }
+  const legacyW = Number(c.width);
+  if (Number.isFinite(legacyW) && legacyW > 0) {
+    return Math.max(-99, Math.min(200, Math.round((legacyW / cellW - 1) * 100)));
+  }
+  return 0;
 }
 
 function normalizeCharacter(raw, defaults, index) {
@@ -94,8 +110,9 @@ function normalizeCharacter(raw, defaults, index) {
   c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.jump.cellHeight) || c.run.cellHeight));
   c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.death.cellWidth) || c.run.cellWidth));
   c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.death.cellHeight) || c.run.cellHeight));
-  c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
-  c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
+  c.scale = normalizeCharacterScale(c);
+  delete c.width;
+  delete c.height;
   c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
   c.jumpHeight = Math.max(40, Math.min(600, Number(c.jumpHeight) || 280));
   return c;

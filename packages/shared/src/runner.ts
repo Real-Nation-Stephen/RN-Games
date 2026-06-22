@@ -48,8 +48,8 @@ export interface RunnerCharacter {
   run: RunnerSpriteSheet;
   jump: RunnerSpriteSheet;
   death: RunnerSpriteSheet;
-  width: number;
-  height: number;
+  /** Scale offset %: 0 = 100%, -50 = half, 50 = 150%. Draw size follows run sprite cell aspect. */
+  scale: number;
   /** Feet baseline Y in design space */
   groundY: number;
   jumpHeight: number;
@@ -228,8 +228,7 @@ export function emptyRunnerCharacter(partial?: Partial<RunnerCharacter> & { id?:
   return {
     id: partial?.id || "c1",
     label: partial?.label || "Character 1",
-    width: 96,
-    height: 96,
+    scale: 0,
     groundY: 980,
     jumpHeight: 280,
     ...partial,
@@ -256,8 +255,7 @@ export function normalizeRunnerCharacter(
   c.jump.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.jump.cellHeight) || c.run.cellHeight));
   c.death.cellWidth = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_W, Number(c.death.cellWidth) || c.run.cellWidth));
   c.death.cellHeight = Math.max(8, Math.min(RUNNER_MAX_SPRITE_CELL_H, Number(c.death.cellHeight) || c.run.cellHeight));
-  c.width = Math.max(32, Math.min(240, Number(c.width) || 96));
-  c.height = Math.max(32, Math.min(240, Number(c.height) || 96));
+  c.scale = normalizeRunnerCharacterScale(c);
   c.groundY = Math.max(100, Math.min(1900, Number(c.groundY) || defaults.groundY));
   c.jumpHeight = Math.max(40, Math.min(600, Number(c.jumpHeight) || 280));
   return c;
@@ -285,6 +283,37 @@ export function runnerCharacterList(doc: {
   if (Array.isArray(doc.characters) && doc.characters.length > 0) return doc.characters;
   if (doc.character) return [doc.character];
   return [];
+}
+
+/** Scale multiplier shared by parallax layers and character draw size. */
+export function runnerScaleMultiplier(scalePct: number) {
+  const mult = (100 + scalePct) / 100;
+  return Math.max(0.05, Math.min(3, mult));
+}
+
+/** Author-space draw size from run sprite cell dimensions + scale. */
+export function runnerCharacterAuthorSize(char: RunnerCharacter) {
+  const mult = runnerScaleMultiplier(Number(char.scale) || 0);
+  const cellW = Math.max(1, char.run.cellWidth);
+  const cellH = Math.max(1, char.run.cellHeight);
+  return { width: cellW * mult, height: cellH * mult };
+}
+
+function normalizeRunnerCharacterScale(raw: Partial<RunnerCharacter> & { width?: number; height?: number }) {
+  if (Number.isFinite(raw.scale)) {
+    return Math.max(-99, Math.min(200, Number(raw.scale)));
+  }
+  const cellH = Math.max(1, Number(raw.run?.cellHeight) || 64);
+  const cellW = Math.max(1, Number(raw.run?.cellWidth) || 64);
+  const legacyH = Number(raw.height);
+  if (Number.isFinite(legacyH) && legacyH > 0) {
+    return Math.max(-99, Math.min(200, Math.round((legacyH / cellH - 1) * 100)));
+  }
+  const legacyW = Number(raw.width);
+  if (Number.isFinite(legacyW) && legacyW > 0) {
+    return Math.max(-99, Math.min(200, Math.round((legacyW / cellW - 1) * 100)));
+  }
+  return 0;
 }
 
 export function emptyRunnerItemEffects(negative = false): RunnerItemEffects {

@@ -28,6 +28,8 @@ export {
   emptyRunnerItemEffects,
   normalizeRunner,
   runnerCharacterList,
+  runnerCharacterAuthorSize,
+  runnerScaleMultiplier,
   runnerSheetFrameCount,
   runnerSheetFrameRect,
   inferRunnerSpriteSheetCells,

@@ -3,6 +3,7 @@ import {
   type RunnerItemVariant,
   type RunnerSpriteSheet,
   runnerCharacterList,
+  runnerScaleMultiplier,
   runnerSheetFrameCount,
   runnerSheetFrameRect,
 } from "@rngames/shared";
@@ -36,7 +37,7 @@ import {
   needsLandscapeLock,
   pickRunnerOrientation,
 } from "./layout";
-import { parallaxDrawHeight, runnerAuthorHeight, scaleRunnerSize, scaleRunnerY } from "./coords";
+import { parallaxDrawHeight, runnerAuthorHeight, runnerCharacterDrawSize, scaleRunnerSize, scaleRunnerY } from "./coords";
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
@@ -934,8 +935,11 @@ function paintCharSelectPreviews(dt: number) {
     const total = runnerSheetFrameCount(sheet, img.naturalWidth, img.naturalHeight);
     const fps = 3;
     const frame = Math.floor(charSelectAnimAcc * fps) % total;
-    const destH = Math.min(canvas.height - 8, char.height);
-    const destW = (char.width / char.height) * destH;
+    const mult = runnerScaleMultiplier(char.scale ?? 0);
+    const previewH = char.run.cellHeight * mult;
+    const previewW = char.run.cellWidth * mult;
+    const destH = Math.min(canvas.height - 8, previewH);
+    const destW = (previewW / previewH) * destH;
     drawSpriteFrame(ctx2, img, sheet, frame, canvas.width / 2, canvas.height - 8, destW, destH);
   });
 }
@@ -990,8 +994,7 @@ function drawCharacter() {
   const img = sheet.url ? imageCache.get(sheet.url) : null;
   const feetX = engine.charX;
   const feetY = engine.charY;
-  const w = scaleRunnerSize(char.width, designH, authorH);
-  const h = scaleRunnerSize(char.height, designH, authorH);
+  const { w, h } = runnerCharacterDrawSize(char, designH, authorH);
 
   if (img && img.complete && img.naturalWidth) {
     drawSpriteFrame(ctx, img, sheet, frame, feetX, feetY, w, h);

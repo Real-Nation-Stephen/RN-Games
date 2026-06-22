@@ -13,6 +13,7 @@ import {
   normalizeRunner,
   emptyRunnerItemEffects,
   inferRunnerSpriteSheetCells,
+  runnerCharacterAuthorSize,
   runnerSheetFrameCount,
   type RunnerRecord,
   type RunnerCharacter,
@@ -641,25 +642,29 @@ function CharacterEditor({
         onChange={(death) => onChange({ ...character, death })}
       />
       <label className="field" style={{ marginTop: 12 }}>
-        Character width (px)
+        Scale %
       </label>
       <input
         type="number"
-        min={32}
-        max={240}
-        value={character.width}
-        onChange={(e) => onChange({ ...character, width: Number(e.target.value) })}
+        min={-99}
+        max={200}
+        step={1}
+        value={character.scale ?? 0}
+        title="0 = 100%; -50 = half size; 50 = 150%; width follows sprite aspect ratio"
+        onChange={(e) => {
+          const raw = e.target.value;
+          onChange({
+            ...character,
+            scale: raw === "" ? 0 : Number(raw),
+          });
+        }}
       />
-      <label className="field" style={{ marginTop: 12 }}>
-        Character height (px)
-      </label>
-      <input
-        type="number"
-        min={32}
-        max={240}
-        value={character.height}
-        onChange={(e) => onChange({ ...character, height: Number(e.target.value) })}
-      />
+      <p className="muted" style={{ fontSize: "0.82rem", marginTop: 4 }}>
+        Size follows the run sprite aspect ({character.run.cellWidth}×{character.run.cellHeight}px). At{" "}
+        {character.scale ?? 0}% →{" "}
+        {Math.round(runnerCharacterAuthorSize(character).width)}×
+        {Math.round(runnerCharacterAuthorSize(character).height)}px in design space.
+      </p>
       <label className="field" style={{ marginTop: 12 }}>
         Ground Y (design space)
       </label>
