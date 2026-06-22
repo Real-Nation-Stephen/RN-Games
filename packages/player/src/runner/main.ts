@@ -103,7 +103,9 @@ function externalIdStorageKey(slug: string) {
 }
 
 function needsPlayerName() {
-  return !!cfg?.linkedLeaderboardSlug && cfg.highScore?.enabled !== false;
+  if (!cfg) return false;
+  if (cfg.highScore?.enabled === true) return true;
+  return !!cfg.linkedLeaderboardSlug?.trim();
 }
 
 function nameMaxLen() {
@@ -589,6 +591,7 @@ async function showEndUi() {
   els.startOverlay.hidden = true;
   els.countdownOverlay.hidden = true;
   els.jumpHint.hidden = true;
+  setHudVisible(false);
   setViewportBackground("end");
   const metricValue = engine.leaderboardScore();
   els.endScore.textContent = `${cfg.endScreen.scorePrefix || "Score:"} ${formatLeaderboardValue(cfg, metricValue)}`;

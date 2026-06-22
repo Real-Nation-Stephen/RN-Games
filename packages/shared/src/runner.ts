@@ -452,6 +452,7 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
   out.feedback.damageFlashEnabled = out.feedback.damageFlashEnabled !== false;
   out.intro.pointsLabel = String(out.intro.pointsLabel || "Pts").slice(0, 16);
   out.endScreen.overlayHex = String(out.endScreen.overlayHex || defaults.endScreen.overlayHex);
+  out.highScore.enabled = out.highScore.enabled === true;
   out.highScore.nameMaxLength = Math.min(32, Math.max(1, Number(out.highScore.nameMaxLength) || 3));
   return out;
 }

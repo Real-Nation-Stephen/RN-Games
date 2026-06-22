@@ -218,6 +218,7 @@ export function normalizeRunnerRecord(doc) {
   const align = String(doc.banner.logoAlign || "center");
   doc.banner.logoAlign = align === "left" || align === "right" ? align : "center";
   doc.endScreen.linkEnabled = doc.endScreen.linkEnabled === true;
+  doc.highScore.enabled = doc.highScore.enabled === true;
   doc.highScore.nameMaxLength = Math.min(32, Math.max(1, Number(doc.highScore.nameMaxLength) || 3));
   return doc;
 }
