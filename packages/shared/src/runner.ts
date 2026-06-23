@@ -83,16 +83,32 @@ export interface RunnerItems {
   negative: RunnerItemVariant[];
 }
 
+export type RunnerParallaxDepth = "back" | "aboveGround" | "front";
+
+export const RUNNER_PARALLAX_DEPTH_LABELS: Record<RunnerParallaxDepth, string> = {
+  back: "Behind",
+  aboveGround: "In front of floor",
+  front: "In front of player",
+};
+
 export interface RunnerParallaxLayer {
   id: string;
+  /** Editor-only label to identify the layer after upload. */
+  label: string;
   url: string;
   speed: number;
   /** Top Y in authoring coordinates (scaled per device). */
   y: number;
   /** Scale offset %: 0 = 100%, -50 = half, 50 = 150%. Width follows aspect ratio. */
   height: number;
-  /** When true, draws above player, items, and ground. */
-  renderInFront: boolean;
+  /** Draw order relative to ground and player. */
+  depth: RunnerParallaxDepth;
+}
+
+function normalizeParallaxDepth(layer: Partial<RunnerParallaxLayer> & { renderInFront?: boolean }): RunnerParallaxDepth {
+  const d = layer.depth;
+  if (d === "back" || d === "aboveGround" || d === "front") return d;
+  return layer.renderInFront === true ? "front" : "back";
 }
 
 export interface RunnerGround {
@@ -558,11 +574,12 @@ export function normalizeRunner(doc: Partial<RunnerRecord> & { id: string; slug:
       const l = layer as Partial<RunnerParallaxLayer>;
       return {
         id: String(l.id || `p${i + 1}`),
+        label: String(l.label || "").trim(),
         url: String(l.url || "").trim(),
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
         height: Math.max(-99, Math.min(200, Number(l.height) || 0)),
-        renderInFront: l.renderInFront === true,
+        depth: normalizeParallaxDepth(l),
       };
     })
     .filter((l) => l.url);

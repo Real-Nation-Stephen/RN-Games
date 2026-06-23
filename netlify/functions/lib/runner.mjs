@@ -6,6 +6,12 @@ export const RUNNER_MAX_SPRITE_CELL_W = 1024;
 export const RUNNER_MAX_SPRITE_CELL_H = 2048;
 export const RUNNER_MAX_SPRITE_CELL = RUNNER_MAX_SPRITE_CELL_W;
 
+function normalizeParallaxDepth(layer) {
+  const d = layer?.depth;
+  if (d === "back" || d === "aboveGround" || d === "front") return d;
+  return layer?.renderInFront === true ? "front" : "back";
+}
+
 function emptyItemEffects(negative = false) {
   return negative
     ? {
@@ -230,11 +236,12 @@ export function normalizeRunnerRecord(doc) {
       const l = layer || {};
       return {
         id: String(l.id || `p${i + 1}`),
+        label: String(l.label || "").trim(),
         url: String(l.url || "").trim(),
         speed: Math.max(0.1, Math.min(2, Number(l.speed) || 0.5)),
         y: Math.max(0, Math.min(2000, Number(l.y) || 0)),
         height: Math.max(-99, Math.min(200, Number(l.height) || 0)),
-        renderInFront: l.renderInFront === true,
+        depth: normalizeParallaxDepth(l),
       };
     })
     .filter((l) => l.url);

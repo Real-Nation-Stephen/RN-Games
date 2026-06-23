@@ -9,6 +9,7 @@ import {
   RUNNER_MAX_SPRITE_CELL_H,
   RUNNER_MAX_SPRITE_CELL_W,
   RUNNER_MAX_SHEET_FRAMES,
+  RUNNER_PARALLAX_DEPTH_LABELS,
   emptyRunnerCharacter,
   normalizeRunner,
   emptyRunnerItemEffects,
@@ -19,6 +20,7 @@ import {
   type RunnerCharacter,
   type RunnerItemVariant,
   type RunnerHudSlotKind,
+  type RunnerParallaxDepth,
   type RunnerParallaxLayer,
   type RunnerSpriteSheet,
 } from "@rngames/shared";
@@ -81,6 +83,24 @@ function newParallaxId() {
 
 function newCharacterId() {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function moveArrayItem<T>(arr: T[], from: number, delta: number): T[] {
+  const to = from + delta;
+  if (to < 0 || to >= arr.length) return arr;
+  const next = [...arr];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function parallaxLayerTitle(layer: RunnerParallaxLayer, index: number) {
+  return layer.label.trim() || `Layer ${index + 1}`;
+}
+
+function parallaxLayerSummary(layer: RunnerParallaxLayer) {
+  const depth = RUNNER_PARALLAX_DEPTH_LABELS[layer.depth ?? "back"];
+  return `${depth} · ${layer.url ? "Image uploaded" : "No image"}`;
 }
 
 function CollapsibleSection({
@@ -362,6 +382,120 @@ function ItemVariantEditor({
   );
 }
 
+function ParallaxLayerRow({
+  layer,
+  index,
+  total,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  layer: RunnerParallaxLayer;
+  index: number;
+  total: number;
+  onChange: (next: RunnerParallaxLayer) => void;
+  onMove: (delta: number) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <CollapsibleSection
+      title={parallaxLayerTitle(layer, index)}
+      summary={parallaxLayerSummary(layer)}
+    >
+      <label className="field">Label</label>
+      <input
+        type="text"
+        maxLength={32}
+        placeholder={parallaxLayerTitle(layer, index)}
+        value={layer.label}
+        onChange={(e) => onChange({ ...layer, label: e.target.value })}
+      />
+      <label className="field" style={{ marginTop: 12 }}>
+        Image
+      </label>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          const { url } = await uploadFile(f);
+          onChange({ ...layer, url });
+        }}
+      />
+      {layer.url ? <span className="muted"> ✓</span> : null}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 12 }}>
+        <label className="muted" style={{ fontSize: "0.82rem" }}>
+          Speed
+          <input
+            type="number"
+            min={0.1}
+            max={2}
+            step={0.1}
+            value={layer.speed}
+            style={{ width: 64, marginLeft: 4 }}
+            onChange={(e) => onChange({ ...layer, speed: Number(e.target.value) || 0.5 })}
+          />
+        </label>
+        <label className="muted" style={{ fontSize: "0.82rem" }}>
+          Y
+          <input
+            type="number"
+            min={0}
+            max={2000}
+            value={layer.y}
+            style={{ width: 72, marginLeft: 4 }}
+            onChange={(e) => onChange({ ...layer, y: Number(e.target.value) || 0 })}
+          />
+        </label>
+        <label className="muted" style={{ fontSize: "0.82rem" }}>
+          Scale %
+          <input
+            type="number"
+            min={-99}
+            max={200}
+            step={1}
+            value={layer.height ?? 0}
+            style={{ width: 72, marginLeft: 4 }}
+            title="0 = 100%; -50 = half size; 50 = 150%; scales width and height together"
+            onChange={(e) => {
+              const raw = e.target.value;
+              onChange({ ...layer, height: raw === "" ? 0 : Number(raw) });
+            }}
+          />
+        </label>
+        <label className="muted" style={{ fontSize: "0.82rem" }}>
+          Layer order
+          <select
+            value={layer.depth ?? "back"}
+            style={{ marginLeft: 4 }}
+            onChange={(e) => onChange({ ...layer, depth: e.target.value as RunnerParallaxDepth })}
+          >
+            {(Object.entries(RUNNER_PARALLAX_DEPTH_LABELS) as [RunnerParallaxDepth, string][]).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+        <button type="button" className="btn" disabled={index === 0} onClick={() => onMove(-1)}>
+          ↑ Move up
+        </button>
+        <button type="button" className="btn" disabled={index >= total - 1} onClick={() => onMove(1)}>
+          ↓ Move down
+        </button>
+        <button type="button" className="btn" onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 function ParallaxLayerEditor({
   layers,
   onChange,
@@ -370,120 +504,53 @@ function ParallaxLayerEditor({
   onChange: (next: RunnerParallaxLayer[]) => void;
 }) {
   const rows = layers;
+  const configured = rows.filter((l) => l.url).length;
+  const summary = rows.length ? `${configured} of ${rows.length} with images` : "No layers";
+
   return (
-    <div style={{ marginTop: 12 }}>
-      <label className="field">Parallax layers (up to {RUNNER_MAX_PARALLAX_LAYERS})</label>
-      <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 8px" }}>
-        Back-to-front order. Speed 0.1–2 (higher = faster scroll).
+    <CollapsibleSection title="Parallax layers" summary={summary}>
+      <p className="muted" style={{ fontSize: "0.82rem", margin: "0 0 8px" }}>
+        List order is back-to-front within each depth tier. Speed 0.1–2 (higher = faster scroll). Up to{" "}
+        {RUNNER_MAX_PARALLAX_LAYERS} layers.
       </p>
       {rows.map((layer, i) => (
-        <div
+        <ParallaxLayerRow
           key={layer.id || i}
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            alignItems: "center",
-            marginBottom: 8,
-            padding: 8,
-            border: "1px solid var(--rn-border)",
-            borderRadius: 8,
+          layer={layer}
+          index={i}
+          total={rows.length}
+          onChange={(next) => {
+            const updated = [...rows];
+            updated[i] = next;
+            onChange(updated);
           }}
-        >
-          <span className="muted" style={{ fontSize: "0.82rem", minWidth: 48 }}>
-            Layer {i + 1}
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const { url } = await uploadFile(f);
-              const next = [...rows];
-              next[i] = { ...next[i], url };
-              onChange(next);
-            }}
-          />
-          {layer.url ? <span className="muted"> ✓</span> : null}
-          <label className="muted" style={{ fontSize: "0.82rem" }}>
-            Speed
-            <input
-              type="number"
-              min={0.1}
-              max={2}
-              step={0.1}
-              value={layer.speed}
-              style={{ width: 64, marginLeft: 4 }}
-              onChange={(e) => {
-                const next = [...rows];
-                next[i] = { ...next[i], speed: Number(e.target.value) || 0.5 };
-                onChange(next);
-              }}
-            />
-          </label>
-          <label className="muted" style={{ fontSize: "0.82rem" }}>
-            Y
-            <input
-              type="number"
-              min={0}
-              max={2000}
-              value={layer.y}
-              style={{ width: 72, marginLeft: 4 }}
-              onChange={(e) => {
-                const next = [...rows];
-                next[i] = { ...next[i], y: Number(e.target.value) || 0 };
-                onChange(next);
-              }}
-            />
-          </label>
-          <label className="muted" style={{ fontSize: "0.82rem" }}>
-            Scale %
-            <input
-              type="number"
-              min={-99}
-              max={200}
-              step={1}
-              value={layer.height ?? 0}
-              style={{ width: 72, marginLeft: 4 }}
-              title="0 = 100%; -50 = half size; 50 = 150%; scales width and height together"
-              onChange={(e) => {
-                const next = [...rows];
-                const raw = e.target.value;
-                next[i] = { ...next[i], height: raw === "" ? 0 : Number(raw) };
-                onChange(next);
-              }}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.82rem" }}>
-            <input
-              type="checkbox"
-              checked={layer.renderInFront === true}
-              onChange={(e) => {
-                const next = [...rows];
-                next[i] = { ...next[i], renderInFront: e.target.checked };
-                onChange(next);
-              }}
-            />
-            Render in front
-          </label>
-          <button type="button" className="btn" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
-            Remove
-          </button>
-        </div>
+          onMove={(delta) => onChange(moveArrayItem(rows, i, delta))}
+          onRemove={() => onChange(rows.filter((_, j) => j !== i))}
+        />
       ))}
       {rows.length < RUNNER_MAX_PARALLAX_LAYERS ? (
         <button
           type="button"
           className="btn"
           onClick={() =>
-            onChange([...rows, { id: newParallaxId(), url: "", speed: 0.5, y: 0, height: 0, renderInFront: false }])
+            onChange([
+              ...rows,
+              {
+                id: newParallaxId(),
+                label: `Layer ${rows.length + 1}`,
+                url: "",
+                speed: 0.5,
+                y: 0,
+                height: 0,
+                depth: "back",
+              },
+            ])
           }
         >
           Add parallax layer
         </button>
       ) : null}
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -1028,7 +1095,14 @@ export default function RunnerEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Gameplay</h3>
+          <CollapsibleSection
+            title="Gameplay"
+            summary={
+              game.gameplay.timerEnabled
+                ? `${game.gameplay.durationSec}s · ${game.gameplay.maxHealth} HP · ${game.gameplay.leaderboardMetric}`
+                : `No timer · ${game.gameplay.maxHealth} HP · ${game.gameplay.leaderboardMetric}`
+            }
+          >
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input
               type="checkbox"
@@ -1294,10 +1368,14 @@ export default function RunnerEditor() {
               }))
             }
           />
+          </CollapsibleSection>
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Characters</h3>
+          <CollapsibleSection
+            title="Characters"
+            summary={`${(game.characters?.length ? game.characters : [game.character]).length} character(s)`}
+          >
           <p className="muted" style={{ fontSize: "0.85rem", marginTop: 0 }}>
             Add up to {RUNNER_MAX_CHARACTERS} playable characters. Players choose on a selector screen when more than one is configured.
           </p>
@@ -1345,10 +1423,14 @@ export default function RunnerEditor() {
               Add character
             </button>
           ) : null}
+          </CollapsibleSection>
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Items</h3>
+          <CollapsibleSection
+            title="Items"
+            summary={`${game.items.positive.filter((v) => v.url).length} positive · ${game.items.negative.filter((v) => v.url).length} negative`}
+          >
           <ItemVariantEditor
             label="Positive items"
             variants={game.items.positive}
@@ -1364,15 +1446,18 @@ export default function RunnerEditor() {
             collapsible
             onChange={(negative) => patch((g) => ({ ...g, items: { ...g.items, negative } }))}
           />
+          </CollapsibleSection>
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Parallax & ground</h3>
           <ParallaxLayerEditor
             layers={game.parallax}
             onChange={(parallax) => patch((g) => ({ ...g, parallax }))}
           />
-          <h4 style={{ margin: "20px 0 8px" }}>Ground strip</h4>
+          <CollapsibleSection
+            title="Ground strip"
+            summary={game.ground.enabled && game.ground.url ? "Enabled" : game.ground.enabled ? "No image" : "Disabled"}
+          >
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input
               type="checkbox"
@@ -1419,6 +1504,7 @@ export default function RunnerEditor() {
               patch((g) => ({ ...g, ground: { ...g.ground, height: Number(e.target.value) } }))
             }
           />
+          </CollapsibleSection>
         </div>
 
         <div className="card">
@@ -1606,7 +1692,10 @@ export default function RunnerEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>End screen</h3>
+          <CollapsibleSection
+            title="End screen"
+            summary={game.endScreen.headline.trim() || "Default headline"}
+          >
           <label className="field">Logo</label>
           <input
             type="file"
@@ -1740,6 +1829,7 @@ export default function RunnerEditor() {
               }))
             }
           />
+          </CollapsibleSection>
         </div>
       </div>
 

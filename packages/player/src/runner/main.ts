@@ -1070,8 +1070,9 @@ function drawFrame() {
   }
 
   const scroll = engine.scrollOffset;
-  const backLayers = cfg.parallax.filter((l) => !l.renderInFront);
-  const frontLayers = cfg.parallax.filter((l) => l.renderInFront);
+  const backLayers = cfg.parallax.filter((l) => l.depth === "back");
+  const aboveGroundLayers = cfg.parallax.filter((l) => l.depth === "aboveGround");
+  const frontLayers = cfg.parallax.filter((l) => l.depth === "front");
 
   drawParallaxLayers(
     backLayers,
@@ -1092,6 +1093,16 @@ function drawFrame() {
       drawLoopingStrip(ctx, gImg, scroll, groundY, extendH, stripBleed.x, stripBleed.width);
     }
   }
+
+  drawParallaxLayers(
+    aboveGroundLayers,
+    scroll,
+    designW,
+    designH,
+    authorH,
+    stripBleed.x,
+    stripBleed.width,
+  );
 
   for (const item of engine.items) {
     if (item.kind === "positive") drawItem(cfg, item, scroll);
