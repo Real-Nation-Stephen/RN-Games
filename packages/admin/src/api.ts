@@ -136,7 +136,7 @@ export async function uploadFile(file: File): Promise<{ id: string; url: string 
     headers: authHeaders(),
     body: JSON.stringify({
       base64,
-      contentType: file.type || "application/octet-stream",
+      contentType: prepared.type || file.type || "application/octet-stream",
       filename: prepared.name,
     }),
   });
