@@ -135,6 +135,7 @@ function defaultItemVariant(negative = false): RunnerItemVariant {
     width: 72,
     height: 72,
     y: 0,
+    spawnBias: 1,
     effects: emptyRunnerItemEffects(negative),
   };
 }
@@ -263,6 +264,22 @@ function ItemVariantEditor({
                 onChange={(e) => {
                   const next = [...rows];
                   next[i] = { ...next[i], y: Number(e.target.value) || 0 };
+                  onChange(next);
+                }}
+              />
+            </label>
+            <label className="muted" style={{ fontSize: "0.82rem" }} title="Higher = spawns more often within this list">
+              Bias
+              <input
+                type="number"
+                min={0.1}
+                max={100}
+                step={0.1}
+                value={v.spawnBias ?? 1}
+                style={{ width: 64, marginLeft: 4 }}
+                onChange={(e) => {
+                  const next = [...rows];
+                  next[i] = { ...next[i], spawnBias: Number(e.target.value) || 1 };
                   onChange(next);
                 }}
               />

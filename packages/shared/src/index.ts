@@ -26,6 +26,7 @@ export {
   emptyRunner,
   emptyRunnerCharacter,
   emptyRunnerItemEffects,
+  pickRunnerItemVariant,
   normalizeRunner,
   runnerCharacterList,
   runnerCharacterAuthorSize,

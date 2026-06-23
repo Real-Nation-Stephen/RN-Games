@@ -73,6 +73,8 @@ export interface RunnerItemVariant {
   width: number;
   height: number;
   y: number;
+  /** Spawn weight within its list (1 = normal; higher = more frequent). */
+  spawnBias: number;
   effects: RunnerItemEffects;
 }
 
@@ -360,6 +362,7 @@ export function normalizeRunnerItemVariants(raw: unknown, negative = false): Run
       width: Math.max(24, Math.min(320, Number(v.width) || 72)),
       height: Math.max(24, Math.min(320, Number(v.height) || 72)),
       y: Math.max(0, Math.min(2000, Number(v.y) || 0)),
+      spawnBias: Math.max(0.1, Math.min(100, Number(v.spawnBias) || 1)),
       effects: fx,
     });
   }
@@ -371,6 +374,20 @@ export function normalizeRunnerItems(raw: Partial<RunnerItems> = {}): RunnerItem
     positive: normalizeRunnerItemVariants(raw.positive, false),
     negative: normalizeRunnerItemVariants(raw.negative, true),
   };
+}
+
+/** Weighted random pick among item variants with URLs. */
+export function pickRunnerItemVariant(list: RunnerItemVariant[]): RunnerItemVariant | null {
+  const usable = list.filter((v) => v.url);
+  if (!usable.length) return null;
+  const weights = usable.map((v) => Math.max(0.1, Number(v.spawnBias) || 1));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < usable.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return usable[i];
+  }
+  return usable[usable.length - 1];
 }
 
 function emptySpriteSheet(): RunnerSpriteSheet {

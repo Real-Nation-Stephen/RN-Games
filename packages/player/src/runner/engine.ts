@@ -1,4 +1,4 @@
-import { runnerCharacterList } from "@rngames/shared";
+import { pickRunnerItemVariant, runnerCharacterList } from "@rngames/shared";
 import type { RunnerCharacter, RunnerItemVariant } from "@rngames/shared";
 import type { RunnerConfig, RunnerGameState, RunnerWorldItem } from "./types";
 import { runnerAuthorHeight, runnerCharacterDrawSize, scaleRunnerSize, scaleRunnerY, scaledGroundY } from "./coords";
@@ -27,9 +27,7 @@ function shuffleKinds(kinds: ("positive" | "negative")[]) {
 }
 
 function pickRandomVariant(list: RunnerItemVariant[]): RunnerItemVariant | null {
-  const usable = list.filter((v) => v.url);
-  if (!usable.length) return null;
-  return usable[Math.floor(Math.random() * usable.length)];
+  return pickRunnerItemVariant(list);
 }
 
 export class RunnerEngine {

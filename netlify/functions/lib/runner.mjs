@@ -50,6 +50,7 @@ function normalizeItemVariants(raw, negative = false) {
       width: Math.max(24, Math.min(320, Number(v.width) || 72)),
       height: Math.max(24, Math.min(320, Number(v.height) || 72)),
       y: Math.max(0, Math.min(2000, Number(v.y) || 0)),
+      spawnBias: Math.max(0.1, Math.min(100, Number(v.spawnBias) || 1)),
       effects: fx,
     });
   }

@@ -393,25 +393,28 @@ function renderIntroVariants(
     img.alt = "";
     const pts = document.createElement("p");
     pts.className = "runner-intro__points";
-    pts.textContent = variantIntroLabel(v, negative, c);
+    pts.textContent = variantIntroLabels(v, negative, c).join(" · ");
     row.appendChild(img);
     row.appendChild(pts);
     container.appendChild(row);
   }
 }
 
-function variantIntroLabel(v: RunnerItemVariant, negative: boolean, c?: RunnerConfig) {
+function variantIntroLabels(v: RunnerItemVariant, negative: boolean, c?: RunnerConfig) {
   const fx = v.effects;
   const ptsLabel = (c?.intro.pointsLabel || "Pts").trim() || "Pts";
-  if (fx.addPoints) return fx.pointsAmount === 1 ? `+1 ${ptsLabel}` : `+${fx.pointsAmount} ${ptsLabel}`;
-  if (fx.removePoints) {
-    return fx.pointsAmount === 1 ? `−1 ${ptsLabel}` : `−${fx.pointsAmount} ${ptsLabel}`;
+  const parts: string[] = [];
+  if (fx.addPoints) {
+    parts.push(fx.pointsAmount === 1 ? `+1 ${ptsLabel}` : `+${fx.pointsAmount} ${ptsLabel}`);
   }
-  if (fx.addHealth) return `+${fx.healthAmount} ♥`;
-  if (fx.removeHealth) return `−${fx.healthAmount} ♥`;
-  if (fx.addTime) return `+${fx.timeAmount}s`;
-  if (fx.removeTime) return `−${fx.timeAmount}s`;
-  return negative ? "Avoid" : "Collect";
+  if (fx.removePoints) {
+    parts.push(fx.pointsAmount === 1 ? `−1 ${ptsLabel}` : `−${fx.pointsAmount} ${ptsLabel}`);
+  }
+  if (fx.addHealth) parts.push(`+${fx.healthAmount} ♥`);
+  if (fx.removeHealth) parts.push(`−${fx.healthAmount} ♥`);
+  if (fx.addTime) parts.push(`+${fx.timeAmount}s`);
+  if (fx.removeTime) parts.push(`−${fx.timeAmount}s`);
+  return parts.length ? parts : [negative ? "Avoid" : "Collect"];
 }
 
 function hudSlotLabel(kind: RunnerHudSlotKind) {
@@ -1057,9 +1060,7 @@ function drawFrame() {
   const sceneScale = getRunnerSceneScale();
   const stripBleed = getRunnerSceneStripBleed(designW, designH);
   ctx.clearRect(0, 0, designW, designH);
-  if (sceneScale !== 1) {
-    drawCanvasBackdrop(cfg, designW, designH);
-  }
+  drawCanvasBackdrop(cfg, designW, designH);
 
   ctx.save();
   if (sceneScale !== 1) {
