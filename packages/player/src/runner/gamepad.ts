@@ -6,10 +6,12 @@ const DPAD_BUTTONS = [12, 13, 14, 15];
 const JUMP_EXCLUDE = new Set([BTN_START, BTN_SELECT]);
 
 export type RunnerMenuAction = "advance" | "start" | "replay";
+export type RunnerMenuDirection = "up" | "down" | "left" | "right";
 
 const keys = new Set<string>();
 const prevMenuButtons = new Set<number>();
 const prevJumpButtons = new Set<number>();
+const prevMenuDirections = new Set<RunnerMenuDirection>();
 let prevJumpKeys = false;
 let prevDpadActive = false;
 
@@ -61,6 +63,23 @@ function dpadActive() {
   return false;
 }
 
+function collectPressedDirections(): Set<RunnerMenuDirection> {
+  const pressed = new Set<RunnerMenuDirection>();
+  const pads = navigator.getGamepads?.() || [];
+  for (const pad of pads) {
+    if (!pad) continue;
+    if (buttonDown(pad, 12) || pad.axes[1] < -0.5) pressed.add("up");
+    if (buttonDown(pad, 13) || pad.axes[1] > 0.5) pressed.add("down");
+    if (buttonDown(pad, 14) || pad.axes[0] < -0.5) pressed.add("left");
+    if (buttonDown(pad, 15) || pad.axes[0] > 0.5) pressed.add("right");
+  }
+  if (keys.has("ArrowUp")) pressed.add("up");
+  if (keys.has("ArrowDown")) pressed.add("down");
+  if (keys.has("ArrowLeft")) pressed.add("left");
+  if (keys.has("ArrowRight")) pressed.add("right");
+  return pressed;
+}
+
 export function pollJumpInput(): boolean {
   const pressed = collectPressedButtons();
   const keyJump =
@@ -105,6 +124,20 @@ export function pollMenuAction(): RunnerMenuAction | null {
   prevMenuButtons.clear();
   for (const i of pressed) prevMenuButtons.add(i);
   return action;
+}
+
+export function pollMenuDirection(): RunnerMenuDirection | null {
+  const pressed = collectPressedDirections();
+  let direction: RunnerMenuDirection | null = null;
+  for (const candidate of ["up", "down", "left", "right"] as const) {
+    if (pressed.has(candidate) && !prevMenuDirections.has(candidate)) {
+      direction = candidate;
+      break;
+    }
+  }
+  prevMenuDirections.clear();
+  for (const value of pressed) prevMenuDirections.add(value);
+  return direction;
 }
 
 export function bindRunnerKeyboard() {

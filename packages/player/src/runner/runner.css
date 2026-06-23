@@ -349,6 +349,7 @@ body.runner-muted .runner-mute__icon--off {
   color: inherit;
   font-size: 42px;
   text-align: center;
+  text-transform: uppercase;
 }
 
 .runner-name-screen__btn {
@@ -504,7 +505,8 @@ body.runner-muted .runner-mute__icon--off {
 }
 
 .runner-char-select__option:hover,
-.runner-char-select__option:focus-visible {
+.runner-char-select__option:focus-visible,
+.runner-char-select__option.is-active {
   border-color: rgba(255, 255, 255, 0.55);
   background: rgba(255, 255, 255, 0.12);
 }

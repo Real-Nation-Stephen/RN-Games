@@ -25,7 +25,7 @@ import {
   setRunnerMuted,
   unlockRunnerAudio,
 } from "./audio";
-import { bindRunnerKeyboard, pollJumpInput, pollMenuAction } from "./gamepad";
+import { bindRunnerKeyboard, pollJumpInput, pollMenuAction, pollMenuDirection } from "./gamepad";
 import {
   bindRunnerLayout,
   getRunnerDesignSize,
@@ -93,6 +93,10 @@ let lastCountdownBeep = 0;
 let lastTimerBeepSec = -1;
 let pastNameGate = false;
 let charSelectAnimAcc = 0;
+let activeCharSelectIndex = 0;
+let nameCursorIndex = 0;
+
+const CONTROLLER_NAME_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 const imageCache = new Map<string, HTMLImageElement>();
 const hudRefs = {
@@ -153,19 +157,135 @@ function nameMaxLen() {
   return Math.min(32, Math.max(1, cfg?.highScore?.nameMaxLength || 3));
 }
 
+function sanitizePlayerName(value: string) {
+  return value.toUpperCase().slice(0, nameMaxLen());
+}
+
 function getPlayerName() {
   if (!cfg) return "Player";
   const max = nameMaxLen();
   const saved = localStorage.getItem(nameStorageKey(cfg.slug)) || "";
   const fromStart = els.nameStart?.value?.trim() || "";
-  const raw = fromStart || saved || "Player";
-  return raw.slice(0, max) || "Player";
+  const raw = sanitizePlayerName(fromStart || saved || "PLAYER");
+  return raw.slice(0, max) || "PLAYER";
 }
 
 function savePlayerName(name: string) {
   if (!cfg) return;
-  const trimmed = name.trim().slice(0, nameMaxLen());
+  const trimmed = sanitizePlayerName(name.trim());
   if (trimmed) localStorage.setItem(nameStorageKey(cfg.slug), trimmed);
+}
+
+function setNameValue(value: string) {
+  const next = sanitizePlayerName(value);
+  els.nameStart.value = next;
+  const maxIndex = Math.max(0, next.length ? next.length - 1 : 0);
+  nameCursorIndex = Math.max(0, Math.min(maxIndex, nameCursorIndex));
+}
+
+function syncNameCursorSelection() {
+  const len = els.nameStart.value.length;
+  const pos = len ? Math.min(nameCursorIndex, len - 1) : 0;
+  els.nameStart.focus({ preventScroll: true });
+  els.nameStart.setSelectionRange(pos, len ? pos + 1 : 0);
+}
+
+function moveNameCursor(delta: number) {
+  const len = Math.max(1, els.nameStart.value.length);
+  nameCursorIndex = Math.max(0, Math.min(len - 1, nameCursorIndex + delta));
+  syncNameCursorSelection();
+}
+
+function adjustControllerNameLetter(delta: number) {
+  const len = Math.max(1, Math.min(nameMaxLen(), els.nameStart.value.length || 1));
+  const chars = els.nameStart.value.padEnd(len, "A").slice(0, len).split("");
+  const index = Math.max(0, Math.min(len - 1, nameCursorIndex));
+  const current = chars[index] || "A";
+  const currentIndex = Math.max(0, CONTROLLER_NAME_ALPHABET.indexOf(current));
+  const nextIndex = (currentIndex + delta + CONTROLLER_NAME_ALPHABET.length) % CONTROLLER_NAME_ALPHABET.length;
+  chars[index] = CONTROLLER_NAME_ALPHABET[nextIndex];
+  setNameValue(chars.join(""));
+  nameCursorIndex = index;
+  syncNameCursorSelection();
+}
+
+function deleteNameCharacter() {
+  const value = els.nameStart.value;
+  if (!value) return;
+  const index = Math.max(0, Math.min(value.length - 1, nameCursorIndex));
+  const next = value.slice(0, index) + value.slice(index + 1);
+  setNameValue(next);
+  nameCursorIndex = Math.max(0, Math.min(index, Math.max(0, next.length - 1)));
+  syncNameCursorSelection();
+}
+
+function charSelectButtons() {
+  return Array.from(els.charSelectList.querySelectorAll<HTMLButtonElement>(".runner-char-select__option"));
+}
+
+function syncCharSelectUi() {
+  const buttons = charSelectButtons();
+  buttons.forEach((btn, index) => {
+    const active = index === activeCharSelectIndex;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    btn.tabIndex = active ? 0 : -1;
+    if (active) btn.focus({ preventScroll: true });
+  });
+}
+
+function setActiveCharSelectIndex(index: number) {
+  const buttons = charSelectButtons();
+  if (!buttons.length) return;
+  activeCharSelectIndex = Math.max(0, Math.min(buttons.length - 1, index));
+  syncCharSelectUi();
+}
+
+function chooseCharacter(index: number) {
+  if (!engine) return;
+  engine.setCharacterIndex(index);
+  saveCharacterIndex(index);
+  activeCharSelectIndex = index;
+  showIntroUi();
+}
+
+function moveCharSelection(direction: "up" | "down" | "left" | "right") {
+  const buttons = charSelectButtons();
+  if (!buttons.length) return;
+  const current = buttons[activeCharSelectIndex] ?? buttons[0];
+  const currentRect = current.getBoundingClientRect();
+  const currentCx = currentRect.left + currentRect.width / 2;
+  const currentCy = currentRect.top + currentRect.height / 2;
+  let bestIndex = activeCharSelectIndex;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  buttons.forEach((btn, index) => {
+    if (index === activeCharSelectIndex) return;
+    const rect = btn.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = cx - currentCx;
+    const dy = cy - currentCy;
+    const valid =
+      (direction === "left" && dx < -8) ||
+      (direction === "right" && dx > 8) ||
+      (direction === "up" && dy < -8) ||
+      (direction === "down" && dy > 8);
+    if (!valid) return;
+    const primary = direction === "left" || direction === "right" ? Math.abs(dx) : Math.abs(dy);
+    const secondary = direction === "left" || direction === "right" ? Math.abs(dy) : Math.abs(dx);
+    const score = primary + secondary * 2;
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  if (bestIndex === activeCharSelectIndex) {
+    if (direction === "left" || direction === "up") bestIndex = Math.max(0, activeCharSelectIndex - 1);
+    else bestIndex = Math.min(buttons.length - 1, activeCharSelectIndex + 1);
+  }
+  setActiveCharSelectIndex(bestIndex);
 }
 
 function getLeaderboardExternalId() {
@@ -523,7 +643,9 @@ function showNameUi() {
   if (cfg) {
     els.nameStart.maxLength = nameMaxLen();
     const saved = localStorage.getItem(nameStorageKey(cfg.slug));
-    if (saved) els.nameStart.value = saved.slice(0, nameMaxLen());
+    setNameValue(saved ? saved : "");
+    nameCursorIndex = Math.max(0, els.nameStart.value.length - 1);
+    syncNameCursorSelection();
   }
 }
 
@@ -538,7 +660,11 @@ function showCharSelectUi() {
   els.end.hidden = true;
   setViewportBackground("game");
   charSelectAnimAcc = 0;
-  if (cfg) renderCharSelect(cfg);
+  if (cfg) {
+    activeCharSelectIndex = engine?.characterIndex ?? 0;
+    renderCharSelect(cfg);
+    syncCharSelectUi();
+  }
   updateRotateOverlay();
 }
 
@@ -703,14 +829,24 @@ function handleJumpInput() {
 function handleMenuGamepad() {
   if (!engine || !cfg) return;
   if (engine.state === "playing" || engine.state === "dying") return;
+  const direction = pollMenuDirection();
   const action = pollMenuAction();
-  if (!action || !engine || !cfg) return;
+  if (!direction && !action) return;
 
   if (!els.nameScreen.hidden) {
+    if (direction === "up") adjustControllerNameLetter(1);
+    if (direction === "down") adjustControllerNameLetter(-1);
+    if (direction === "left") moveNameCursor(-1);
+    if (direction === "right") moveNameCursor(1);
+    if (action === "replay") deleteNameCharacter();
     if (action === "advance") els.nameContinue.click();
     return;
   }
-  if (!els.charSelect.hidden) return;
+  if (!els.charSelect.hidden) {
+    if (direction) moveCharSelection(direction);
+    if (action === "advance" || action === "replay") chooseCharacter(activeCharSelectIndex);
+    return;
+  }
   if (!els.intro.hidden) {
     if (action === "advance") els.introNext.click();
     return;
@@ -741,15 +877,26 @@ function bindInput() {
   els.fit.addEventListener("pointerdown", onDown);
   els.nameContinue.addEventListener("click", () => {
     if (!cfg) return;
-    const name = els.nameStart.value.trim().slice(0, nameMaxLen());
+    const name = sanitizePlayerName(els.nameStart.value.trim());
     if (!name) {
       els.nameStart.focus();
       return;
     }
+    setNameValue(name);
     savePlayerName(name);
     getLeaderboardExternalId();
     pastNameGate = true;
     showCharSelectOrIntro();
+  });
+  els.nameStart.addEventListener("input", () => {
+    const before = els.nameStart.selectionStart ?? els.nameStart.value.length;
+    setNameValue(els.nameStart.value);
+    const nextPos = Math.max(0, Math.min(els.nameStart.value.length, before));
+    nameCursorIndex = Math.max(0, Math.min(Math.max(0, els.nameStart.value.length - 1), nextPos));
+  });
+  els.nameStart.addEventListener("click", () => {
+    const start = els.nameStart.selectionStart ?? 0;
+    nameCursorIndex = Math.max(0, Math.min(Math.max(0, els.nameStart.value.length - 1), start));
   });
   els.nameStart.addEventListener("keydown", (e) => {
     if (e.key === "Enter") els.nameContinue.click();
@@ -903,16 +1050,19 @@ function renderCharSelect(c: RunnerConfig) {
     const label = document.createElement("span");
     label.className = "runner-char-select__label";
     label.textContent = char.label || `Character ${index + 1}`;
+    btn.dataset.charIndex = String(index);
     btn.appendChild(canvas);
     btn.appendChild(label);
     btn.addEventListener("click", () => {
-      if (!engine) return;
-      engine.setCharacterIndex(index);
-      saveCharacterIndex(index);
-      showIntroUi();
+      chooseCharacter(index);
+    });
+    btn.addEventListener("focus", () => {
+      activeCharSelectIndex = index;
+      syncCharSelectUi();
     });
     els.charSelectList.appendChild(btn);
   });
+  activeCharSelectIndex = Math.max(0, Math.min(list.length - 1, activeCharSelectIndex));
   paintCharSelectPreviews(0);
 }
 
