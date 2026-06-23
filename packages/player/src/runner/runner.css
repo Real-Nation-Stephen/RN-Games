@@ -274,11 +274,21 @@ body.runner-game {
   display: none !important;
 }
 
-.runner-mute {
+.runner-chrome {
   position: fixed;
   left: max(12px, env(safe-area-inset-left, 0px));
   bottom: max(12px, env(safe-area-inset-bottom, 0px));
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.runner-chrome[hidden] {
+  display: none !important;
+}
+
+.runner-chrome-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -291,6 +301,19 @@ body.runner-game {
   padding: 0;
   font-size: 18px;
   line-height: 1;
+}
+
+.runner-chrome-btn__icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+.runner-fullscreen__icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .runner-mute__icon--off {
@@ -337,6 +360,17 @@ body.runner-muted .runner-mute__icon--off {
   margin: 24px 0 42px;
   font-size: 39px;
   color: rgba(255, 255, 255, 0.75);
+}
+
+.runner-gamepad-hint {
+  margin: -24px 0 28px;
+  font-size: clamp(16px, 2.2vw, 22px);
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.runner-gamepad-hint[hidden] {
+  display: none !important;
 }
 
 .runner-name-screen__input {

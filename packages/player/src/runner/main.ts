@@ -25,7 +25,7 @@ import {
   setRunnerMuted,
   unlockRunnerAudio,
 } from "./audio";
-import { bindRunnerKeyboard, pollJumpInput, pollMenuAction, pollMenuDirection } from "./gamepad";
+import { bindRunnerKeyboard, bindRunnerGamepadEvents, isRunnerGamepadConnected, pollJumpInput, pollMenuAction, pollMenuDirection } from "./gamepad";
 import {
   bindRunnerLayout,
   getRunnerDesignSize,
@@ -41,6 +41,9 @@ import { parallaxDrawHeight, runnerAuthorHeight, runnerCharacterDrawSize, scaleR
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
+
+const ICON_FS_ENTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+const ICON_FS_EXIT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"/><path d="M20 8V4h-4"/><path d="M4 16v4h4"/><path d="M20 16v4h-4"/></svg>`;
 
 const els = {
   app: document.getElementById("app")!,
@@ -66,6 +69,10 @@ const els = {
   nameScreen: document.getElementById("runner-name-screen")!,
   nameStart: document.getElementById("runner-name-start") as HTMLInputElement,
   nameContinue: document.getElementById("runner-name-continue") as HTMLButtonElement,
+  nameGamepadHint: document.getElementById("runner-name-gamepad-hint")!,
+  chrome: document.getElementById("runner-chrome")!,
+  fullscreenBtn: document.getElementById("runner-fullscreen") as HTMLButtonElement,
+  fullscreenIcon: document.querySelector(".runner-fullscreen__icon") as HTMLElement,
   muteBtn: document.getElementById("runner-mute") as HTMLButtonElement,
   startOverlay: document.getElementById("runner-start-overlay")!,
   countdownOverlay: document.getElementById("runner-countdown-overlay")!,
@@ -89,6 +96,7 @@ let lastTs = 0;
 let raf = 0;
 let unbindLayout: (() => void) | null = null;
 let unbindKeyboard: (() => void) | null = null;
+let unbindGamepadEvents: (() => void) | null = null;
 let lastCountdownBeep = 0;
 let lastTimerBeepSec = -1;
 let pastNameGate = false;
@@ -157,6 +165,56 @@ function nameMaxLen() {
   return Math.min(32, Math.max(1, cfg?.highScore?.nameMaxLength || 3));
 }
 
+function canStealGameFocus() {
+  return !isPreview;
+}
+
+function updateGamepadHints() {
+  const show = isRunnerGamepadConnected();
+  els.nameGamepadHint.hidden = !show || els.nameScreen.hidden;
+}
+
+function getFullscreenElement() {
+  return document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement || null;
+}
+
+function fullscreenSupported() {
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || (el as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen);
+}
+
+function updateFullscreenButtonUi() {
+  if (!els.fullscreenBtn || !els.fullscreenIcon) return;
+  const active = !!getFullscreenElement();
+  els.fullscreenBtn.hidden = !fullscreenSupported();
+  els.fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
+  els.fullscreenBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  els.fullscreenBtn.title = active ? "Exit fullscreen" : "Fullscreen";
+  els.fullscreenIcon.innerHTML = active ? ICON_FS_EXIT : ICON_FS_ENTER;
+}
+
+function toggleFullscreen() {
+  const cur = getFullscreenElement();
+  const docEl = document.documentElement as HTMLElement & {
+    requestFullscreen?: () => Promise<void>;
+    webkitRequestFullscreen?: () => void;
+  };
+  try {
+    if (cur) {
+      if (document.exitFullscreen) void document.exitFullscreen();
+      else if ((document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen) {
+        void (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
+      }
+    } else if (docEl.requestFullscreen) {
+      void docEl.requestFullscreen();
+    } else if (docEl.webkitRequestFullscreen) {
+      docEl.webkitRequestFullscreen();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function sanitizePlayerName(value: string) {
   return value.toUpperCase().slice(0, nameMaxLen());
 }
@@ -179,21 +237,62 @@ function savePlayerName(name: string) {
 function setNameValue(value: string) {
   const next = sanitizePlayerName(value);
   els.nameStart.value = next;
-  const maxIndex = Math.max(0, next.length ? next.length - 1 : 0);
-  nameCursorIndex = Math.max(0, Math.min(maxIndex, nameCursorIndex));
+  if (!next.length) {
+    nameCursorIndex = 0;
+    return;
+  }
+  nameCursorIndex = Math.max(0, Math.min(next.length - 1, nameCursorIndex));
 }
 
 function syncNameCursorSelection() {
   const len = els.nameStart.value.length;
   const pos = len ? Math.min(nameCursorIndex, len - 1) : 0;
-  els.nameStart.focus({ preventScroll: true });
-  els.nameStart.setSelectionRange(pos, len ? pos + 1 : 0);
+  if (canStealGameFocus()) {
+    els.nameStart.focus({ preventScroll: true });
+  }
+  if (len) els.nameStart.setSelectionRange(pos, pos + 1);
+}
+
+function appendNameLetter() {
+  const value = els.nameStart.value;
+  if (value.length >= nameMaxLen()) return;
+  setNameValue(value + "A");
+  nameCursorIndex = els.nameStart.value.length - 1;
+  syncNameCursorSelection();
+}
+
+function ensureNameHasLetter() {
+  if (els.nameStart.value) return false;
+  appendNameLetter();
+  return true;
 }
 
 function moveNameCursor(delta: number) {
-  const len = Math.max(1, els.nameStart.value.length);
+  const len = els.nameStart.value.length;
+  if (!len) return;
   nameCursorIndex = Math.max(0, Math.min(len - 1, nameCursorIndex + delta));
   syncNameCursorSelection();
+}
+
+function handleNameDirection(direction: "up" | "down" | "left" | "right") {
+  if (!els.nameStart.value && (direction === "right" || direction === "up" || direction === "down")) {
+    ensureNameHasLetter();
+    if (direction === "right") return;
+  }
+
+  const len = els.nameStart.value.length;
+  if (direction === "up") adjustControllerNameLetter(1);
+  else if (direction === "down") adjustControllerNameLetter(-1);
+  else if (direction === "left") moveNameCursor(-1);
+  else if (direction === "right") {
+    if (!len) {
+      appendNameLetter();
+    } else if (nameCursorIndex >= len - 1 && len < nameMaxLen()) {
+      appendNameLetter();
+    } else {
+      moveNameCursor(1);
+    }
+  }
 }
 
 function adjustControllerNameLetter(delta: number) {
@@ -230,7 +329,7 @@ function syncCharSelectUi() {
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-pressed", active ? "true" : "false");
     btn.tabIndex = active ? 0 : -1;
-    if (active) btn.focus({ preventScroll: true });
+    if (active && canStealGameFocus()) btn.focus({ preventScroll: true });
   });
 }
 
@@ -645,8 +744,9 @@ function showNameUi() {
     const saved = localStorage.getItem(nameStorageKey(cfg.slug));
     setNameValue(saved ? saved : "");
     nameCursorIndex = Math.max(0, els.nameStart.value.length - 1);
-    syncNameCursorSelection();
+    if (canStealGameFocus()) syncNameCursorSelection();
   }
+  updateGamepadHints();
 }
 
 function showCharSelectUi() {
@@ -834,12 +934,9 @@ function handleMenuGamepad() {
   if (!direction && !action) return;
 
   if (!els.nameScreen.hidden) {
-    if (direction === "up") adjustControllerNameLetter(1);
-    if (direction === "down") adjustControllerNameLetter(-1);
-    if (direction === "left") moveNameCursor(-1);
-    if (direction === "right") moveNameCursor(1);
-    if (action === "replay") deleteNameCharacter();
-    if (action === "advance") els.nameContinue.click();
+    if (direction) handleNameDirection(direction);
+    if (action === "advance") deleteNameCharacter();
+    if (action === "replay") els.nameContinue.click();
     return;
   }
   if (!els.charSelect.hidden) {
@@ -908,6 +1005,9 @@ function bindInput() {
     applyMusicVolume();
     if (isRunnerMuted()) els.music.pause();
   });
+  els.fullscreenBtn.addEventListener("click", () => toggleFullscreen());
+  document.addEventListener("fullscreenchange", updateFullscreenButtonUi);
+  document.addEventListener("webkitfullscreenchange", updateFullscreenButtonUi);
   els.endPlay.addEventListener("click", () => {
     if (!engine || !cfg) return;
     const { w, h } = getRunnerDesignSize();
@@ -1169,6 +1269,7 @@ function drawFrame() {
   engine.update(dt);
 
   handleMenuGamepad();
+  updateGamepadHints();
   if (pollJumpInput()) handleJumpInput();
 
   if (engine.damageFlash > 0 && prevDamageFlash <= 0) {
@@ -1304,7 +1405,31 @@ function resizeCanvas() {
   if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+function applyLiveConfig(c: RunnerConfig) {
+  cfg = c;
+  document.title = c.title || "Runner game";
+  applyFavicon(c.faviconUrl);
+  applyTheme(c);
+  layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
+  layoutRunnerHud(els.hud);
+  layoutRunnerBanner(els.banner);
+  const { w, h } = getRunnerDesignSize();
+  resizeCanvas();
+  if (engine) {
+    engine.updateConfig(c);
+    if (engine.designW !== w || engine.designH !== h) {
+      engine.reset(c, w, h);
+    }
+  }
+  updateHud();
+  updateRotateOverlay();
+}
+
 function mountGame(c: RunnerConfig) {
+  if (isPreview && engine && cfg) {
+    applyLiveConfig(c);
+    return;
+  }
   layoutRunnerStage(els.fit, els.stage, pickRunnerOrientation());
   layoutRunnerHud(els.hud);
   layoutRunnerBanner(els.banner);
@@ -1326,7 +1451,9 @@ function mountGame(c: RunnerConfig) {
   if (needsPlayerName()) showNameUi();
   else showCharSelectOrIntro();
   els.app.hidden = false;
-  els.muteBtn.hidden = false;
+  els.chrome.hidden = false;
+  updateFullscreenButtonUi();
+  updateGamepadHints();
   lastTs = 0;
   cancelAnimationFrame(raf);
   raf = requestAnimationFrame(drawFrame);
@@ -1357,6 +1484,9 @@ window.addEventListener("message", (e) => {
 window.addEventListener("resize", onBreakpointChange);
 
 bindInput();
+unbindGamepadEvents?.();
+unbindGamepadEvents = bindRunnerGamepadEvents(updateGamepadHints);
+updateFullscreenButtonUi();
 
 async function main() {
   const slug = getSlugFromPath();
@@ -1372,6 +1502,7 @@ if (!isPreview) {
     err.hidden = false;
     msg.textContent = e instanceof Error ? e.message : "Failed to load";
     els.app.hidden = true;
+    els.chrome.hidden = true;
     els.muteBtn.hidden = true;
   });
 }

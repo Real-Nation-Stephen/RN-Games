@@ -14,6 +14,31 @@ const prevJumpButtons = new Set<number>();
 const prevMenuDirections = new Set<RunnerMenuDirection>();
 let prevJumpKeys = false;
 let prevDpadActive = false;
+let gamepadConnected = false;
+
+function refreshGamepadConnected() {
+  const pads = navigator.getGamepads?.() || [];
+  gamepadConnected = pads.some((pad) => pad?.connected);
+  return gamepadConnected;
+}
+
+export function isRunnerGamepadConnected() {
+  return refreshGamepadConnected();
+}
+
+export function bindRunnerGamepadEvents(onChange: () => void) {
+  const handler = () => {
+    refreshGamepadConnected();
+    onChange();
+  };
+  window.addEventListener("gamepadconnected", handler);
+  window.addEventListener("gamepaddisconnected", handler);
+  refreshGamepadConnected();
+  return () => {
+    window.removeEventListener("gamepadconnected", handler);
+    window.removeEventListener("gamepaddisconnected", handler);
+  };
+}
 
 function buttonDown(pad: Gamepad, index: number) {
   const btn = pad.buttons[index];

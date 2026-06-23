@@ -9,10 +9,15 @@
   </head>
   <body class="runner-game">
     <div id="runner-viewport-bg" class="runner-viewport-bg" aria-hidden="true"></div>
-    <button type="button" id="runner-mute" class="runner-mute" aria-label="Toggle sound" title="Sound" hidden>
-      <span class="runner-mute__icon runner-mute__icon--on" aria-hidden="true">🔊</span>
-      <span class="runner-mute__icon runner-mute__icon--off" aria-hidden="true">🔇</span>
-    </button>
+    <div id="runner-chrome" class="runner-chrome" hidden>
+      <button type="button" id="runner-fullscreen" class="runner-chrome-btn" aria-label="Enter fullscreen" title="Fullscreen">
+        <span class="runner-chrome-btn__icon runner-fullscreen__icon" aria-hidden="true"></span>
+      </button>
+      <button type="button" id="runner-mute" class="runner-chrome-btn" aria-label="Toggle sound" title="Sound">
+        <span class="runner-chrome-btn__icon runner-mute__icon runner-mute__icon--on" aria-hidden="true">🔊</span>
+        <span class="runner-chrome-btn__icon runner-mute__icon runner-mute__icon--off" aria-hidden="true">🔇</span>
+      </button>
+    </div>
     <div id="app" hidden>
       <div id="fit">
         <header id="runner-banner" class="runner-banner runner-banner--center"></header>
@@ -33,6 +38,9 @@
             <div class="runner-name-screen__card">
               <h2 class="runner-name-screen__title">Enter your name</h2>
               <p class="runner-name-screen__hint">For the leaderboard</p>
+              <p id="runner-name-gamepad-hint" class="runner-gamepad-hint" hidden>
+                D-pad Right: add letter · Up/Down: change letter · A: delete · B: continue
+              </p>
               <input
                 id="runner-name-start"
                 class="runner-name-screen__input"

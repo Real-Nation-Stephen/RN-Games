@@ -198,6 +198,11 @@ export class RunnerEngine {
     return Math.random() < this.targetPositiveRatio() ? "positive" : "negative";
   }
 
+  updateConfig(cfg: RunnerConfig) {
+    this.cfg = cfg;
+    this.maxAttempts = this.computeMaxAttempts();
+  }
+
   reset(cfg?: RunnerConfig, designW?: number, designH?: number) {
     if (cfg) this.cfg = cfg;
     if (designW) this.designW = designW;
