@@ -49,87 +49,147 @@ function newVariantId() {
   return `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function CollapsibleSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ border: "1px solid var(--rn-border)", borderRadius: 8, marginBottom: 12 }}>
+      <button
+        type="button"
+        className="btn"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "10px 12px",
+          border: "none",
+          borderRadius: open ? "8px 8px 0 0" : 8,
+          background: "rgba(255,255,255,0.04)",
+        }}
+      >
+        <span style={{ fontWeight: 600 }}>
+          {open ? "▼" : "▶"} {title}
+        </span>
+        {!open && summary ? (
+          <span className="muted" style={{ fontSize: "0.82rem", fontWeight: 400 }}>
+            {summary}
+          </span>
+        ) : null}
+      </button>
+      {open ? <div style={{ padding: "0 12px 12px" }}>{children}</div> : null}
+    </div>
+  );
+}
+
 function ItemVariantEditor({
   label,
   variants,
   onChange,
   uploadFile,
   negative = false,
+  collapsible = false,
 }: {
   label: string;
   variants: CatchItemVariant[];
   onChange: (next: CatchItemVariant[]) => void;
   uploadFile: (f: File) => Promise<{ url: string }>;
   negative?: boolean;
+  collapsible?: boolean;
 }) {
   const rows = variants.length ? variants : [{ id: newVariantId(), url: "", points: 1 }];
-  return (
-    <div style={{ marginTop: 12 }}>
-      <label className="field">{label}</label>
+  const configured = rows.filter((v) => v.url).length;
+  const summary = `${configured} of ${rows.length} with sprites`;
+
+  const body = (
+    <>
       {rows.map((v, i) => (
-        <div key={v.id || i} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          {v.url ? (
-            <img
-              src={v.url}
-              alt=""
-              width={52}
-              height={52}
-              style={{
-                objectFit: "contain",
-                borderRadius: 6,
-                background: negative ? "rgba(224, 93, 93, 0.25)" : "rgba(62, 207, 142, 0.25)",
-                flexShrink: 0,
+        <div
+          key={v.id || i}
+          style={{
+            border: "1px solid var(--rn-border)",
+            borderRadius: 8,
+            padding: 10,
+            marginBottom: 10,
+            background: negative ? "rgba(224, 93, 93, 0.06)" : "rgba(62, 207, 142, 0.06)",
+          }}
+        >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            {v.url ? (
+              <img
+                src={v.url}
+                alt=""
+                width={52}
+                height={52}
+                style={{
+                  objectFit: "contain",
+                  borderRadius: 6,
+                  background: negative ? "rgba(224, 93, 93, 0.25)" : "rgba(62, 207, 142, 0.25)",
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 6,
+                  background: negative ? "rgba(224, 93, 93, 0.35)" : "rgba(62, 207, 142, 0.35)",
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const { url } = await uploadFile(f);
+                const next = [...rows];
+                next[i] = { ...next[i], url };
+                onChange(next);
               }}
             />
-          ) : (
-            <span
-              aria-hidden="true"
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 6,
-                background: negative ? "rgba(224, 93, 93, 0.35)" : "rgba(62, 207, 142, 0.35)",
-                flexShrink: 0,
+            <input
+              type="number"
+              min={1}
+              max={99}
+              title={negative ? "Penalty points" : "Points"}
+              value={v.points}
+              style={{ width: 72 }}
+              onChange={(e) => {
+                const next = [...rows];
+                next[i] = { ...next[i], points: Number(e.target.value) || 1 };
+                onChange(next);
               }}
             />
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const { url } = await uploadFile(f);
-              const next = [...rows];
-              next[i] = { ...next[i], url };
-              onChange(next);
-            }}
-          />
-          <input
-            type="number"
-            min={1}
-            max={99}
-            title={negative ? "Penalty points" : "Points"}
-            value={v.points}
-            style={{ width: 72 }}
-            onChange={(e) => {
-              const next = [...rows];
-              next[i] = { ...next[i], points: Number(e.target.value) || 1 };
-              onChange(next);
-            }}
-          />
-          <span className="muted" style={{ fontSize: "0.82rem" }}>
-            {negative ? "penalty" : "pts"}
-          </span>
-          {rows.length > 1 ? (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => onChange(rows.filter((_, j) => j !== i))}
-            >
-              Remove
-            </button>
-          ) : null}
+            <span className="muted" style={{ fontSize: "0.82rem" }}>
+              {negative ? "penalty" : "pts"}
+            </span>
+            {rows.length > 1 ? (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => onChange(rows.filter((_, j) => j !== i))}
+              >
+                Remove
+              </button>
+            ) : null}
+          </div>
         </div>
       ))}
       <button
@@ -139,6 +199,23 @@ function ItemVariantEditor({
       >
         Add {negative ? "negative" : "positive"} item
       </button>
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <CollapsibleSection title={label} summary={summary}>
+          {body}
+        </CollapsibleSection>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label className="field">{label}</label>
+      {body}
     </div>
   );
 }
@@ -437,7 +514,10 @@ export default function CatchEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Gameplay</h3>
+          <CollapsibleSection
+            title="Gameplay"
+            summary={`${game.gameplay.durationSec}s round · ${game.gameplay.itemSize}px items${game.gameplay.positiveOnly ? " · positive only" : ""}`}
+          >
           <label className="field">Round duration (seconds)</label>
           <input
             type="number"
@@ -639,10 +719,14 @@ export default function CatchEditor() {
               }))
             }
           />
+          </CollapsibleSection>
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Sprites</h3>
+          <CollapsibleSection
+            title="Sprites"
+            summary={`${game.sprites.positive.filter((v) => v.url).length} positive · ${game.sprites.negative.filter((v) => v.url).length} negative${game.catcherSpriteUrl ? " · catcher" : ""}`}
+          >
           <label className="field">Catcher sprite</label>
           <input
             type="file"
@@ -692,6 +776,7 @@ export default function CatchEditor() {
             label="Positive items"
             variants={game.sprites.positive}
             uploadFile={uploadFile}
+            collapsible
             onChange={(positive) => patch((g) => ({ ...g, sprites: { ...g.sprites, positive } }))}
           />
           <ItemVariantEditor
@@ -699,8 +784,10 @@ export default function CatchEditor() {
             variants={game.sprites.negative}
             uploadFile={uploadFile}
             negative
+            collapsible
             onChange={(negative) => patch((g) => ({ ...g, sprites: { ...g.sprites, negative } }))}
           />
+          </CollapsibleSection>
         </div>
 
         <div className="card">
@@ -804,7 +891,10 @@ export default function CatchEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>End screen</h3>
+          <CollapsibleSection
+            title="End screen"
+            summary={game.endScreen.headline.trim() || "Default headline"}
+          >
           <label className="field">Logo</label>
           <input
             type="file"
@@ -925,6 +1015,7 @@ export default function CatchEditor() {
               }))
             }
           />
+          </CollapsibleSection>
         </div>
       </div>
 
