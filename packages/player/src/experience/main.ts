@@ -30,11 +30,19 @@ type Session = {
   completedAt?: string | null;
 };
 
-const params = new URLSearchParams(window.location.search);
-const slug = params.get("slug")?.trim() || "";
-const previewToken = params.get("previewToken")?.trim() || "";
+/** Clean URL `/x/:slug` or direct `/play/experience.html?slug=` */
+function getExperienceSlug(): string {
+  const q = new URLSearchParams(window.location.search).get("slug");
+  if (q?.trim()) return q.trim();
+  const seg = window.location.pathname.split("/").filter(Boolean);
+  const i = seg.indexOf("x");
+  if (i >= 0 && seg[i + 1]) return seg[i + 1];
+  return "";
+}
 
-const SESSION_KEY = `rngames:experience-session:${slug}`;
+function getPreviewToken(): string {
+  return new URLSearchParams(window.location.search).get("previewToken")?.trim() || "";
+}
 
 const els = {
   loading: document.getElementById("exp-loading")!,
@@ -53,6 +61,12 @@ const els = {
 let experience: PublicExperience | null = null;
 let session: Session | null = null;
 let loadAttempts = 0;
+let slug = "";
+let previewToken = "";
+
+function sessionStorageKey() {
+  return `rngames:experience-session:${slug}`;
+}
 
 function showError(msg: string) {
   els.loading.hidden = true;
@@ -65,7 +79,7 @@ function showError(msg: string) {
 function saveSessionLocal(s: Session) {
   try {
     localStorage.setItem(
-      SESSION_KEY,
+      sessionStorageKey(),
       JSON.stringify({ sessionId: s.sessionId, participantId: s.participantId }),
     );
   } catch {
@@ -75,7 +89,7 @@ function saveSessionLocal(s: Session) {
 
 function loadSessionLocal(): { sessionId: string; participantId: string } | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(sessionStorageKey());
     if (!raw) return null;
     return JSON.parse(raw) as { sessionId: string; participantId: string };
   } catch {
@@ -240,6 +254,8 @@ function bindEvents() {
 }
 
 async function boot() {
+  slug = getExperienceSlug();
+  previewToken = getPreviewToken();
   if (!slug) {
     showError("Missing experience slug.");
     return;
