@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { connectLambda } from "@netlify/blobs";
 import {
   readExperiencesIndex,
   getExperienceJson,
@@ -68,6 +69,7 @@ function emptySession(experience, participantId) {
 }
 
 export const handler = async (event) => {
+  connectLambda(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }

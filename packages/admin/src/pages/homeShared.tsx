@@ -222,14 +222,30 @@ export function SectionHeader({
   );
 }
 
-export function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function SearchBar({
+  value,
+  onChange,
+  resultHint,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  resultHint?: string;
+}) {
   return (
-    <input
-      type="search"
-      placeholder="Search title, client, slug, project or design code…"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{ width: "100%", maxWidth: 420, marginBottom: 20, padding: "8px 12px" }}
-    />
+    <div style={{ marginBottom: 20 }}>
+      <input
+        type="search"
+        placeholder="Search title, client, slug, project or design code…"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", maxWidth: 420, padding: "8px 12px" }}
+        aria-label="Search studio"
+      />
+      {resultHint ? (
+        <p className="muted" style={{ margin: "8px 0 0", fontSize: "0.85rem" }}>
+          {resultHint}
+        </p>
+      ) : null}
+    </div>
   );
 }

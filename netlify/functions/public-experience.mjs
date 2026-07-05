@@ -1,3 +1,4 @@
+import { connectLambda } from "@netlify/blobs";
 import { readExperiencesIndex, getExperienceJson, readIndex } from "./lib/blobs.mjs";
 import {
   normalizeExperienceRecord,
@@ -11,6 +12,7 @@ const headers = {
 };
 
 export const handler = async (event) => {
+  connectLambda(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }

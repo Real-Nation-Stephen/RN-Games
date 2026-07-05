@@ -21,15 +21,23 @@ export default function Home() {
   async function load() {
     setLoading(true);
     setErr(null);
+    const problems: string[] = [];
     try {
-      const [w, e] = await Promise.all([apiGet("/api/wheels"), apiGet("/api/experiences")]);
+      const w = await apiGet("/api/wheels");
       setWheels((w.wheels || []).filter((x: LibraryItem) => !x.archived));
+    } catch (e) {
+      problems.push(e instanceof Error ? e.message : "Failed to load components");
+      setWheels([]);
+    }
+    try {
+      const e = await apiGet("/api/experiences");
       setExperiences(e.experiences || []);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
+      problems.push(e instanceof Error ? e.message : "Failed to load experiences");
+      setExperiences([]);
     }
+    if (problems.length) setErr(problems.join(" · "));
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -68,15 +76,30 @@ export default function Home() {
     return list.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
 
+  const searchHint = useMemo(() => {
+    if (!q) return undefined;
+    let n = filteredExperiences.length;
+    for (const meta of LIBRARY_TYPES) {
+      n += filterModules(meta.gameType).length;
+    }
+    if (n === 0) return `No results for “${search.trim()}”.`;
+    return `${n} matching item${n === 1 ? "" : "s"}.`;
+  }, [q, search, filteredExperiences, wheels]);
+
   async function createExperience() {
-    const slug = `experience-${Date.now().toString(36)}`;
-    const res = await apiSend("/api/experiences", "POST", {
-      slug,
-      title: "New experience",
-      clientName: "",
-    });
-    if (res?.experience?.id) {
-      window.location.href = `/admin/experiences/${res.experience.id}`;
+    setErr(null);
+    try {
+      const slug = `experience-${Date.now().toString(36)}`;
+      const res = await apiSend("/api/experiences", "POST", {
+        slug,
+        title: "New experience",
+        clientName: "",
+      });
+      if (res?.experience?.id) {
+        window.location.href = `/admin/experiences/${res.experience.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not create experience");
     }
   }
 
@@ -135,7 +158,7 @@ export default function Home() {
         libraries.
       </p>
 
-      <SearchBar value={search} onChange={setSearch} />
+      <SearchBar value={search} onChange={setSearch} resultHint={searchHint} />
       {err ? <p className="muted">{err}</p> : null}
 
       <section className="card" style={{ marginBottom: 24 }}>

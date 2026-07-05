@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { connectLambda } from "@netlify/blobs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readExperiencesIndex,
@@ -43,7 +44,8 @@ function filterList(list, params) {
   return out;
 }
 
-export const handler = async (event) => {
+export const handler = async (event, context) => {
+  connectLambda(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -68,10 +70,8 @@ export const handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ experiences: list }), headers };
     }
 
-    const auth = requireAuth(event);
-    if (!auth.ok) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }), headers };
-    }
+    const deny = requireAuth(event, context);
+    if (deny) return { ...deny, headers: { ...headers, ...deny.headers } };
 
     if (event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}");
