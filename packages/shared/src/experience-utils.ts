@@ -32,13 +32,13 @@ export function componentPublicPath(moduleType: string, slug: string): string {
   }
 }
 
+/** Append experience flow params. Do not pass `preview=1` — that flag is for Studio editor iframes only. */
 export function appendFlowQuery(
   path: string,
   params: {
     sessionId: string;
     experienceId: string;
     nodeId: string;
-    preview?: boolean;
   },
 ): string {
   const sep = path.includes("?") ? "&" : "?";
@@ -48,6 +48,5 @@ export function appendFlowQuery(
     experienceId: params.experienceId,
     nodeId: params.nodeId,
   });
-  if (params.preview) q.set("preview", "1");
   return `${path}${sep}${q.toString()}`;
 }

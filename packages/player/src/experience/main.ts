@@ -52,11 +52,16 @@ const els = {
   title: document.getElementById("exp-title")!,
   progress: document.getElementById("exp-progress")!,
   frame: document.getElementById("exp-frame") as HTMLIFrameElement,
+  stepFooter: document.getElementById("exp-step-footer")!,
+  stepContinue: document.getElementById("exp-step-continue")!,
   fallback: document.getElementById("exp-fallback")!,
   fallbackMsg: document.getElementById("exp-fallback-msg")!,
   retry: document.getElementById("exp-retry")!,
   continue: document.getElementById("exp-continue")!,
 };
+
+/** Components that emit step_complete from inside the iframe (no shell Continue). */
+const AUTO_ADVANCE_TYPES = new Set(["catch", "runner"]);
 
 let experience: PublicExperience | null = null;
 let session: Session | null = null;
@@ -160,7 +165,6 @@ function stepFrameUrl(step: PublicStep): string {
     sessionId: session.sessionId,
     experienceId: experience.id,
     nodeId: step.id,
-    preview: !!previewToken,
   });
   if (originRelative.startsWith("http")) return originRelative;
   return `${window.location.origin}${originRelative}`;
@@ -198,6 +202,7 @@ function renderStep() {
 
   if (step.missing || !step.moduleSlug) {
     els.fallback.hidden = false;
+    els.stepFooter.hidden = true;
     els.fallbackMsg.textContent = `Component unavailable (${step.label}).`;
     els.frame.src = "about:blank";
     return;
@@ -205,6 +210,7 @@ function renderStep() {
 
   loadAttempts = 0;
   els.frame.src = stepFrameUrl(step);
+  els.stepFooter.hidden = AUTO_ADVANCE_TYPES.has(step.moduleType);
 
   track({
     type: "experience.step_start",
@@ -249,6 +255,10 @@ function bindEvents() {
   });
 
   els.continue.addEventListener("click", () => {
+    void onStepComplete({});
+  });
+
+  els.stepContinue.addEventListener("click", () => {
     void onStepComplete({});
   });
 }

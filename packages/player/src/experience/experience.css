@@ -57,6 +57,13 @@ body {
   background: #000;
 }
 
+#exp-step-footer {
+  display: flex;
+  justify-content: center;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
 #exp-fallback {
   padding: 16px;
   text-align: center;
