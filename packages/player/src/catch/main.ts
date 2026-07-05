@@ -1,5 +1,11 @@
 import { CATCH_DESIGN_H, CATCH_DESIGN_W, type CatchItemVariant } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
+import {
+  emitStepComplete,
+  isFlowMode,
+  parseFlowContextFromSearch,
+  saveFlowContext,
+} from "@rngames/shared";
 import { submitLinkedScore } from "../leaderboard/api";
 import {
   fetchPublicConfig,
@@ -23,6 +29,7 @@ import { bindCatchLayout, layoutCatchStage, pointerToStageX as mapPointerX } fro
 import type { CatchConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
+const flowMode = isFlowMode();
 
 const els = {
   app: document.getElementById("app")!,
@@ -203,7 +210,7 @@ function applyTheme(c: CatchConfig) {
 
   els.endHeadline.textContent = end.headline || "Time's up!";
   els.endSubhead.textContent = end.subhead || "";
-  els.endPlay.textContent = end.playAgainLabel || "Play again";
+  els.endPlay.textContent = flowMode ? "Continue" : end.playAgainLabel || "Play again";
   root.style.setProperty("--catch-end-link-btn", end.linkButtonHex || "#1e81ff");
   root.style.setProperty("--catch-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
   const showLink = end.linkEnabled === true && Boolean((end.linkUrl || "").trim());
@@ -523,6 +530,10 @@ function bindInput() {
   });
   els.endPlay.addEventListener("click", () => {
     if (!engine || !cfg) return;
+    if (flowMode) {
+      emitStepComplete({ "catch.score": engine.score, completed: true });
+      return;
+    }
     engine.reset(cfg);
     lastCountdownBeep = 0;
     lastTimerBeepSec = -1;
@@ -693,6 +704,8 @@ window.addEventListener("resize", onBreakpointChange);
 bindInput();
 
 async function main() {
+  const flowCtx = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  if (flowCtx) saveFlowContext(flowCtx);
   const slug = getSlugFromPath();
   if (!slug) throw new Error("Missing game slug");
   const c = await fetchPublicConfig(slug);

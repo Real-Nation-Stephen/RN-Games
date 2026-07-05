@@ -2,7 +2,7 @@
 
 Companion to [INFRASTRUCTURE.md](./INFRASTRUCTURE.md). Captures product decisions as we go; update when answers change.
 
-**Last updated:** June 2026 (Runner game Phase E spec locked)
+**Last updated:** July 2026 (Phases A–E shipped; **Waves 1–6 locked** — see [ROADMAP.md](./ROADMAP.md))
 
 ---
 
@@ -12,11 +12,17 @@ Small decisions baked into early phases to avoid rework:
 
 | Principle | Detail |
 |-----------|--------|
-| **Event stub** | From Phase B onward, shared `track(event)` in `@rngames/shared` with stable shape `{ type, gameId, moduleId?, timestamp, payload }` — no-op (dev console) until Phase G ingest |
+| **Event stub** | Wire `track()` with `sessionId` + `campaignId` in Wave 1; minimal ingest Wave 2; full dashboards Wave 6 |
+| **Tracking sign-off** | Business/legal doc (GDPR, retention, PII) before production client analytics |
 | **Sheets** | **One-way export** only (platform → Sheets). Client deliverable = branded dashboard URL; Sheets = backup/export |
-| **Slug uniqueness** | **Global** across module types — cannot claim a slug already in use (wheels, leaderboards, landings, etc.) |
-| **Tracking Phase G** | Requires **management + head of research** sign-off on retention, buckets, and compliance before build — not improvised |
-| **Cartridge spec doc** | Instructional MD for agents/designers (manifest, zip size, frame counts, min console version) — created with Phase F |
+| **Slug uniqueness** | **Global** across module types and experiences — cannot claim a slug already in use |
+| **Cartridge spec doc** | Instructional MD for agents/designers — **parked** with console (Phase F) |
+| **Experiences as product** | **Sellable unit** is the Experience; components reusable building blocks (locked Jul 2026) |
+| **Standalone components** | Remain first-class publish targets — not forced into experiences |
+| **Component branding** | Visual branding on components; experiences = lightweight metadata only |
+| **Analytics buckets** | Campaign · Experience · Component · User Analytics (replaces working names in old Phase G notes) |
+
+---
 
 ### Platform hygiene (Phase A/B)
 
@@ -34,18 +40,65 @@ Fix alongside rename / shared components — low cost, fewer demo failures:
 
 Build slices in this order; tracking/reporting architecture is a **separate phase** after arcade modules exist so we learn what each game actually emits.
 
-| Phase | Work |
-|-------|------|
-| **A** | Rename: local folder `rn-game-studio` + user-facing copy → **RN Game Studio** |
-| **B** | Shared editor components + **platform hygiene** (see above) |
-| **C** | Leaderboard module (API + live + moderator) |
-| **D** | Catch POC (isolated test → Studio) |
-| **E** | Runner game POC (isolated test → Studio) |
-| **F** | Console + cartridge (fresh in monorepo; Prowler as reference only) |
-| **G** | Tracking ingest + dashboards (after D/E inform event shapes) |
-| **H** | Campaign landing pages |
+| Phase | Work | Status (Jul 2026) |
+|-------|------|-------------------|
+| **A** | Rename: local folder `rn-game-studio` + user-facing copy → **RN Game Studio** | ✅ Complete |
+| **B** | Shared editor components + **platform hygiene** (see above) | ✅ Complete |
+| **C** | Leaderboard module (API + live + moderator) | ✅ Complete |
+| **D** | Catch POC (isolated test → Studio) | ✅ Complete (polish ongoing) |
+| **E** | Runner game POC (isolated test → Studio) | ✅ Complete (polish ongoing) |
+| **F** | Console + cartridge (fresh in monorepo; Prowler as reference only) | ⏸ **Under re-evaluation** — see [Roadmap note](#roadmap-note-jul-2026) |
+| **G** | Tracking ingest + dashboards (after D/E inform event shapes) | Not started — sign-off gate |
+| **H** | Campaign landing pages | Superseded by **Wave 2** landing module — see [ROADMAP.md](./ROADMAP.md) |
 
-Capture tracking learnings in this doc and INFRASTRUCTURE.md during A–F.
+**Platform evolution (Jul 2026+):** Modular experiences, shared session, flow editor — full plan in [ROADMAP.md](./ROADMAP.md). Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md). Decisions: [ROADMAP_QUESTIONS.md](./ROADMAP_QUESTIONS.md).
+
+Capture tracking learnings in this doc and INFRASTRUCTURE.md during builds.
+
+### Shipped work log (May–Jul 2026)
+
+Condensed record of what landed on `main` — detail in [INFRASTRUCTURE.md](./INFRASTRUCTURE.md) changelog.
+
+**Phase A — Rename & branding**
+
+- Product UI → **RN Game Studio**; local repo folder `rn-game-studio`.
+- `public-wheel` try/catch; wheel segment sync hardening.
+
+**Phase B — Editor standardisation**
+
+- Shared `HexField` (hex + picker) across quiz, scratcher, flip-cards editors.
+- Shared `track()` stub wired at player event sites.
+- Edge router: `leaderboard` reserved slug.
+
+**Phase C — Leaderboard module**
+
+- Standalone module: live board, moderator PIN UI, linked + manual modes.
+- `POST /api/leaderboard-state` for linked game submit; shared rank + timing tie-break.
+- Studio editor aligned to platform shell; linkable types enforced (`catch`, `runner` when shipped).
+
+**Phase D — Catch game**
+
+- `gameType: catch` — timed catching, positive/negative item variants, catcher sprite, parallax-free vertical fall.
+- Studio editor + live preview; clean URL `/catch/:slug`.
+- Intro, swipe/drag controls, gamepad start; optional name + linked leaderboard.
+- Spawn/fall difficulty ramp; positive-only mode; points-add-time toggle.
+- Editor collapsible panels (Gameplay, Sprites, End screen) + nested positive/negative item lists (Jul 2026).
+
+**Phase E — Runner game**
+
+- `gameType: runner` — side-scroll runner: jump, collectibles, obstacles, health, optional timer.
+- Up to **5 parallax layers** with depth tiers: behind · in front of floor · in front of player.
+- Optional ground strip; multiple **characters** with selector; sprite sheets (run/jump/death).
+- Studio editor + live preview; clean URL `/runner/:slug`.
+- HUD slot assignment (score / timer / health); intro with multi-effect labels; item spawn bias.
+- **Controller support:** character select, name entry, menus, full play flow; fullscreen + mute chrome.
+- PNG upload preserves transparency (admin compression fix).
+- Editor collapsible sections (Gameplay, Characters, Items, Parallax, Ground, End screen); parallax labels + reorder.
+- Mobile scene scaling, HUD/banner layout, end-screen polish (Jun–Jul 2026).
+
+**Documentation**
+
+- [DESIGNER_INSTRUCTIONS.md](./DESIGNER_INSTRUCTIONS.md) — non-technical editor guide; Catch complete, Runner TBD.
 
 ---
 
@@ -73,6 +126,8 @@ Capture tracking learnings in this doc and INFRASTRUCTURE.md during A–F.
 | Live preview | Keep **preview at bottom** on all games (current pattern) — not a side column |
 | Pin board | Reference for inputs + layout where other editors fit |
 | **Studio editor shell** | See checklist below — game details card, bottom save bar, preview last |
+| **Collapsible panels** | Catch + Runner editors use expand/collapse sections (collapsed by default) for Gameplay, Sprites/Items, End screen, etc. — reduces noise for designers |
+| **Designer docs** | [DESIGNER_INSTRUCTIONS.md](./DESIGNER_INSTRUCTIONS.md) — per-game guides for non-technical editors |
 
 ### Studio editor consistency (all modules)
 
@@ -128,32 +183,38 @@ High score settings on game records (`highScore.enabled`, `nameMaxLength`) ship 
 
 ---
 
-## Catch game (POC)
+## Catch game (POC) — ✅ shipped
 
 | Item | Decision |
 |------|----------|
-| Build path | Isolated test first → insert into Studio when refined |
-| Orientation | **Responsive** (see note below) |
-| Controls | Finger / cursor **drag**; gamepad later, not v1 |
-| Session | **Timed round** (duration editable in Studio); most catches wins |
-| Items | Good items add points; bad items **−points or −time**; Studio toggle for **positive-only** mode |
-| Players | Single-player; competition via leaderboard |
-| Submit | **End of round** → leaderboard |
-| Mobile UX | Catcher **not pinned to bottom edge** — leave thumb clearance; catcher always visible above safe-area |
+| Build path | Isolated test first → **in Studio** (`/admin/catch/:id`) |
+| Public URL | `/catch/:slug` (edge router) · embed via `/play/catch.html?slug=` |
+| Orientation | **Responsive** — portrait logical canvas, contain scaling in stage |
+| Controls | Finger / cursor **drag**; gamepad **Start** to begin round |
+| Session | **Timed round** (duration editable in Studio) |
+| Items | Multiple **positive** and **negative** variants per list, each with point value (1–99) |
+| Modes | **Positive-only** toggle; **points add/remove time** toggle |
+| Players | Single-player; competition via **linked leaderboard** and/or local high score |
+| Flow | Optional **name** (if linked LB + high score enabled) → **intro** → start + swipe hint → countdown → play → **end screen** |
+| Mobile UX | Catcher not pinned to bottom edge — thumb clearance |
+| Editor (Jul 2026) | Collapsible **Gameplay**, **Sprites** (nested positive/negative lists), **End screen** |
+| Designer guide | [DESIGNER_INSTRUCTIONS.md](./DESIGNER_INSTRUCTIONS.md) § Catch |
 
 ---
 
-## Runner game (Phase E)
+## Runner game (Phase E) — ✅ shipped
 
-**Naming:** UI = **Runner game** · `gameType` = `runner` · public URL = `/runner/:slug` · editor = `/runner/:id`. Do not use “dino” in product copy or code identifiers.
+**Naming:** UI = **Runner game** · `gameType` = `runner` · public URL = `/runner/:slug` · editor = `/admin/runner/:id`. Do not use “dino” in product copy or code identifiers.
 
-| Item | Decision |
-|------|----------|
-| Build path | Same slice order as catch: shared types → API → player → editor → router → leaderboard link |
-| User flow | Match catch: name (if linked LB) → intro → start → play → end → play again |
-| Input | Tap / Space / gamepad **A** = jump only (no duck v1). **Start** = begin run · **B** = play again (same as catch) |
-| Leaderboard | End-of-run submit; **designer picks** primary metric (points, time survived, distance, etc.) in editor |
-| Intro / outro | Same pattern as catch (item explainer intro, branded end screen, optional link button) |
+| Item | Decision / shipped state |
+|------|--------------------------|
+| Build path | In Studio; shared types in `@rngames/shared`, API normalizers in `lib/runner.mjs` |
+| User flow | Name (if linked LB) → intro → start → countdown → play → end → play again |
+| Input | Tap / Space / gamepad **A** = jump · **Start** = begin · **B** = play again on end screen |
+| **Controller (Jul 2026)** | Full menu flow: character select (d-pad + A/B), name entry (d-pad + A/B), context hints when gamepad detected |
+| **Fullscreen** | Toggle button in player chrome (beside mute) |
+| Leaderboard | End-of-run submit; designer picks metric: **points**, **time survived**, or **distance** |
+| Intro / outro | Item explainer intro (multi-effect labels); branded end screen; optional link button |
 
 ### Responsive layout (differs from catch)
 
@@ -198,27 +259,37 @@ When attempts are exhausted (or end-on-zero mode): **end screen**. Linked leader
 ### Difficulty & scrolling
 
 - **Scroll speed:** designer sets **start → end** (lerp over round when timer on; or over distance/time when endless).
-- **Parallax midground:** up to **5** wide PNG layers; each has **parallax speed**; loops horizontally; **no collision**.
-- **Ground strip:** optional single wide PNG; loops horizontally; **purely visual** — adjustable height and Y. **No box collider ground** — character uses designer **ground Y**, **character Y**, and **jump height** only (simple arcade jump arc, not Unity-style ground physics).
+- **Parallax:** up to **5** wide PNG layers; each has speed, Y, scale %, and **depth** (behind · in front of floor · in front of player); list order + reorder in editor; optional **label** per layer.
+- **Ground strip:** optional single wide PNG; loops horizontally; purely visual.
+- **Upload:** PNG transparency preserved on admin upload (no JPEG conversion for PNG assets).
 
 ### Character sprites
 
-Three sprite sheets: **run**, **jump**, **death**.
+Three sprite sheets per character: **run**, **jump**, **death**.
 
-- Upload PNG + **cell width/height**; frames read **row-major** top-left → bottom-right; frame count inferred from sheet dimensions.
-- Reasonable caps flagged in editor (e.g. max cell size, max frames per sheet).
-- Designer adjusts **character size**, **ground Y**, **jump height**.
+- Horizontal strip layout; non-square cell sizes supported (up to 1024×2048 px per cell).
+- Single-frame sheets supported (full image = one frame).
+- **Multiple characters** (up to 8) with selector screen when more than one configured.
+- Designer sets **scale %** (aspect-preserving, from run cell); **ground Y**, **jump height**.
 
 ### Items
 
-Two lists (same language as catch):
+Two lists (collapsible in editor):
 
-- **Positive items (collectibles)** — spawn from off-screen right; per-variant size, Y, effect flags (+health / +points / +time).
-- **Negative items (obstacles)** — spawn from off-screen right; per-variant size, Y; collision reduces health / time / points per flags.
+- **Positive items** — per-variant size, Y, effect flags (+health / +points / +time), **spawn bias** weight.
+- **Negative items** — per-variant size, Y; collision effects; spawn bias.
 
 ### Sounds & shared chrome
 
 Same families as catch: positive/negative SFX, game end, music + volume; backgrounds (desktop/tablet/mobile); banner; fonts; end-screen branding; linked leaderboard; high-score name collection; reporting toggle; embed code in editor.
+
+### Editor (Jul 2026)
+
+Collapsible sections (default closed): **Gameplay**, **Characters**, **Items**, **Parallax layers**, **Ground strip**, **End screen**. Live preview uses hot config apply in preview mode (no focus steal from parent editor).
+
+### Designer guide
+
+Runner section in [DESIGNER_INSTRUCTIONS.md](./DESIGNER_INSTRUCTIONS.md) — **not yet written** (Catch is the template).
 
 ### Responsive note (catch vs runner)
 
@@ -226,10 +297,11 @@ Catch uses **contain** scaling in a centred stage. Runner uses **full-viewport f
 
 ---
 
-## Console + cartridge
+## Console + cartridge — ⏸ Phase F (deferred / under review)
 
 | Item | Decision |
 |------|----------|
+| Status (Jul 2026) | **Not started.** Originally next after Runner; team re-evaluating in favour of smaller modules (landing page, data collection form, GDPR/consent/cookies) and other new ideas. Spec below remains valid if/when we resume. |
 | Codebase | **Fresh in monorepo** — Prowler repo is reference only (Pygame port baggage) |
 | Shell themes v1 | **Minimal** + **retro handheld**; both need branding space; handheld supports **colour variations** |
 | Cartridge upload | **Single zip** (manifest + entry + assets) |
@@ -264,13 +336,16 @@ Catch uses **contain** scaling in a centred stage. Runner uses **full-viewport f
 
 **Not the same thing:** tracking store vs dashboard config — interconnected but separate artifacts.
 
-### Metric buckets (working)
+### Metric buckets (locked Jul 2026)
 
-| Bucket | Status | Examples |
-|--------|--------|----------|
-| **Results metrics** | Active | Quiz answers, wheel spins, redemptions, pin board images/notes/unique users, catch/runner scores |
-| **Campaign performance** | **TBC** — may rename/split (e.g. analytics vs advanced analytics) | — |
-| **Analytic performance** | **First-party only** for now | Clicks, dwell, funnel; no GA4 dependency |
+| Bucket | Scope |
+|--------|-------|
+| **Campaign Analytics** | Cross-experience / client rollup |
+| **Experience Analytics** | Funnel, drop-off, completion per journey |
+| **Component Analytics** | Context-aware metrics per module type |
+| **User Analytics** | Session/participant behaviour (pseudonymous default) |
+
+Legacy “Results / Campaign performance / Analytic performance” labels in earlier notes map to the above — update dashboards when built (Wave 6; minimal ingest Wave 2).
 
 ### Other tracking decisions
 
@@ -312,13 +387,37 @@ Example record: `{ type, gameId, campaignId?, sessionId?, timestamp, payload }`.
 
 ---
 
+## Roadmap note (Jul 2026) — locked
+
+Phases **A–E complete** on `main`. Platform direction **locked** via [ROADMAP_QUESTIONS.md](./ROADMAP_QUESTIONS.md):
+
+| Document | Purpose |
+|----------|---------|
+| [ROADMAP.md](./ROADMAP.md) | Waves 1–6 deliverables and locked decision summary |
+| [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) | Experience / session / graph contracts |
+| [ROADMAP_QUESTIONS.md](./ROADMAP_QUESTIONS.md) | Completed questionnaire (80 locked, 2 open) |
+
+**Next implementation:** Wave 1 — session spine, experience player, Studio library retrofit, linear step editor (stepping stone to React Flow Wave 3).
+
+**Parallel:** Quiz UI redesign before deep quiz-in-experience integration.
+
+**Parked:** Console + cartridge (not cancelled).
+
+**Open (decide in build):** Max graph size (W3-10), A/B testing (W4-10).
+
+---
+
 ## Open / deferred
 
+| **Experience platform** (session, flows, node editor) | Wave 1 in progress — [ROADMAP.md](./ROADMAP.md) |
+| **Quiz redesign** | Before deep quiz-in-experience work |
+| **W3-10 / W4-10** | Max graph size; A/B split — open |
 - **T4 / Phase G gate** — retention policy and tracking architecture: **management + head of research** consultation before implementation  
 - **T7** Final naming/split of analytics buckets  
 - **R3 / P3** Production URL and landing slug strategy when management decides  
 - **Leaderboard ↔ name collection module** — wire when collection modules exist; manual mode covers gap for now  
 - **Quiz kiosk spin-off** — scope and editor timing (after play-along quiz stabilises or in parallel with quiz overhaul)  
+- **DESIGNER_INSTRUCTIONS** — Runner (and other types) guides to follow Catch template  
 
 ---
 

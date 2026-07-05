@@ -19,11 +19,27 @@ const RESERVED = new Set([
   "catch",
   /** Runner arcade game public routes */
   "runner",
+  /** Experience player routes */
+  "x",
 ]);
 
 export default async (request, context) => {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // Experience: /x/:slug
+  if (path === "/x" || path.startsWith("/x/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "x") {
+      const slug = seg[1];
+      const target = new URL("/play/experience.html", url);
+      target.searchParams.set("slug", slug);
+      if (url.searchParams.get("previewToken")) {
+        target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
+      }
+      return fetch(target);
+    }
+  }
 
   // Leaderboard module: /leaderboard/:slug live + /leaderboard/:slug/moderator
   if (path === "/leaderboard" || path.startsWith("/leaderboard/")) {

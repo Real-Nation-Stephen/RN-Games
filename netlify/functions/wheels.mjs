@@ -16,6 +16,7 @@ import {
   deleteLeaderboardStateBlob,
 } from "./lib/blobs.mjs";
 import { validateSlug } from "./lib/validate.mjs";
+import { validateUniqueSlug } from "./lib/slug-uniqueness.mjs";
 import { ensureWheelReportingTab, sanitizeSheetTabName } from "./lib/sheets.mjs";
 
 const headers = {
@@ -301,7 +302,7 @@ export const handler = async (event, context) => {
 
     if (event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}");
-      const slugCheck = validateSlug(body.slug || "wheel-" + randomUUID().slice(0, 8));
+      const slugCheck = await validateUniqueSlug(body.slug || "wheel-" + randomUUID().slice(0, 8));
       if (!slugCheck.ok) {
         return { statusCode: 400, body: JSON.stringify({ error: slugCheck.error }), headers };
       }
@@ -372,9 +373,12 @@ export const handler = async (event, context) => {
         gameType: wheel.gameType || "spinning-wheel",
         title: wheel.title,
         clientName: wheel.clientName,
+        projectCode: wheel.projectCode || "",
+        designCode: wheel.designCode || "",
         updatedAt: wheel.updatedAt,
         reportingEnabled: wheel.reportingEnabled,
         thumbnailUrl: wheel.thumbnailUrl,
+        archived: !!wheel.archived,
       };
       list.push(entry);
       await writeIndex(list);
@@ -393,7 +397,7 @@ export const handler = async (event, context) => {
       }
 
       if (body.slug && body.slug !== existing.slug) {
-        const slugCheck = validateSlug(body.slug);
+        const slugCheck = await validateUniqueSlug(body.slug, { excludeWheelId: id });
         if (!slugCheck.ok) {
           return { statusCode: 400, body: JSON.stringify({ error: slugCheck.error }), headers };
         }
@@ -626,6 +630,10 @@ export const handler = async (event, context) => {
         existing.reportingLockedAt = null;
       }
 
+      if (body.archived !== undefined) existing.archived = !!body.archived;
+      if (body.projectCode !== undefined) existing.projectCode = String(body.projectCode || "");
+      if (body.designCode !== undefined) existing.designCode = String(body.designCode || "");
+
       existing.updatedAt = new Date().toISOString();
       if (isWheel) syncSegmentArrays(existing);
 
@@ -649,9 +657,12 @@ export const handler = async (event, context) => {
         gameType: existing.gameType || (isWheel ? "spinning-wheel" : "scratcher"),
         title: existing.title,
         clientName: existing.clientName,
+        projectCode: existing.projectCode || "",
+        designCode: existing.designCode || "",
         updatedAt: existing.updatedAt,
         reportingEnabled: existing.reportingEnabled,
         thumbnailUrl: existing.thumbnailUrl,
+        archived: !!existing.archived,
       };
       if (idx >= 0) list[idx] = entry;
       else list.push(entry);

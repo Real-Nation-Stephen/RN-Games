@@ -79,3 +79,47 @@ export async function deleteLeaderboardStateBlob(wheelId) {
   const st = await blobStore();
   await st.delete(`leaderboard-state:${wheelId}`);
 }
+
+const EXPERIENCES_INDEX_KEY = "experiences-index";
+
+export async function readExperiencesIndex() {
+  const st = await blobStore();
+  const raw = await st.get(EXPERIENCES_INDEX_KEY, { type: "json" });
+  if (!raw || !Array.isArray(raw.list)) return [];
+  return raw.list;
+}
+
+export async function writeExperiencesIndex(list) {
+  const st = await blobStore();
+  await st.setJSON(EXPERIENCES_INDEX_KEY, { list, updatedAt: new Date().toISOString() });
+}
+
+export async function getExperienceJson(id) {
+  const st = await blobStore();
+  return st.get(`experience:${id}`, { type: "json" });
+}
+
+export async function setExperienceJson(id, data) {
+  const st = await blobStore();
+  await st.setJSON(`experience:${id}`, data);
+}
+
+export async function deleteExperienceBlob(id) {
+  const st = await blobStore();
+  await st.delete(`experience:${id}`);
+}
+
+export async function getExperienceSessionJson(sessionId) {
+  const st = await blobStore();
+  return st.get(`experience-session:${sessionId}`, { type: "json" });
+}
+
+export async function setExperienceSessionJson(sessionId, data) {
+  const st = await blobStore();
+  await st.setJSON(`experience-session:${sessionId}`, data);
+}
+
+export async function deleteExperienceSessionJson(sessionId) {
+  const st = await blobStore();
+  await st.delete(`experience-session:${sessionId}`);
+}

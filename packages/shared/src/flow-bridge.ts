@@ -1,0 +1,92 @@
+/**
+ * Experience flow runtime — parent/iframe coordination and session context.
+ */
+
+export interface FlowContext {
+  sessionId: string;
+  experienceId: string;
+  experienceSlug: string;
+  nodeId: string;
+  preview?: boolean;
+}
+
+export const FLOW_CTX_STORAGE_KEY = "rngames:flow";
+export const FLOW_STEP_COMPLETE = "rngames:step_complete";
+
+export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
+  if (params.get("flow") !== "1") return null;
+  const sessionId = params.get("sessionId")?.trim();
+  const experienceId = params.get("experienceId")?.trim();
+  const nodeId = params.get("nodeId")?.trim();
+  if (!sessionId || !experienceId || !nodeId) return null;
+  return {
+    sessionId,
+    experienceId,
+    nodeId,
+    experienceSlug: params.get("experienceSlug")?.trim() || "",
+    preview: params.get("preview") === "1",
+  };
+}
+
+export function saveFlowContext(ctx: FlowContext): void {
+  try {
+    sessionStorage.setItem(FLOW_CTX_STORAGE_KEY, JSON.stringify(ctx));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadFlowContext(): FlowContext | null {
+  try {
+    const raw = sessionStorage.getItem(FLOW_CTX_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as FlowContext;
+  } catch {
+    return null;
+  }
+}
+
+export function clearFlowContext(): void {
+  try {
+    sessionStorage.removeItem(FLOW_CTX_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isFlowMode(params?: URLSearchParams): boolean {
+  const p = params ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
+  return p?.get("flow") === "1";
+}
+
+export function emitStepComplete(outcomes: Record<string, unknown> = {}): void {
+  if (typeof window === "undefined") return;
+  const ctx = loadFlowContext() ?? parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  const payload = {
+    type: FLOW_STEP_COMPLETE,
+    sessionId: ctx?.sessionId,
+    experienceId: ctx?.experienceId,
+    nodeId: ctx?.nodeId,
+    outcomes,
+  };
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(payload, "*");
+  }
+  window.dispatchEvent(new CustomEvent(FLOW_STEP_COMPLETE, { detail: payload }));
+}
+
+export type StepCompleteMessage = {
+  type: typeof FLOW_STEP_COMPLETE;
+  sessionId?: string;
+  experienceId?: string;
+  nodeId?: string;
+  outcomes?: Record<string, unknown>;
+};
+
+export function isStepCompleteMessage(data: unknown): data is StepCompleteMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as StepCompleteMessage).type === FLOW_STEP_COMPLETE
+  );
+}

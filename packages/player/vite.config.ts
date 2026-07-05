@@ -39,6 +39,7 @@ export default defineConfig({
         "leaderboard-moderate": resolve(__dirname, "leaderboard-moderate.html"),
         catch: resolve(__dirname, "catch.html"),
         runner: resolve(__dirname, "runner.html"),
+        experience: resolve(__dirname, "experience.html"),
       },
     },
   },

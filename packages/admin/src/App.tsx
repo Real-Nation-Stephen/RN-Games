@@ -10,6 +10,9 @@ import LeaderboardEditor from "./pages/LeaderboardEditor";
 import CatchEditor from "./pages/CatchEditor";
 import RunnerEditor from "./pages/RunnerEditor";
 import WheelEditor from "./pages/WheelEditor";
+import ExperienceEditor from "./pages/ExperienceEditor";
+import ExperiencesListPage from "./pages/ExperiencesListPage";
+import LibraryPage from "./pages/LibraryPage";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
 
@@ -78,6 +81,9 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/experiences" element={<ExperiencesListPage />} />
+          <Route path="/experiences/:id" element={<ExperienceEditor />} />
+          <Route path="/library/:gameType" element={<LibraryPage />} />
           <Route path="/quizzes/:id" element={<QuizEditor />} />
           <Route path="/wheels/:id" element={<WheelEditor />} />
           <Route path="/scratchers/:id" element={<ScratcherEditor />} />

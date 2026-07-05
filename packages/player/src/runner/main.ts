@@ -8,6 +8,12 @@ import {
   runnerSheetFrameRect,
 } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
+import {
+  emitStepComplete,
+  isFlowMode,
+  parseFlowContextFromSearch,
+  saveFlowContext,
+} from "@rngames/shared";
 import { submitLinkedScore } from "../leaderboard/api";
 import {
   fetchPublicConfig,
@@ -41,6 +47,7 @@ import { parallaxDrawHeight, runnerAuthorHeight, runnerCharacterDrawSize, scaleR
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
+const flowMode = isFlowMode();
 
 const ICON_FS_ENTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
 const ICON_FS_EXIT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"/><path d="M20 8V4h-4"/><path d="M4 16v4h4"/><path d="M20 16v4h-4"/></svg>`;
@@ -488,7 +495,7 @@ function applyTheme(c: RunnerConfig) {
 
   els.endHeadline.textContent = end.headline || "Run complete!";
   els.endSubhead.textContent = end.subhead || "";
-  els.endPlay.textContent = end.playAgainLabel || "Play again";
+  els.endPlay.textContent = flowMode ? "Continue" : end.playAgainLabel || "Play again";
   root.style.setProperty("--runner-end-link-btn", end.linkButtonHex || "#1e81ff");
   root.style.setProperty("--runner-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
   const showLink = end.linkEnabled === true && Boolean((end.linkUrl || "").trim());
@@ -1010,6 +1017,15 @@ function bindInput() {
   document.addEventListener("webkitfullscreenchange", updateFullscreenButtonUi);
   els.endPlay.addEventListener("click", () => {
     if (!engine || !cfg) return;
+    if (flowMode) {
+      const metric = cfg.leaderboardMetric || "score";
+      const outcomes: Record<string, unknown> = { completed: true };
+      if (metric === "score") outcomes["runner.score"] = engine.score;
+      else if (metric === "distance") outcomes["runner.distance"] = engine.distance;
+      else outcomes["runner.timeSurvived"] = engine.elapsedSec;
+      emitStepComplete(outcomes);
+      return;
+    }
     const { w, h } = getRunnerDesignSize();
     engine.reset(cfg, w, h);
     lastCountdownBeep = 0;
@@ -1489,6 +1505,8 @@ unbindGamepadEvents = bindRunnerGamepadEvents(updateGamepadHints);
 updateFullscreenButtonUi();
 
 async function main() {
+  const flowCtx = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  if (flowCtx) saveFlowContext(flowCtx);
   const slug = getSlugFromPath();
   if (!slug) throw new Error("Missing game slug");
   const c = await fetchPublicConfig(slug);

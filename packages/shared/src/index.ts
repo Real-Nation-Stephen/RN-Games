@@ -2,6 +2,65 @@
 
 export { track, type TrackEvent, type TrackEventInput } from "./track.js";
 export {
+  type ControlNodeType,
+  type ControlRefNode,
+  type ExperienceFoundation,
+  type ExperienceGraph,
+  type ExperienceIndexRow,
+  type ExperienceKiosk,
+  type ExperienceMetadata,
+  type ExperienceNavigation,
+  type ExperienceNodeOverrides,
+  type ExperienceStatus,
+  type FlowEdge,
+  type FlowNode,
+  type FlowNodeKind,
+  type LogicRule,
+  type ModuleCategory,
+  type ModuleIndexRow,
+  type ModuleOutcomeKey,
+  type ModuleOutcomeValue,
+  type ModulePort,
+  type ModuleRefNode,
+  type ModuleTypeDefinition,
+  type RouterOperator,
+  type SessionContext,
+  type SessionIdentity,
+  type SessionOutcomes,
+  type SessionProgress,
+  isControlRefNode,
+  isModuleRefNode,
+  moduleOutcomeKey,
+  nodeScopedOutcomeKey,
+} from "./experience.js";
+export {
+  MODULE_REGISTRY,
+  getModuleTypeDefinition,
+  shippedModuleTypes,
+} from "./module-registry.js";
+export {
+  type ExperienceLinearStep,
+  type ExperienceRecord,
+  emptyExperience,
+  linearStepsToGraph,
+  normalizeExperience,
+  componentPublicPath,
+  appendFlowQuery,
+} from "./experience-utils.js";
+export {
+  type FlowContext,
+  type StepCompleteMessage,
+  FLOW_CTX_STORAGE_KEY,
+  FLOW_STEP_COMPLETE,
+  parseFlowContextFromSearch,
+  saveFlowContext,
+  loadFlowContext,
+  clearFlowContext,
+  isFlowMode,
+  emitStepComplete,
+  isStepCompleteMessage,
+} from "./flow-bridge.js";
+export {
   rankLeaderboardEntries,
   liveLeaderboardWindow,
   type HighScoreSettings,
@@ -83,6 +142,8 @@ export const RESERVED_SLUGS = new Set([
   "robots.txt",
   "_next",
   ".netlify",
+  /** Experience player routes */
+  "x",
   /** Reserved for the Quiz game type public routes */
   "quiz",
   /** Scratch ticket experience (prototype route) */

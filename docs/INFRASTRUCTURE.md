@@ -7,8 +7,8 @@ Live reference for how the platform is built, hosted, secured, and where the gap
 | **Product** | RN Game Studio (Real Nation Digital) |
 | **Production** | [rn-games.netlify.app](https://rn-games.netlify.app) |
 | **Repository** | [Real-Nation-Stephen/RN-Games](https://github.com/Real-Nation-Stephen/RN-Games) |
-| **Last updated** | Jun 2026 |
-| **Doc version** | 0.3.3 |
+| **Last updated** | Jul 2026 |
+| **Doc version** | 0.6.0 |
 
 ---
 
@@ -26,8 +26,10 @@ Current game types in Studio:
 | `quiz` | `/admin/quizzes/:id` | `/quiz/:slug/host`, `/join`, `/present`, etc. |
 | `pinboard` | `/admin/pinboards/:id` | `/pinboard/:slug`, `/submit`, `/moderate` |
 | `leaderboard` | `/admin/leaderboards/:id` | `/leaderboard/:slug`, `/moderator` |
+| `catch` | `/admin/catch/:id` | `/catch/:slug` · `/play/catch.html?slug=` |
+| `runner` | `/admin/runner/:id` | `/runner/:slug` · `/play/runner.html?slug=` |
 
----
+Arcade games (`catch`, `runner`) use the same blob + `/api/wheels` CRUD as other game types; public config is served via `GET /api/public-wheel?slug=` with type-specific stripping (`lib/catch.mjs`, `lib/runner.mjs`).
 
 ## Architecture overview
 
@@ -92,7 +94,9 @@ There is **no SQL database**. All persistent platform data uses **Netlify Blobs*
 | `file:{uuid}` | Uploaded binary (images, audio) |
 | Quiz session keys | Live session: room code, host key, phase, answers, participants (via `lib/quiz-store.mjs`) |
 | `pinboard-state:{wheelId}` | Guest submissions awaiting moderation |
-| `leaderboard-state:{wheelId}` | Ranked entries, pan offset, revision |
+| `experience:{uuid}` | Experience flow config (linear steps + graph) |
+| `experiences-index` | Index of experiences |
+| `experience-session:{sessionId}` | Per-participant journey state (resume on refresh) |
 
 **Implications**
 
@@ -123,7 +127,9 @@ Redirects in `netlify.toml` map `/api/*` → `/.netlify/functions/*`.
 | `POST /api/quiz-answer` | Public | Submit answer |
 | `POST /api/quiz-bonus` | Public | Bonus steal flow |
 | `GET/POST /api/pinboard-state` | Mixed | Board submissions + moderation |
-| `GET/POST/PUT /api/leaderboard-state` | Mixed | Leaderboard poll, linked submit, moderator PIN actions |
+| `GET/POST/PUT/DELETE /api/experiences` | Studio JWT | Experience CRUD + publish |
+| `GET /api/public-experience?slug=` | Public | Published experience (draft via `previewToken`) |
+| `POST/PATCH/GET /api/experience-session` | Public | Session create, resume, advance (rate-limited) |
 
 Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studio calls `/api/wheels` with `Authorization: Bearer <Netlify Identity token>`.
 
@@ -200,7 +206,7 @@ Event shape:
 { type, gameId, moduleId?, campaignId?, sessionId?, timestamp, payload? }
 ```
 
-Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer`, `pinboard.submit`, `leaderboard.view`, `leaderboard.submit`.
+Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer`, `pinboard.submit`, `leaderboard.view`, `leaderboard.submit`, `catch.round_start`, `catch.round_end`, `runner.round_start`, `runner.round_end`.
 
 ### Spinning wheels (most complete)
 
@@ -220,9 +226,11 @@ Example types: `wheel.spin`, `scratcher.reveal`, `flip_cards.open`, `quiz.answer
 - Moderation UI on `/pinboard/:slug/moderate`.
 - No central analytics dashboard.
 
-### Scratcher / flip-cards
+### Scratcher / flip-cards / catch / runner
 
-- `reportingEnabled` exists on records; end-to-end reporting pipeline is partial or placeholder compared to wheels.
+- `reportingEnabled` toggle exists in Studio editors for all listed types.
+- Mature **Google Sheets** reporting pipeline today is **spinning wheels only** (`log-spin`, `{slug}_Report`).
+- Catch and runner emit `track()` round lifecycle events; no dedicated report SPA or Sheets tab provisioning yet.
 
 ### Environment variables (reporting)
 
@@ -260,6 +268,9 @@ Edge function `router.mjs` handles clean URLs before static fallthrough:
 | `/pinboard/:slug/moderate` | Moderation |
 | `/leaderboard/:slug` | Leaderboard live board |
 | `/leaderboard/:slug/moderator` | Leaderboard moderator (PIN) |
+| `/x/:slug` | Experience player (multi-step journey) |
+| `/catch/:slug` | Catch arcade player |
+| `/runner/:slug` | Runner arcade player |
 | `/quiz/:slug/host` | Quiz host |
 | `/quiz/:slug/present` | Presenter |
 | `/quiz/:slug/present/:code` | Session presenter |
@@ -268,7 +279,7 @@ Edge function `router.mjs` handles clean URLs before static fallthrough:
 | `/quiz/:slug/live/:code/leaderboard` | Leaderboard |
 | `/admin/*`, `/play/*`, `/api/*` | Passed through to static / functions |
 
-Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `report`, `quiz`, `scratcher`, `flip-cards`, `pinboard`, `leaderboard`, etc.
+Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `report`, `quiz`, `scratcher`, `flip-cards`, `pinboard`, `leaderboard`, `catch`, `runner`, etc.
 
 ---
 
@@ -286,6 +297,7 @@ Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `rep
 - Netlify Blobs eventual consistency can cause brief 404s right after session creation or writes (code includes retries in places).
 - Edge router occasionally returns platform **500** on internal subrequests; usually transient. If clean URL `/{slug}` fails with a Netlify “Error - Request ID” page, try the same slug via `/play/index.html` (path or `?slug=` query) as a diagnostic fallback.
 - `public-wheel` returns JSON `{ error }` on server failures (May 2026); client should still handle non-JSON 500s from the edge layer.
+- Catch/runner **live preview** (`?preview=1`) applies config in-place without remounting the player iframe — avoids stealing focus from Studio number inputs (Jul 2026).
 
 **Scale & product**
 
@@ -320,12 +332,21 @@ Without Netlify dev, admin API calls from Vite proxy expect port **8888**.
 
 High-level intent; **locked decisions and phase order** live in [PLANNING.md](./PLANNING.md) (updated as we build).
 
-- **Modular data collection / GDPR / tracking** — broad ingest + configurable dashboards; Sheets as export, Blobs/SQL as source of truth
-- **Leaderboard module** — `/leaderboard/:slug` + moderator PIN; linked or manual mode ✅ (Phase C)
-- **New game types** — catch + runner game POCs, then console + cartridge (fresh in monorepo)
-- **Editor standardisation** — shared `ColorField` / asset components; preview stays at bottom
-- **Campaign landing pages** — same Netlify site; tracked CTAs/QRs
-- **Rename** — folder `rn-game-studio`, UI **RN Game Studio**; production URL unchanged for now
+| Area | Status (Jul 2026) |
+|------|-------------------|
+| Rename → **RN Game Studio** | ✅ Phase A |
+| Shared editor components (`HexField`, studio shell) | ✅ Phase B |
+| Standalone **leaderboard module** | ✅ Phase C |
+| **Catch** + **Runner** arcade games | ✅ Phases D + E (ongoing polish) |
+| **Designer instructions** (`docs/DESIGNER_INSTRUCTIONS.md`) | ✅ Started (Catch); Runner TBD |
+| **Console + cartridge** | ⏸ Phase F — under roadmap re-evaluation |
+| **Tracking ingest + dashboards** | Phase G — pending sign-off |
+| **Campaign landing pages** | Phase H |
+| Modular **GDPR / consent / data collection** | Wave 2 — see [ROADMAP.md](./ROADMAP.md) |
+| **Experience platform** (session, `/x/:slug`, flow editor) | Wave 1 shipped — linear editor; React Flow Wave 3 |
+| **Landing / form / certificate** modules | Wave 2 |
+| **Minimal `/api/track` ingest** | Wave 2 (CTA + step events) |
+| **Full analytics dashboards** | Wave 6 |
 
 ---
 
@@ -333,8 +354,12 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 
 | Doc / platform | Date | Notes |
 |----------------|------|-------|
-| 0.3 | May 2026 | Pin board guest submit toggles; game duplicate via `sourceId`; pin board thumbnail background fix; quiz host timer / `waiting` phase improvements |
+| 0.6.0 | Jul 2026 | **Wave 1:** Experience CRUD (`/api/experiences`), session API, public experience player at `/x/:slug`, linear flow editor in Studio, home/library retrofit, project/design codes on index, catch/runner flow mode + step complete bridge. |
+| 0.5.1 | Jul 2026 | Roadmap locked from completed questionnaire: dual URL model, component branding, unified Logic node, Experience Overrides, Wave 2 priority (landing/form/certificate), analytics buckets, early track ingest. |
+| 0.5.0 | Jul 2026 | Platform direction docs: experience/session schema, Waves 1–6 roadmap, planning questionnaire. |
+| 0.4.0 | Jul 2026 | Phases C–E complete: leaderboard module; catch + runner games (editors, players, clean URLs, linked LB). Runner polish: multi-character, parallax depth tiers, controller menus, fullscreen, PNG upload alpha fix, collapsible editors. Catch editor collapsibles. `docs/DESIGNER_INSTRUCTIONS.md` added. Phase F (console) under re-evaluation. |
 | 0.3.3 | Jun 2026 | Phase B: shared `track()` stub, `HexField` rollout, `leaderboard` reserved slug, validate.mjs slug list aligned with shared |
+| 0.3 | May 2026 | Pin board guest submit toggles; game duplicate via `sourceId`; pin board thumbnail background fix; quiz host timer / `waiting` phase improvements |
 | 0.3.2 | May 2026 | Phase A: RN Game Studio branding; `public-wheel` error handling; `syncSegmentArrays` hardening |
 | 0.3.1 | May 2026 | Added [PLANNING.md](./PLANNING.md) with locked product decisions |
 | 0.2 | May 2026 | Pin board studio editor, slug-from-path fix, moderator branding, guest assets |

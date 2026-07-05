@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Experience</title>
+    <link rel="stylesheet" href="/src/experience/experience.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="exp-loading" class="exp-panel">Loading experience…</div>
+      <div id="exp-error" class="exp-panel exp-error" hidden></div>
+      <div id="exp-complete" class="exp-panel" hidden>
+        <h1>Thank you</h1>
+        <p>You have completed this experience.</p>
+      </div>
+      <div id="exp-stage" hidden>
+        <header id="exp-header">
+          <span id="exp-title"></span>
+          <span id="exp-progress" class="exp-muted"></span>
+        </header>
+        <iframe id="exp-frame" title="Experience step" allow="fullscreen"></iframe>
+        <div id="exp-fallback" hidden>
+          <p id="exp-fallback-msg">Having trouble loading this step.</p>
+          <button type="button" id="exp-retry" class="exp-btn">Retry</button>
+          <button type="button" id="exp-continue" class="exp-btn exp-btn-primary">Continue</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/experience/main.ts"></script>
+  </body>
+</html>
