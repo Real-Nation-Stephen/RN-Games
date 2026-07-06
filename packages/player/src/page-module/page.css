@@ -1,0 +1,161 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--page-body, #e8eef5);
+  background: var(--page-bg, #0a1628);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: var(--page-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+}
+
+#page-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 48px;
+}
+
+.page-card {
+  width: min(560px, 100%);
+  text-align: center;
+}
+
+.page-headline {
+  margin: 0 0 12px;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  color: var(--page-headline, #fff);
+  line-height: 1.2;
+}
+
+.page-body {
+  margin: 0 0 24px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--page-body, #e8eef5);
+  white-space: pre-wrap;
+}
+
+.page-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-size: 1rem;
+  cursor: pointer;
+  background: var(--page-btn-bg, #2d6cdf);
+  color: var(--page-btn-text, #fff);
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-form {
+  width: min(480px, 100%);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.page-field label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.page-field input,
+.page-field select,
+.page-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+}
+
+.page-error {
+  color: #ffb4b4;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.cert-stage {
+  position: relative;
+  max-width: 100%;
+  margin: 0 auto 20px;
+}
+
+.cert-stage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.cert-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cert-field {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.consent-list {
+  text-align: left;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.consent-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.95rem;
+}
+
+.redemption-code {
+  font-size: 1.75rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin: 16px 0;
+  color: var(--page-headline, #fff);
+}
+
+.powered-by-rn {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  opacity: 0.85;
+}
+
+.powered-by-rn img {
+  height: 28px;
+  width: auto;
+}

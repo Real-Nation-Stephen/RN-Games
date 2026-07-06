@@ -47,6 +47,48 @@ const LIBRARY_TYPES: {
     editPrefix: "/runner",
     publicUrl: (w) => `${window.location.origin}/runner/${w.slug}`,
   },
+  {
+    gameType: "landing",
+    title: "Landing pages",
+    newLabel: "New landing page",
+    editPrefix: "/landing",
+    publicUrl: (w) => `${window.location.origin}/landing/${w.slug}`,
+  },
+  {
+    gameType: "form",
+    title: "Forms",
+    newLabel: "New form",
+    editPrefix: "/forms",
+    publicUrl: (w) => `${window.location.origin}/form/${w.slug}`,
+  },
+  {
+    gameType: "certificate",
+    title: "Certificates",
+    newLabel: "New certificate",
+    editPrefix: "/certificates",
+    publicUrl: (w) => `${window.location.origin}/certificate/${w.slug}`,
+  },
+  {
+    gameType: "consent",
+    title: "Consent",
+    newLabel: "New consent",
+    editPrefix: "/consent",
+    publicUrl: (w) => `${window.location.origin}/consent/${w.slug}`,
+  },
+  {
+    gameType: "email-signup",
+    title: "Email signups",
+    newLabel: "New email signup",
+    editPrefix: "/email-signups",
+    publicUrl: (w) => `${window.location.origin}/email-signup/${w.slug}`,
+  },
+  {
+    gameType: "redemption",
+    title: "Redemptions",
+    newLabel: "New redemption",
+    editPrefix: "/redemptions",
+    publicUrl: (w) => `${window.location.origin}/redemption/${w.slug}`,
+  },
 ];
 
 function matchesType(w: LibraryItem, gameType: string) {

@@ -1,5 +1,6 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
+import { toPublicPageModule, isPageModuleType } from "./lib/page-modules.mjs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { toPublicPinboard } from "./lib/pinboard.mjs";
 import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
@@ -167,8 +168,10 @@ export const handler = async (event) => {
                 ? toPublicLeaderboard(doc)
                 : doc.gameType === "catch"
                   ? toPublicCatch(doc)
-                  : doc.gameType === "runner"
-                    ? toPublicRunner(doc)
+                : doc.gameType === "runner"
+                  ? toPublicRunner(doc)
+                  : isPageModuleType(doc.gameType)
+                    ? toPublicPageModule(doc)
                     : toPublicWheel(doc);
     return {
       statusCode: 200,

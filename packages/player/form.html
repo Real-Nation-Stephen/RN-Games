@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Form</title>
+    <link rel="stylesheet" href="/src/page-module/page.css" />
+  </head>
+  <body>
+    <div id="page-app" hidden>
+      <div class="page-card" style="width: min(520px, 100%)">
+        <h1 id="page-headline" class="page-headline"></h1>
+        <p id="page-body" class="page-body"></p>
+        <form id="page-form" class="page-form"></form>
+        <button type="submit" form="page-form" id="page-submit" class="page-btn" style="margin-top: 16px; width: 100%"></button>
+      </div>
+    </div>
+    <p id="page-error" class="page-error" hidden></p>
+    <a id="powered-by-rn" class="powered-by-rn" href="https://www.realnation.ie" target="_blank" rel="noopener noreferrer">
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" />
+    </a>
+    <script type="module" src="/src/form/main.ts"></script>
+  </body>
+</html>

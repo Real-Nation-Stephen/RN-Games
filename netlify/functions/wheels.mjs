@@ -5,6 +5,12 @@ import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs
 import { emptyLeaderboardRecord, normalizeLeaderboardRecord } from "./lib/leaderboard.mjs";
 import { emptyCatchRecord, normalizeCatchRecord } from "./lib/catch.mjs";
 import { emptyRunnerRecord, normalizeRunnerRecord } from "./lib/runner.mjs";
+import {
+  emptyPageModuleRecord,
+  isPageModuleType,
+  normalizePageModule,
+  toPublicPageModule,
+} from "./lib/page-modules.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -348,6 +354,7 @@ export const handler = async (event, context) => {
         const isLeaderboard = body.gameType === "leaderboard";
         const isCatch = body.gameType === "catch";
         const isRunner = body.gameType === "runner";
+        const isPageModule = isPageModuleType(body.gameType);
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
           : isFlipCards
@@ -360,8 +367,10 @@ export const handler = async (event, context) => {
                   ? emptyLeaderboardRecord(id, slugCheck.slug)
                   : isCatch
                     ? emptyCatchRecord(id, slugCheck.slug)
-                    : isRunner
-                      ? emptyRunnerRecord(id, slugCheck.slug)
+                  : isRunner
+                    ? emptyRunnerRecord(id, slugCheck.slug)
+                    : isPageModule
+                      ? emptyPageModuleRecord(id, slugCheck.slug, body.gameType)
                       : emptyWheelRecord(id, slugCheck.slug);
         wheel.title = body.title || wheel.title;
         wheel.clientName = body.clientName || "";
@@ -414,7 +423,9 @@ export const handler = async (event, context) => {
       const isLeaderboard = existing.gameType === "leaderboard";
       const isCatch = existing.gameType === "catch";
       const isRunner = existing.gameType === "runner";
+      const isPageModule = isPageModuleType(existing.gameType);
       const isWheel =
+        !isPageModule &&
         existing.gameType !== "scratcher" &&
         existing.gameType !== "flip-cards" &&
         existing.gameType !== "quiz" &&
@@ -580,6 +591,12 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         normalizeRunnerRecord(existing);
+      } else if (isPageModule) {
+        const skip = new Set(["id", "slug", "gameType"]);
+        for (const [k, v] of Object.entries(body)) {
+          if (!skip.has(k) && v !== undefined) existing[k] = v;
+        }
+        Object.assign(existing, normalizePageModule(existing));
       } else if (isWheel) {
         const assign = [
           "title",

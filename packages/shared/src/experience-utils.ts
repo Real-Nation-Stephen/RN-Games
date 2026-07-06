@@ -26,6 +26,18 @@ export function componentPublicPath(moduleType: string, slug: string): string {
       return `/play/scratcher.html?slug=${encodeURIComponent(slug)}`;
     case "flip-cards":
       return `/play/flip-cards.html?slug=${encodeURIComponent(slug)}`;
+    case "landing":
+      return `/landing/${encodeURIComponent(slug)}`;
+    case "form":
+      return `/form/${encodeURIComponent(slug)}`;
+    case "certificate":
+      return `/certificate/${encodeURIComponent(slug)}`;
+    case "consent":
+      return `/consent/${encodeURIComponent(slug)}`;
+    case "email-signup":
+      return `/email-signup/${encodeURIComponent(slug)}`;
+    case "redemption":
+      return `/redemption/${encodeURIComponent(slug)}`;
     case "spinning-wheel":
     default:
       return `/${encodeURIComponent(slug)}`;

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
+import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
 
 type Wheel = {
   id: string;
@@ -32,6 +33,9 @@ type Wheel = {
   thumbnailUrl?: string;
   faviconUrl?: string;
   showPoweredBy?: boolean;
+  projectCode?: string;
+  designCode?: string;
+  archived?: boolean;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -266,6 +270,15 @@ export default function WheelEditor() {
               onChange={(e) => setWheel({ ...wheel, wheelRotationOffsetDeg: Number(e.target.value) || 0 })}
             />
           </div>
+          <ComponentMetadataFields
+            record={wheel}
+            onChange={(p) => setWheel({ ...wheel, ...p })}
+            onArchive={async () => {
+              if (!confirm("Archive this wheel?")) return;
+              const res = await apiSend("/api/wheels", "PUT", { ...wheel, archived: true });
+              if (res?.wheel) setWheel(res.wheel);
+            }}
+          />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
           <input

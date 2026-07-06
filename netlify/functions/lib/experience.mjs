@@ -115,6 +115,12 @@ const MODULE_NODE_TYPES = new Set([
   "leaderboard",
   "catch",
   "runner",
+  "landing",
+  "form",
+  "certificate",
+  "consent",
+  "email-signup",
+  "redemption",
 ]);
 
 export function resolvePublishedSteps(experience, moduleById) {
@@ -188,6 +194,18 @@ export function componentPublicPath(moduleType, slug) {
       return `/play/scratcher.html?slug=${encodeURIComponent(slug)}`;
     case "flip-cards":
       return `/play/flip-cards.html?slug=${encodeURIComponent(slug)}`;
+    case "landing":
+      return `/landing/${encodeURIComponent(slug)}`;
+    case "form":
+      return `/form/${encodeURIComponent(slug)}`;
+    case "certificate":
+      return `/certificate/${encodeURIComponent(slug)}`;
+    case "consent":
+      return `/consent/${encodeURIComponent(slug)}`;
+    case "email-signup":
+      return `/email-signup/${encodeURIComponent(slug)}`;
+    case "redemption":
+      return `/redemption/${encodeURIComponent(slug)}`;
     default:
       return `/${encodeURIComponent(slug)}`;
   }

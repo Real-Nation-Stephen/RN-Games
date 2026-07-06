@@ -1,7 +1,7 @@
 # RN Game Studio — Platform roadmap (Waves 1–6)
 
 **Last updated:** July 2026  
-**Status:** Locked — Wave 1 shipped (Jul 2026); Wave 2 next
+**Status:** Locked — Wave 1 shipped (Jul 2026); Wave 2 in progress (Jul 2026)
 
 Historical phases A–E: [PLANNING.md](./PLANNING.md).  
 Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/experience.ts`
@@ -303,6 +303,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 | **Multimedia flip cards** | Extend flip-cards component |
 | **Flow templates** | After editor stable; not Wave 3 priority |
 | **Localization** | Separate experiences per language for now |
+| **Experience step progress bar** | Toggleable shell UI: connected circles + fill line per step; brandable colours/fonts (future) |
 
 ---
 

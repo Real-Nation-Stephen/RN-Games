@@ -101,6 +101,11 @@
   to = "/.netlify/functions/public-experience"
   status = 200
 
+[[redirects]]
+  from = "/api/track"
+  to = "/.netlify/functions/track"
+  status = 200
+
 [[headers]]
   for = "/api/leaderboard-state"
   [headers.values]

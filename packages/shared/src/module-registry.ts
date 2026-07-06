@@ -109,12 +109,12 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
       { id: "rank", label: "Rank", outcomeKey: "leaderboard.rank", valueType: "number" },
     ],
   },
-  // Planned — Wave 2+
+  // Wave 2 page modules
   {
     typeId: "landing",
     category: "experience",
     label: "Landing page",
-    status: "planned",
+    status: "shipped",
     participantFacing: true,
     standalonePlayable: true,
     outputs: [{ id: "completed", label: "CTA continued", outcomeKey: "completed", valueType: "boolean" }],
@@ -123,7 +123,7 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     typeId: "consent",
     category: "foundation",
     label: "Consent / GDPR",
-    status: "planned",
+    status: "shipped",
     participantFacing: true,
     standalonePlayable: false,
     outputs: [{ id: "consentGranted", label: "Consent granted", outcomeKey: "consentGranted", valueType: "boolean" }],
@@ -132,7 +132,7 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     typeId: "form",
     category: "data-collection",
     label: "Form",
-    status: "planned",
+    status: "shipped",
     participantFacing: true,
     standalonePlayable: true,
     outputs: [
@@ -141,13 +141,34 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     ],
   },
   {
+    typeId: "certificate",
+    category: "conversion",
+    label: "Certificate",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [{ id: "completed", label: "Viewed", outcomeKey: "completed", valueType: "boolean" }],
+  },
+  {
     typeId: "redemption",
     category: "conversion",
     label: "Redemption",
-    status: "planned",
+    status: "shipped",
     participantFacing: true,
     standalonePlayable: true,
     outputs: [{ id: "completed", label: "Redeemed", outcomeKey: "completed", valueType: "boolean" }],
+  },
+  {
+    typeId: "email-signup",
+    category: "data-collection",
+    label: "Email signup",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [
+      { id: "completed", label: "Signed up", outcomeKey: "completed", valueType: "boolean" },
+      { id: "fieldValues", label: "Signup data", outcomeKey: "form.fieldValues", valueType: "object" },
+    ],
   },
   // Control-flow — graph only (Logic node unified per ROADMAP Jul 2026)
   {

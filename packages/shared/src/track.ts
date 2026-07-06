@@ -29,5 +29,11 @@ export function track(event: TrackEventInput): void {
     campaignId: event.campaignId ?? flow.campaignId,
     timestamp: event.timestamp ?? new Date().toISOString(),
   };
-  void record;
+  if (typeof fetch === "undefined") return;
+  void fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(record),
+    keepalive: true,
+  }).catch(() => {});
 }

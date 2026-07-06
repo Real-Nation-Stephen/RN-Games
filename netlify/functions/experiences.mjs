@@ -165,6 +165,7 @@ export const handler = async (event, context) => {
 
       existing.updatedAt = new Date().toISOString();
       const normalized = normalizeExperienceRecord(existing);
+      const warnings = await validateExperienceSteps(normalized.linearSteps);
       await setExperienceJson(id, normalized);
 
       const list = await readExperiencesIndex();
@@ -174,7 +175,7 @@ export const handler = async (event, context) => {
       else list.push(entry);
       await writeExperiencesIndex(list);
 
-      return { statusCode: 200, body: JSON.stringify({ experience: normalized }), headers };
+      return { statusCode: 200, body: JSON.stringify({ experience: normalized, warnings }), headers };
     }
 
     if (event.httpMethod === "DELETE") {

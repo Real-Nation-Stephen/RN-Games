@@ -48,6 +48,26 @@ export {
   appendFlowQuery,
 } from "./experience-utils.js";
 export {
+  type PageModuleRecord,
+  type PageModuleGameType,
+  type LandingRecord,
+  type FormRecord,
+  type CertificateRecord,
+  type ConsentRecord,
+  type EmailSignupRecord,
+  type RedemptionRecord,
+  type FormField,
+  isPageModuleGameType,
+  emptyLanding,
+  emptyForm,
+  emptyCertificate,
+  emptyConsent,
+  emptyEmailSignup,
+  emptyRedemption,
+  normalizePageModule,
+  resolveSessionPath,
+} from "./page-modules.js";
+export {
   type FlowContext,
   type StepCompleteMessage,
   FLOW_CTX_STORAGE_KEY,
@@ -161,6 +181,13 @@ export const RESERVED_SLUGS = new Set([
   "catch",
   /** Runner arcade game (Phase E) */
   "runner",
+  /** Wave 2 page modules */
+  "landing",
+  "form",
+  "certificate",
+  "consent",
+  "email-signup",
+  "redemption",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */

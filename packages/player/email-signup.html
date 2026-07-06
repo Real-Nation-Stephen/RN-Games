@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Email signup</title>
+    <link rel="stylesheet" href="/src/page-module/page.css" />
+  </head>
+  <body>
+    <div id="page-app" hidden>
+      <div class="page-card">
+        <h1 id="page-headline" class="page-headline"></h1>
+        <form id="page-form" class="page-form">
+          <div class="page-field">
+            <label id="name-label" for="signup-name"></label>
+            <input id="signup-name" name="name" type="text" autocomplete="name" />
+          </div>
+          <div class="page-field">
+            <label id="email-label" for="signup-email"></label>
+            <input id="signup-email" name="email" type="email" required autocomplete="email" />
+          </div>
+        </form>
+        <button type="submit" form="page-form" id="page-submit" class="page-btn" style="margin-top: 12px"></button>
+      </div>
+    </div>
+    <p id="page-error" class="page-error" hidden></p>
+    <script type="module" src="/src/email-signup/main.ts"></script>
+  </body>
+</html>

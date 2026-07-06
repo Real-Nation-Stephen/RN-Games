@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@rngames/shared/track": resolve(__dirname, "../shared/src/track.ts"),
+      "@rngames/shared/page-modules": resolve(__dirname, "../shared/src/page-modules.ts"),
       "@rngames/shared": resolve(__dirname, "../shared/src/index.ts"),
     },
   },
@@ -40,6 +41,12 @@ export default defineConfig({
         catch: resolve(__dirname, "catch.html"),
         runner: resolve(__dirname, "runner.html"),
         experience: resolve(__dirname, "experience.html"),
+        landing: resolve(__dirname, "landing.html"),
+        form: resolve(__dirname, "form.html"),
+        certificate: resolve(__dirname, "certificate.html"),
+        consent: resolve(__dirname, "consent.html"),
+        "email-signup": resolve(__dirname, "email-signup.html"),
+        redemption: resolve(__dirname, "redemption.html"),
       },
     },
   },

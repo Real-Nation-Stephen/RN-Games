@@ -13,6 +13,7 @@ import WheelEditor from "./pages/WheelEditor";
 import ExperienceEditor from "./pages/ExperienceEditor";
 import ExperiencesListPage from "./pages/ExperiencesListPage";
 import LibraryPage from "./pages/LibraryPage";
+import PageModuleEditor from "./pages/PageModuleEditor";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
 
@@ -92,6 +93,12 @@ export default function App() {
           <Route path="/leaderboards/:id" element={<LeaderboardEditor />} />
           <Route path="/catch/:id" element={<CatchEditor />} />
           <Route path="/runner/:id" element={<RunnerEditor />} />
+          <Route path="/landing/:id" element={<PageModuleEditor gameType="landing" />} />
+          <Route path="/forms/:id" element={<PageModuleEditor gameType="form" />} />
+          <Route path="/certificates/:id" element={<PageModuleEditor gameType="certificate" />} />
+          <Route path="/consent/:id" element={<PageModuleEditor gameType="consent" />} />
+          <Route path="/email-signups/:id" element={<PageModuleEditor gameType="email-signup" />} />
+          <Route path="/redemptions/:id" element={<PageModuleEditor gameType="redemption" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

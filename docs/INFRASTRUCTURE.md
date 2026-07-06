@@ -344,8 +344,8 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 | **Campaign landing pages** | Phase H |
 | Modular **GDPR / consent / data collection** | Wave 2 — see [ROADMAP.md](./ROADMAP.md) |
 | **Experience platform** (session, `/x/:slug`, flow editor) | Wave 1 shipped — linear editor; React Flow Wave 3 |
-| **Landing / form / certificate** modules | Wave 2 |
-| **Minimal `/api/track` ingest** | Wave 2 (CTA + step events) |
+| **Landing / form / certificate** modules | Wave 2 skeleton shipped — refine in tandem |
+| **Minimal `/api/track` ingest** | Wave 2 — `POST /api/track` (hourly blob append) |
 | **Full analytics dashboards** | Wave 6 |
 
 ---

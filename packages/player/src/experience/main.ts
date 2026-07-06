@@ -71,7 +71,17 @@ const els = {
 /** End-of-game Continue is wired inside the iframe. */
 const AUTO_ADVANCE_TYPES = new Set(["catch", "runner"]);
 /** In-game next-step button; no experience shell banner. */
-const NATIVE_FLOW_TYPES = new Set(["flip-cards", "spinning-wheel", ...AUTO_ADVANCE_TYPES]);
+const NATIVE_FLOW_TYPES = new Set([
+  "flip-cards",
+  "spinning-wheel",
+  "landing",
+  "form",
+  "certificate",
+  "consent",
+  "email-signup",
+  "redemption",
+  ...AUTO_ADVANCE_TYPES,
+]);
 
 let experience: PublicExperience | null = null;
 let session: Session | null = null;

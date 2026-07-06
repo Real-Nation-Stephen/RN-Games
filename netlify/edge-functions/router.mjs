@@ -19,9 +19,25 @@ const RESERVED = new Set([
   "catch",
   /** Runner arcade game public routes */
   "runner",
+  /** Wave 2 page modules */
+  "landing",
+  "form",
+  "certificate",
+  "consent",
+  "email-signup",
+  "redemption",
   /** Experience player routes */
   "x",
 ]);
+
+const PAGE_MODULE_ROUTES = [
+  ["landing", "landing.html"],
+  ["form", "form.html"],
+  ["certificate", "certificate.html"],
+  ["consent", "consent.html"],
+  ["email-signup", "email-signup.html"],
+  ["redemption", "redemption.html"],
+];
 
 export default async (request, context) => {
   const url = new URL(request.url);
@@ -38,6 +54,16 @@ export default async (request, context) => {
         target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
       }
       return fetch(target);
+    }
+  }
+
+  for (const [segment, html] of PAGE_MODULE_ROUTES) {
+    if (path === `/${segment}` || path.startsWith(`/${segment}/`)) {
+      const seg = path.split("/").filter(Boolean);
+      if (seg.length >= 2 && seg[0] === segment) {
+        const slug = seg[1];
+        return fetch(new URL(`/play/${html}?slug=${encodeURIComponent(slug)}`, url));
+      }
     }
   }
 

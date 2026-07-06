@@ -23,6 +23,7 @@ export default function ExperienceEditor() {
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<{ stepId: string; message: string }[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -65,6 +66,7 @@ export default function ExperienceEditor() {
         publish,
       });
       setGame(res.experience as ExperienceRecord);
+      setWarnings(Array.isArray(res.warnings) ? res.warnings : []);
       setMsg(publish ? "Published." : "Saved.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
@@ -205,11 +207,12 @@ export default function ExperienceEditor() {
         {game.linearSteps.length === 0 ? (
           <p className="muted">Add components in order. Visual node editor arrives in Wave 3.</p>
         ) : (
-          <ol style={{ paddingLeft: 20 }}>
-            {game.linearSteps.map((step, i) => (
+          <ol style={{ paddingLeft: 20, margin: 0 }}>
+            {game.linearSteps.map((step, i) => {
+              const stepWarnings = warnings.filter((w) => w.stepId === step.id);
+              return (
               <li key={step.id} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  <span style={{ minWidth: 24 }}>{i + 1}.</span>
                   <select
                     value={step.moduleInstanceId}
                     onChange={(e) => updateStep(i, e.target.value)}
@@ -249,8 +252,16 @@ export default function ExperienceEditor() {
                 <div className="muted" style={{ fontSize: "0.8rem", marginTop: 4 }}>
                   {moduleLabel(step)}
                 </div>
+                {stepWarnings.length > 0 ? (
+                  <ul className="muted" style={{ fontSize: "0.8rem", margin: "6px 0 0", paddingLeft: 18, color: "#ffb4b4" }}>
+                    {stepWarnings.map((w) => (
+                      <li key={w.message}>{w.message}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
-            ))}
+            );
+            })}
           </ol>
         )}
       </div>
