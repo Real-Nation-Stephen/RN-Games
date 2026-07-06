@@ -48,6 +48,8 @@ import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
 const flowMode = isFlowMode();
+const flowNextLabel =
+  new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Continue";
 
 const ICON_FS_ENTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
 const ICON_FS_EXIT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"/><path d="M20 8V4h-4"/><path d="M4 16v4h4"/><path d="M20 16v4h-4"/></svg>`;
@@ -495,7 +497,7 @@ function applyTheme(c: RunnerConfig) {
 
   els.endHeadline.textContent = end.headline || "Run complete!";
   els.endSubhead.textContent = end.subhead || "";
-  els.endPlay.textContent = flowMode ? "Continue" : end.playAgainLabel || "Play again";
+  els.endPlay.textContent = flowMode ? flowNextLabel : end.playAgainLabel || "Play again";
   root.style.setProperty("--runner-end-link-btn", end.linkButtonHex || "#1e81ff");
   root.style.setProperty("--runner-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
   const showLink = end.linkEnabled === true && Boolean((end.linkUrl || "").trim());

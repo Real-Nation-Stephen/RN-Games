@@ -161,6 +161,13 @@ export const handler = async (event) => {
         }
       }
 
+      if (body.action === "restart") {
+        session.currentStepIndex = 0;
+        session.currentNodeId = steps[0]?.id || null;
+        session.completedAt = null;
+        session.history = [];
+      }
+
       session.updatedAt = new Date().toISOString();
       await setExperienceSessionJson(sessionId, session);
       return { statusCode: 200, body: JSON.stringify({ session }), headers };

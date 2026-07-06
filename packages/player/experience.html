@@ -13,6 +13,9 @@
       <div id="exp-complete" class="exp-panel" hidden>
         <h1>Thank you</h1>
         <p>You have completed this experience.</p>
+        <div id="exp-complete-actions" hidden>
+          <button type="button" id="exp-restart" class="exp-btn exp-btn-primary">Start over</button>
+        </div>
       </div>
       <div id="exp-stage" hidden>
         <header id="exp-header">
@@ -20,6 +23,7 @@
           <span id="exp-progress" class="exp-muted"></span>
         </header>
         <iframe id="exp-frame" title="Experience step" allow="fullscreen"></iframe>
+        <iframe id="exp-preload" class="exp-preload" tabindex="-1" aria-hidden="true" title=""></iframe>
         <footer id="exp-step-footer" hidden>
           <button type="button" id="exp-step-continue" class="exp-btn exp-btn-primary">Continue</button>
         </footer>

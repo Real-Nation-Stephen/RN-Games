@@ -12,6 +12,7 @@ export interface FlowContext {
 
 export const FLOW_CTX_STORAGE_KEY = "rngames:flow";
 export const FLOW_STEP_COMPLETE = "rngames:step_complete";
+export const FLOW_STEP_ENGAGED = "rngames:step_engaged";
 
 export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
   if (params.get("flow") !== "1") return null;
@@ -59,6 +60,21 @@ export function isFlowMode(params?: URLSearchParams): boolean {
   return p?.get("flow") === "1";
 }
 
+export function emitStepEngaged(): void {
+  if (typeof window === "undefined") return;
+  const ctx = loadFlowContext() ?? parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  const payload = {
+    type: FLOW_STEP_ENGAGED,
+    sessionId: ctx?.sessionId,
+    experienceId: ctx?.experienceId,
+    nodeId: ctx?.nodeId,
+  };
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(payload, "*");
+  }
+  window.dispatchEvent(new CustomEvent(FLOW_STEP_ENGAGED, { detail: payload }));
+}
+
 export function emitStepComplete(outcomes: Record<string, unknown> = {}): void {
   if (typeof window === "undefined") return;
   const ctx = loadFlowContext() ?? parseFlowContextFromSearch(new URLSearchParams(window.location.search));
@@ -88,5 +104,20 @@ export function isStepCompleteMessage(data: unknown): data is StepCompleteMessag
     !!data &&
     typeof data === "object" &&
     (data as StepCompleteMessage).type === FLOW_STEP_COMPLETE
+  );
+}
+
+export type StepEngagedMessage = {
+  type: typeof FLOW_STEP_ENGAGED;
+  sessionId?: string;
+  experienceId?: string;
+  nodeId?: string;
+};
+
+export function isStepEngagedMessage(data: unknown): data is StepEngagedMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as StepEngagedMessage).type === FLOW_STEP_ENGAGED
   );
 }

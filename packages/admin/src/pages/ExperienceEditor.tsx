@@ -165,6 +165,24 @@ export default function ExperienceEditor() {
               onChange={(e) => patch((g) => ({ ...g, designCode: e.target.value }))}
             />
           </label>
+          <label className="field">
+            Next step button label
+            <input
+              value={game.foundation.navigation.nextStepButtonLabel ?? "Next Activity"}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  foundation: {
+                    ...g.foundation,
+                    navigation: {
+                      ...g.foundation.navigation,
+                      nextStepButtonLabel: e.target.value,
+                    },
+                  },
+                }))
+              }
+            />
+          </label>
         </div>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Live: <code>{liveUrl}</code>

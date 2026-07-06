@@ -2,8 +2,15 @@
  * Flip cards — production player (public API or admin preview postMessage).
  */
 import { track } from "@rngames/shared/track";
+import { isFlowMode, emitStepComplete, emitStepEngaged } from "@rngames/shared";
 
 const API_BASE = "/api";
+const flowMode = isFlowMode();
+const flowNextLabel = () =>
+  new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Next Activity";
+let flowEngaged = false;
+/** @type {HTMLButtonElement | null} */
+let nextStepBtn = null;
 
 const CARD_W_PER_H = 827 / 1417;
 
@@ -209,6 +216,41 @@ function isPhoneShakeLayout() {
   return true;
 }
 
+function ensureNextStepButton() {
+  if (!flowMode || !shuffleBar || nextStepBtn) return;
+  const row = shuffleBar.querySelector(".shuffle-bar-row");
+  if (!row) return;
+  nextStepBtn = document.createElement("button");
+  nextStepBtn.type = "button";
+  nextStepBtn.id = "flip-next-step-btn";
+  nextStepBtn.className = "shuffle-btn";
+  nextStepBtn.hidden = true;
+  nextStepBtn.addEventListener("click", () => {
+    emitStepComplete({ "flipCards.engaged": true, completed: true });
+  });
+  row.appendChild(nextStepBtn);
+}
+
+function styleNextStepButton(cfg) {
+  if (!nextStepBtn || !cfg) return;
+  const sh = cfg.shuffle || {};
+  nextStepBtn.textContent = flowNextLabel();
+  nextStepBtn.style.background = sh.buttonBg || "rgba(255,255,255,0.15)";
+  nextStepBtn.style.color = sh.textColor || "#ffffff";
+  const labelPx = (Number(sh.textSizePx) || Number(sh.buttonFontSizePx) || 16) * CONTROL_SIZE_SCALE;
+  nextStepBtn.style.fontSize = `${labelPx}px`;
+}
+
+function markFlowEngaged() {
+  if (!flowMode || flowEngaged) return;
+  flowEngaged = true;
+  emitStepEngaged();
+  ensureNextStepButton();
+  if (liveConfig) styleNextStepButton(liveConfig);
+  if (nextStepBtn) nextStepBtn.hidden = false;
+  if (shuffleBar) shuffleBar.hidden = false;
+}
+
 function updatePhoneShuffleChrome() {
   const cfg = liveConfig;
   const sh = cfg?.shuffle || {};
@@ -238,6 +280,11 @@ function updatePhoneShuffleChrome() {
     if (muteBtn) muteBtn.hidden = !showMute;
     if (fsBtn) fsBtn.hidden = !showFs;
     shuffleBar.hidden = !showShuffle && !showMute && !showFs;
+  }
+
+  if (flowMode && flowEngaged && nextStepBtn) {
+    shuffleBar.hidden = false;
+    nextStepBtn.hidden = false;
   }
 }
 
@@ -542,6 +589,11 @@ function applyTheme(cfg) {
     updatePhoneShuffleChrome();
   }
 
+  if (flowMode) {
+    ensureNextStepButton();
+    styleNextStepButton(cfg);
+  }
+
   if (cfg.title) document.title = cfg.title;
 
   maybeStartMusic(cfg);
@@ -647,6 +699,7 @@ async function openDetail(slotIndex) {
     gameId: String(liveConfig.id || liveConfig.slug || ""),
     payload: { deckIndex: deckIdx, slotIndex },
   });
+  markFlowEngaged();
 
   detailFlipInner.style.transform = "";
 
@@ -930,6 +983,7 @@ async function runShuffleWithOptionalAnimation() {
     try {
       await dealAndRender();
       requestAnimationFrame(() => fitCardGrid());
+      markFlowEngaged();
     } finally {
       shuffleBusy = false;
     }
@@ -950,6 +1004,7 @@ async function runShuffleWithOptionalAnimation() {
       try {
         await dealAndRender();
         requestAnimationFrame(() => fitCardGrid());
+        markFlowEngaged();
       } finally {
         shuffleBusy = false;
         if (shuffleBtn && !shuffleBtn.hidden) shuffleBtn.disabled = false;

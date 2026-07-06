@@ -188,6 +188,8 @@ export interface ExperienceMetadata {
 export interface ExperienceNavigation {
   backButton: "free" | "one_way" | "blocked";
   fallbackNodeId?: string;
+  /** In-flow continue label on module end screens (e.g. flip-cards, wheel). */
+  nextStepButtonLabel?: string;
 }
 
 export interface ExperienceKiosk {

@@ -6,7 +6,7 @@ export function defaultExperienceFoundation() {
     reportingEnabled: false,
     requireConsentBeforeTrack: false,
     sessionTtlMinutes: 0,
-    navigation: { backButton: "one_way" },
+    navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
   };
 }
 
@@ -143,7 +143,11 @@ export function toPublicExperience(experience, steps) {
     status: experience.status,
     foundation: {
       trackingEnabled: !!experience.foundation?.trackingEnabled,
-      navigation: experience.foundation?.navigation || { backButton: "one_way" },
+      navigation: {
+        backButton: experience.foundation?.navigation?.backButton || "one_way",
+        nextStepButtonLabel:
+          experience.foundation?.navigation?.nextStepButtonLabel?.trim() || "Next Activity",
+      },
       kiosk: experience.foundation?.kiosk || null,
     },
     steps,

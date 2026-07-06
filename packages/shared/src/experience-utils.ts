@@ -39,6 +39,7 @@ export function appendFlowQuery(
     sessionId: string;
     experienceId: string;
     nodeId: string;
+    nextStepLabel?: string;
   },
 ): string {
   const sep = path.includes("?") ? "&" : "?";
@@ -48,5 +49,8 @@ export function appendFlowQuery(
     experienceId: params.experienceId,
     nodeId: params.nodeId,
   });
+  if (params.nextStepLabel?.trim()) {
+    q.set("nextStepLabel", params.nextStepLabel.trim());
+  }
   return `${path}${sep}${q.toString()}`;
 }

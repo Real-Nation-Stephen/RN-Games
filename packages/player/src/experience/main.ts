@@ -1,5 +1,5 @@
 import { appendFlowQuery, componentPublicPath, track } from "@rngames/shared";
-import { FLOW_STEP_COMPLETE, isStepCompleteMessage } from "@rngames/shared";
+import { FLOW_STEP_COMPLETE, isStepCompleteMessage, isStepEngagedMessage } from "@rngames/shared";
 
 type PublicStep = {
   id: string;
@@ -18,6 +18,11 @@ type PublicExperience = {
   title: string;
   steps: PublicStep[];
   stepCount: number;
+  foundation?: {
+    navigation?: {
+      nextStepButtonLabel?: string;
+    };
+  };
 };
 
 type Session = {
@@ -48,29 +53,40 @@ const els = {
   loading: document.getElementById("exp-loading")!,
   error: document.getElementById("exp-error")!,
   complete: document.getElementById("exp-complete")!,
+  completeActions: document.getElementById("exp-complete-actions")!,
+  restart: document.getElementById("exp-restart")!,
   stage: document.getElementById("exp-stage")!,
   title: document.getElementById("exp-title")!,
   progress: document.getElementById("exp-progress")!,
   frame: document.getElementById("exp-frame") as HTMLIFrameElement,
+  preload: document.getElementById("exp-preload") as HTMLIFrameElement,
   stepFooter: document.getElementById("exp-step-footer")!,
-  stepContinue: document.getElementById("exp-step-continue")!,
+  stepContinue: document.getElementById("exp-step-continue") as HTMLButtonElement,
   fallback: document.getElementById("exp-fallback")!,
   fallbackMsg: document.getElementById("exp-fallback-msg")!,
   retry: document.getElementById("exp-retry")!,
   continue: document.getElementById("exp-continue")!,
 };
 
-/** Components that emit step_complete from inside the iframe (no shell Continue). */
+/** End-of-game Continue is wired inside the iframe. */
 const AUTO_ADVANCE_TYPES = new Set(["catch", "runner"]);
+/** In-game next-step button; no experience shell banner. */
+const NATIVE_FLOW_TYPES = new Set(["flip-cards", "spinning-wheel", ...AUTO_ADVANCE_TYPES]);
 
 let experience: PublicExperience | null = null;
 let session: Session | null = null;
 let loadAttempts = 0;
 let slug = "";
 let previewToken = "";
+let advancing = false;
+let stepEngaged = false;
 
 function sessionStorageKey() {
   return `rngames:experience-session:${slug}`;
+}
+
+function nextStepButtonLabel(): string {
+  return experience?.foundation?.navigation?.nextStepButtonLabel?.trim() || "Next Activity";
 }
 
 function showError(msg: string) {
@@ -99,6 +115,15 @@ function loadSessionLocal(): { sessionId: string; participantId: string } | null
     return JSON.parse(raw) as { sessionId: string; participantId: string };
   } catch {
     return null;
+  }
+}
+
+function updateShellContinue() {
+  const needsBanner = !NATIVE_FLOW_TYPES.has(currentStep()?.moduleType || "");
+  els.stepFooter.hidden = !needsBanner;
+  if (needsBanner) {
+    els.stepContinue.disabled = advancing || !stepEngaged;
+    els.stepContinue.textContent = advancing ? "Loading…" : nextStepButtonLabel();
   }
 }
 
@@ -134,6 +159,24 @@ async function createOrResumeSession(): Promise<Session> {
   return s;
 }
 
+async function restartSession(): Promise<Session> {
+  if (!session) throw new Error("No session");
+  const res = await fetch("/api/experience-session", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: session.sessionId,
+      action: "restart",
+    }),
+  });
+  if (!res.ok) throw new Error("Could not restart");
+  const data = await res.json();
+  const s = data.session as Session;
+  session = s;
+  saveSessionLocal(s);
+  return s;
+}
+
 async function advanceSession(outcomes: Record<string, unknown> = {}) {
   if (!session) return;
   const res = await fetch("/api/experience-session", {
@@ -165,9 +208,28 @@ function stepFrameUrl(step: PublicStep): string {
     sessionId: session.sessionId,
     experienceId: experience.id,
     nodeId: step.id,
+    nextStepLabel: nextStepButtonLabel(),
   });
   if (originRelative.startsWith("http")) return originRelative;
   return `${window.location.origin}${originRelative}`;
+}
+
+function preloadNextStep() {
+  if (!experience || !session) return;
+  const nextIdx = session.currentStepIndex + 1;
+  if (nextIdx >= experience.steps.length) {
+    els.preload.removeAttribute("src");
+    return;
+  }
+  const step = experience.steps[nextIdx];
+  if (!step || step.missing || !step.moduleSlug) {
+    els.preload.removeAttribute("src");
+    return;
+  }
+  const url = stepFrameUrl(step);
+  if (els.preload.getAttribute("src") !== url) {
+    els.preload.src = url;
+  }
 }
 
 function renderStep() {
@@ -177,6 +239,7 @@ function renderStep() {
     els.stage.hidden = true;
     els.loading.hidden = true;
     els.complete.hidden = false;
+    els.completeActions.hidden = !previewToken;
     track({
       type: "experience.complete",
       gameId: experience.id,
@@ -192,6 +255,9 @@ function renderStep() {
     showError("No step configured.");
     return;
   }
+
+  stepEngaged = false;
+  advancing = false;
 
   els.loading.hidden = true;
   els.stage.hidden = false;
@@ -210,7 +276,8 @@ function renderStep() {
 
   loadAttempts = 0;
   els.frame.src = stepFrameUrl(step);
-  els.stepFooter.hidden = AUTO_ADVANCE_TYPES.has(step.moduleType);
+  updateShellContinue();
+  preloadNextStep();
 
   track({
     type: "experience.step_start",
@@ -222,8 +289,13 @@ function renderStep() {
   });
 }
 
-async function onStepComplete(outcomes: Record<string, unknown> = {}) {
-  if (!session || !experience) return;
+async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell = false) {
+  if (!session || !experience || advancing) return;
+  if (fromShell && !stepEngaged) return;
+
+  advancing = true;
+  updateShellContinue();
+
   const step = currentStep();
   track({
     type: "experience.step_complete",
@@ -233,12 +305,26 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}) {
     sessionId: session.sessionId,
     payload: { stepId: step?.id, outcomes },
   });
-  await advanceSession(outcomes);
-  renderStep();
+
+  try {
+    await advanceSession(outcomes);
+    renderStep();
+  } catch (e) {
+    showError(e instanceof Error ? e.message : "Could not advance");
+  } finally {
+    advancing = false;
+    updateShellContinue();
+  }
 }
 
 function bindEvents() {
   window.addEventListener("message", (ev) => {
+    if (isStepEngagedMessage(ev.data)) {
+      if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
+      stepEngaged = true;
+      updateShellContinue();
+      return;
+    }
     if (!isStepCompleteMessage(ev.data)) return;
     if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
     void onStepComplete(ev.data.outcomes || {});
@@ -255,11 +341,25 @@ function bindEvents() {
   });
 
   els.continue.addEventListener("click", () => {
-    void onStepComplete({});
+    void onStepComplete({}, true);
   });
 
   els.stepContinue.addEventListener("click", () => {
-    void onStepComplete({});
+    void onStepComplete({}, true);
+  });
+
+  els.restart.addEventListener("click", () => {
+    void (async () => {
+      try {
+        advancing = true;
+        await restartSession();
+        renderStep();
+      } catch (e) {
+        showError(e instanceof Error ? e.message : "Could not restart");
+      } finally {
+        advancing = false;
+      }
+    })();
   });
 }
 

@@ -52,13 +52,16 @@ export {
   type StepCompleteMessage,
   FLOW_CTX_STORAGE_KEY,
   FLOW_STEP_COMPLETE,
+  FLOW_STEP_ENGAGED,
   parseFlowContextFromSearch,
   saveFlowContext,
   loadFlowContext,
   clearFlowContext,
   isFlowMode,
   emitStepComplete,
+  emitStepEngaged,
   isStepCompleteMessage,
+  isStepEngagedMessage,
 } from "./flow-bridge.js";
 export {
   rankLeaderboardEntries,

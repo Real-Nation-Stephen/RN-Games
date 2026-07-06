@@ -57,11 +57,29 @@ body {
   background: #000;
 }
 
+.exp-preload {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 #exp-step-footer {
   display: flex;
   justify-content: center;
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.35);
+}
+
+#exp-step-footer .exp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#exp-complete-actions {
+  margin-top: 16px;
 }
 
 #exp-fallback {

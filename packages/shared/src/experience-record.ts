@@ -91,7 +91,7 @@ export function defaultExperienceFoundation(): ExperienceFoundation {
     reportingEnabled: false,
     requireConsentBeforeTrack: false,
     sessionTtlMinutes: 0,
-    navigation: { backButton: "one_way" },
+    navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
   };
 }
 

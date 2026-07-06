@@ -6,6 +6,13 @@ import {
 import { startSpinAudioAsync, playRevealSound, unlockAudio } from "./audio.js";
 import { burstConfetti } from "./fanfare.js";
 import { track } from "@rngames/shared/track";
+import { isFlowMode, emitStepComplete, emitStepEngaged } from "@rngames/shared";
+
+const flowMode = isFlowMode();
+const flowNextLabel = () =>
+  new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Next Activity";
+/** @type {number | null} */
+let flowLastWinnerIndex = null;
 
 const DESIGN_W = 1920;
 const DESIGN_H = 1080;
@@ -179,7 +186,11 @@ function showResult(winnerIndex) {
   els.app.classList.add("state-result");
   els.copyResultLayer.setAttribute("aria-hidden", "false");
   els.restartLayer.setAttribute("aria-hidden", "false");
-  els.spinZone.setAttribute("aria-label", "Play again");
+  els.spinZone.setAttribute("aria-label", flowMode ? flowNextLabel() : "Play again");
+
+  if (flowMode) {
+    flowLastWinnerIndex = winnerIndex;
+  }
 
   if (isWin) {
     try {
@@ -202,6 +213,10 @@ function spin() {
 
   void unlockAudio().catch(() => {});
   maybeStartMusic();
+
+  if (flowMode) {
+    emitStepEngaged();
+  }
 
   spinning = true;
   els.spinZone.classList.add("is-spinning");
@@ -246,6 +261,17 @@ function spin() {
 
 function onSpinZoneActivate() {
   if (els.app.classList.contains("state-result")) {
+    if (flowMode && flowLastWinnerIndex !== null) {
+      const winnerIndex = flowLastWinnerIndex;
+      const isWin = segmentIsWin(winnerIndex);
+      emitStepComplete({
+        "wheel.segmentId": winnerIndex,
+        "wheel.segmentLabel": config.prizes[winnerIndex] ?? "",
+        "wheel.isWin": isWin,
+        completed: true,
+      });
+      return;
+    }
     resetToHeadline();
   } else {
     spin();

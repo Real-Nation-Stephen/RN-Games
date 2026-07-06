@@ -30,6 +30,8 @@ import type { CatchConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
 const flowMode = isFlowMode();
+const flowNextLabel =
+  new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Continue";
 
 const els = {
   app: document.getElementById("app")!,
@@ -210,7 +212,7 @@ function applyTheme(c: CatchConfig) {
 
   els.endHeadline.textContent = end.headline || "Time's up!";
   els.endSubhead.textContent = end.subhead || "";
-  els.endPlay.textContent = flowMode ? "Continue" : end.playAgainLabel || "Play again";
+  els.endPlay.textContent = flowMode ? flowNextLabel : end.playAgainLabel || "Play again";
   root.style.setProperty("--catch-end-link-btn", end.linkButtonHex || "#1e81ff");
   root.style.setProperty("--catch-end-link-btn-text", end.linkButtonTextHex || "#ffffff");
   const showLink = end.linkEnabled === true && Boolean((end.linkUrl || "").trim());
