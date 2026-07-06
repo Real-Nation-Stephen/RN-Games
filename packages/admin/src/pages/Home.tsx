@@ -104,14 +104,22 @@ export default function Home() {
   }
 
   async function createModule(gameType: string) {
-    const slug = `${gameType}-${Date.now().toString(36)}`.replace("spinning-wheel", "wheel");
-    const body: Record<string, string> = { slug, title: `New ${gameType}`, clientName: "" };
-    if (gameType !== "spinning-wheel") body.gameType = gameType;
-    const res = await apiSend("/api/wheels", "POST", body);
-    const w = res?.wheel as LibraryItem | undefined;
-    if (!w?.id) return;
-    const meta = LIBRARY_TYPES.find((t) => t.gameType === gameType);
-    window.location.href = `/admin${meta?.editPrefix || "/wheels"}/${w.id}`;
+    setErr(null);
+    try {
+      const slug = `${gameType}-${Date.now().toString(36)}`.replace("spinning-wheel", "wheel");
+      const body: Record<string, string> = { slug, title: `New ${gameType}`, clientName: "" };
+      if (gameType !== "spinning-wheel") body.gameType = gameType;
+      const res = await apiSend("/api/wheels", "POST", body);
+      const w = res?.wheel as LibraryItem | undefined;
+      if (!w?.id) {
+        setErr("Create succeeded but no item was returned.");
+        return;
+      }
+      const meta = LIBRARY_TYPES.find((t) => t.gameType === gameType);
+      window.location.href = `/admin${meta?.editPrefix || "/wheels"}/${w.id}`;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not create module");
+    }
   }
 
   async function duplicateGame(w: LibraryItem) {

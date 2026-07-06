@@ -35,13 +35,12 @@ export default function PageModuleEditor({ gameType }: Props) {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const res = await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`);
-    const w = res.wheel as PageModuleRecord;
-    if (w.gameType !== gameType) {
+    const data = (await apiGet(`/api/wheels?id=${encodeURIComponent(id)}`)) as PageModuleRecord;
+    if (data.gameType !== gameType) {
       navigate("/");
       return;
     }
-    setDoc(w);
+    setDoc(data);
   }, [id, gameType, navigate]);
 
   useEffect(() => {

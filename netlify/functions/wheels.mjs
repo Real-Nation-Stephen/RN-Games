@@ -296,6 +296,7 @@ export const handler = async (event, context) => {
         if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
         if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
+        if (isPageModuleType(wheel.gameType)) Object.assign(wheel, normalizePageModule(wheel));
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
       let list = await readIndex();
