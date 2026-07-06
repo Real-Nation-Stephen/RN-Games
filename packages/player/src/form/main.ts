@@ -10,6 +10,7 @@ import {
   getSlugFromPath,
   initFlowContext,
   patchSessionData,
+  setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -36,6 +37,19 @@ function renderField(field: FormField): HTMLElement {
   wrap.appendChild(label);
 
   let input: HTMLElement;
+  if (field.type === "checkbox") {
+    const row = document.createElement("label");
+    row.className = "consent-item";
+    row.style.marginTop = "4px";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.id = `field-${field.id}`;
+    cb.name = field.id;
+    cb.required = !!field.required;
+    row.append(cb, document.createTextNode(field.placeholder || field.label));
+    wrap.replaceChildren(row);
+    return wrap;
+  }
   if (field.type === "dropdown" || field.type === "multiple_choice") {
     const sel = document.createElement("select");
     sel.id = `field-${field.id}`;
@@ -61,6 +75,7 @@ function renderField(field: FormField): HTMLElement {
     if (field.type === "email") inp.type = "email";
     else if (field.type === "phone") inp.type = "tel";
     else if (field.type === "date") inp.type = "date";
+    else if (field.type === "postcode") inp.type = "text";
     else inp.type = "text";
     input = inp;
   }
@@ -68,7 +83,55 @@ function renderField(field: FormField): HTMLElement {
   return wrap;
 }
 
+async function mountForm(cfg: FormRecord) {
+  applyPageTheme(cfg, document.documentElement);
+  wirePoweredBy(cfg);
+  els.headline.textContent = cfg.headline;
+  els.body.textContent = cfg.body;
+  els.submit.textContent = flowModeActive() ? flowNextLabel() : cfg.submitLabel;
+  els.form.replaceChildren(...cfg.fields.map(renderField));
+  els.app.hidden = false;
+
+  els.form.addEventListener("input", () => engageStep(), { once: true });
+
+  els.form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const values: Record<string, string> = {};
+    const fd = new FormData(els.form);
+    for (const f of cfg.fields) {
+      if (f.type === "checkbox") {
+        const cb = els.form.querySelector<HTMLInputElement>(`input[name="${f.id}"]`);
+        values[f.id] = cb?.checked ? "yes" : "";
+      } else {
+        values[f.id] = String(fd.get(f.id) || "").trim();
+      }
+    }
+
+    for (const f of cfg.fields) {
+      if (f.required && !values[f.id]) {
+        showError(`${f.label} is required.`);
+        return;
+      }
+    }
+    els.error.hidden = true;
+
+    const outcomes = { "form.fieldValues": values, completed: true };
+    const flow = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+    void (async () => {
+      if (flow?.sessionId) {
+        await patchSessionData(flow.sessionId, { formFields: values }, outcomes);
+      }
+      completeStep({ gameId: cfg.id, ...outcomes });
+    })();
+  });
+}
+
 async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "1") {
+    setupPagePreview("form", (cfg) => void mountForm(cfg as FormRecord));
+    return;
+  }
   initFlowContext();
   const slug = getSlugFromPath("form");
   if (!slug) {
@@ -76,40 +139,7 @@ async function boot() {
     return;
   }
   try {
-    const cfg = (await fetchPageModule(slug, "form")) as FormRecord;
-    applyPageTheme(cfg, document.documentElement);
-    wirePoweredBy(cfg);
-    els.headline.textContent = cfg.headline;
-    els.body.textContent = cfg.body;
-    els.submit.textContent = flowModeActive() ? flowNextLabel() : cfg.submitLabel;
-    els.form.replaceChildren(...cfg.fields.map(renderField));
-    els.app.hidden = false;
-
-    els.form.addEventListener("input", () => engageStep(), { once: true });
-
-    els.form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const values: Record<string, string> = {};
-      const fd = new FormData(els.form);
-      for (const [k, v] of fd.entries()) values[k] = String(v).trim();
-
-      for (const f of cfg.fields) {
-        if (f.required && !values[f.id]) {
-          showError(`${f.label} is required.`);
-          return;
-        }
-      }
-      els.error.hidden = true;
-
-      const outcomes = { "form.fieldValues": values, completed: true };
-      const flow = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
-      void (async () => {
-        if (flow?.sessionId) {
-          await patchSessionData(flow.sessionId, { formFields: values }, outcomes);
-        }
-        completeStep({ gameId: cfg.id, ...outcomes });
-      })();
-    });
+    await mountForm((await fetchPageModule(slug, "form")) as FormRecord);
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");
   }

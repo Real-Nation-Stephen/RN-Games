@@ -8,6 +8,7 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initFlowContext,
+  setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -21,15 +22,7 @@ const els = {
   error: document.getElementById("page-error")!,
 };
 
-async function boot() {
-  initFlowContext();
-  const slug = getSlugFromPath("redemption");
-  if (!slug) {
-    els.error.textContent = "Missing slug.";
-    els.error.hidden = false;
-    return;
-  }
-  const cfg = (await fetchPageModule(slug, "redemption")) as RedemptionRecord;
+function mountRedemption(cfg: RedemptionRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
   els.headline.textContent = cfg.headline;
@@ -39,7 +32,24 @@ async function boot() {
   els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.primaryCta.label;
   els.app.hidden = false;
   engageStep();
-  els.cta.addEventListener("click", () => completeStep({ gameId: cfg.id }));
+  els.cta.onclick = () => completeStep({ gameId: cfg.id });
+}
+
+async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "1") {
+    setupPagePreview("redemption", (cfg) => mountRedemption(cfg as RedemptionRecord));
+    return;
+  }
+  initFlowContext();
+  const slug = getSlugFromPath("redemption");
+  if (!slug) {
+    els.error.textContent = "Missing slug.";
+    els.error.hidden = false;
+    return;
+  }
+  const cfg = (await fetchPageModule(slug, "redemption")) as RedemptionRecord;
+  mountRedemption(cfg);
 }
 
 void boot().catch((e) => {

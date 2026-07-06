@@ -7,6 +7,7 @@ import {
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
+import { applyPageFonts } from "./blocks";
 
 export type { PageModuleRecord };
 
@@ -67,6 +68,7 @@ export function applyPageTheme(cfg: PageModuleRecord, root: HTMLElement) {
     link.href = cfg.faviconUrl;
   }
   if (cfg.title) document.title = cfg.title;
+  applyPageFonts(cfg);
 }
 
 export function wirePoweredBy(cfg: PageModuleRecord) {

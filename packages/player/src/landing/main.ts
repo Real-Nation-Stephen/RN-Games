@@ -12,12 +12,11 @@ import {
   setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
+import { renderLandingBlocks } from "../page-module/blocks";
 
 const els = {
   app: document.getElementById("page-app")!,
-  headline: document.getElementById("page-headline")!,
-  body: document.getElementById("page-body")!,
-  cta: document.getElementById("page-cta") as HTMLButtonElement,
+  blocks: document.getElementById("page-blocks")!,
   error: document.getElementById("page-error")!,
 };
 
@@ -27,24 +26,26 @@ function showError(msg: string) {
   els.app.hidden = true;
 }
 
-function onContinue(cfg: LandingRecord) {
-  completeStep({ gameId: cfg.id, "landing.cta": cfg.primaryCta.label });
+function onContinue(cfg: LandingRecord, label: string) {
+  completeStep({ gameId: cfg.id, "landing.cta": label });
 }
 
 function mountLanding(cfg: LandingRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
-  els.headline.textContent = cfg.headline;
-  els.body.textContent = cfg.body;
-  els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.primaryCta.label;
+
+  const hasPrimary = renderLandingBlocks(els.blocks, cfg, {
+    flowMode: flowModeActive(),
+    flowNextLabel: flowNextLabel(),
+    onEngage: () => engageStep(),
+    onPrimaryAction: (label) => onContinue(cfg, label),
+  });
+
   els.app.hidden = false;
-  els.cta.onclick = () => {
+
+  if (flowModeActive() && cfg.experienceAutoContinue && hasPrimary) {
     engageStep();
-    onContinue(cfg);
-  };
-  if (flowModeActive() && cfg.experienceAutoContinue) {
-    engageStep();
-    scheduleAutoContinue(cfg, () => onContinue(cfg));
+    scheduleAutoContinue(cfg, () => onContinue(cfg, cfg.primaryCta.label));
   }
 }
 

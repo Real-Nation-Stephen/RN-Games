@@ -104,8 +104,144 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         primaryCta: defaultCta("Get started"),
         experienceAutoContinue: true,
         experienceAutoContinueDelayMs: 2500,
+        blocks: defaultLandingBlocks(),
+        pageSettings: { maxWidthPx: 720, contentAlign: "center", verticalAlign: "center", paddingPx: 24 },
       };
   }
+}
+
+function newLandingBlockId() {
+  return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function defaultLandingBlocks() {
+  return [
+    { id: newLandingBlockId(), type: "text", content: "Welcome", variant: "headline", align: "center" },
+    { id: newLandingBlockId(), type: "text", content: "Tell your story here.", variant: "body", align: "center" },
+    {
+      id: newLandingBlockId(),
+      type: "button",
+      label: "Get started",
+      url: "",
+      backgroundHex: "#2d6cdf",
+      textHex: "#ffffff",
+      align: "center",
+      fullWidth: false,
+      isPrimary: true,
+    },
+  ];
+}
+
+function normalizeLandingBlock(raw, index) {
+  const type = String(raw.type || "text");
+  const id = String(raw.id || `block-${index}`);
+  if (type === "image") {
+    return {
+      id,
+      type,
+      url: String(raw.url || ""),
+      alt: String(raw.alt || ""),
+      fit: raw.fit || "contain",
+      maxHeightPx: Math.max(40, Number(raw.maxHeightPx) || 320),
+      borderRadiusPx: Math.max(0, Number(raw.borderRadiusPx) || 8),
+      align: raw.align || "center",
+      fullWidth: !!raw.fullWidth,
+    };
+  }
+  if (type === "image_text") {
+    return {
+      id,
+      type,
+      imageUrl: String(raw.imageUrl || ""),
+      imageAlt: String(raw.imageAlt || ""),
+      imageFit: raw.imageFit || "cover",
+      layout: raw.layout === "image_right" ? "image_right" : "image_left",
+      headline: String(raw.headline || ""),
+      body: String(raw.body || ""),
+      gapPx: Math.max(0, Number(raw.gapPx) || 20),
+    };
+  }
+  if (type === "gallery") {
+    const images = Array.isArray(raw.images)
+      ? raw.images.map((img, i) => ({
+          id: String(img.id || `img-${i}`),
+          url: String(img.url || ""),
+          alt: String(img.alt || ""),
+          caption: String(img.caption || ""),
+        }))
+      : [];
+    const cols = Number(raw.columns) || 3;
+    return {
+      id,
+      type,
+      images,
+      columns: cols === 2 || cols === 4 ? cols : 3,
+      gapPx: Math.max(0, Number(raw.gapPx) || 12),
+    };
+  }
+  if (type === "video") {
+    return {
+      id,
+      type,
+      url: String(raw.url || ""),
+      aspectRatio: raw.aspectRatio || "16:9",
+      autoplay: !!raw.autoplay,
+      muted: raw.muted !== false,
+    };
+  }
+  if (type === "spacer") {
+    return { id, type, heightPx: Math.max(4, Number(raw.heightPx) || 32) };
+  }
+  if (type === "divider") {
+    return {
+      id,
+      type,
+      colorHex: String(raw.colorHex || "rgba(255,255,255,0.2)"),
+      thicknessPx: Math.max(1, Number(raw.thicknessPx) || 1),
+      widthPercent: Math.max(10, Math.min(100, Number(raw.widthPercent) || 60)),
+    };
+  }
+  if (type === "button") {
+    return {
+      id,
+      type,
+      label: String(raw.label || "Continue"),
+      url: String(raw.url || ""),
+      backgroundHex: String(raw.backgroundHex || "#2d6cdf"),
+      textHex: String(raw.textHex || "#ffffff"),
+      align: raw.align || "center",
+      fullWidth: !!raw.fullWidth,
+      isPrimary: !!raw.isPrimary,
+    };
+  }
+  return {
+    id,
+    type: "text",
+    content: String(raw.content || ""),
+    variant: raw.variant || "body",
+    align: raw.align || "center",
+    colorHex: String(raw.colorHex || ""),
+  };
+}
+
+function legacyLandingBlocks(doc) {
+  const blocks = [];
+  if (doc.headline) blocks.push({ id: newLandingBlockId(), type: "text", content: doc.headline, variant: "headline", align: "center" });
+  if (doc.body) blocks.push({ id: newLandingBlockId(), type: "text", content: doc.body, variant: "body", align: "center" });
+  if (doc.primaryCta?.label) {
+    blocks.push({
+      id: newLandingBlockId(),
+      type: "button",
+      label: doc.primaryCta.label,
+      url: doc.primaryCta.url || "",
+      backgroundHex: doc.primaryCta.backgroundHex || "#2d6cdf",
+      textHex: doc.primaryCta.textHex || "#ffffff",
+      align: "center",
+      fullWidth: false,
+      isPrimary: true,
+    });
+  }
+  return blocks.length ? blocks : defaultLandingBlocks();
 }
 
 function normalizeBase(doc) {
@@ -131,7 +267,12 @@ function normalizeBase(doc) {
       mobile: String(doc.backgrounds?.mobile || ""),
     },
     backgroundImage: String(doc.backgroundImage || ""),
-    typography: { ...defaultTypography(), ...(doc.typography || {}), fonts: { ...(doc.typography?.fonts || {}) } },
+    typography: {
+      ...defaultTypography(),
+      ...(doc.typography || {}),
+      fonts: { ...(doc.typography?.fonts || {}) },
+      fontUploads: { ...(doc.typography?.fontUploads || {}) },
+    },
     headline: String(doc.headline || doc.title || ""),
     body: String(doc.body || ""),
     primaryCta: { ...defaultCta(), ...(doc.primaryCta || {}) },
@@ -217,7 +358,19 @@ export function normalizePageModule(doc) {
       redemptionCode: String(doc.redemptionCode || ""),
     };
   }
-  return { ...base, gameType: "landing" };
+  return {
+    ...base,
+    gameType: "landing",
+    blocks: Array.isArray(doc.blocks) && doc.blocks.length
+      ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
+      : legacyLandingBlocks(doc),
+    pageSettings: {
+      maxWidthPx: Math.max(320, Number(doc.pageSettings?.maxWidthPx) || 720),
+      contentAlign: ["left", "right"].includes(doc.pageSettings?.contentAlign) ? doc.pageSettings.contentAlign : "center",
+      verticalAlign: doc.pageSettings?.verticalAlign === "top" ? "top" : "center",
+      paddingPx: Math.max(0, Number(doc.pageSettings?.paddingPx) || 24),
+    },
+  };
 }
 
 export function toPublicPageModule(doc) {

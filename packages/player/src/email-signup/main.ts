@@ -10,6 +10,7 @@ import {
   getSlugFromPath,
   initFlowContext,
   patchSessionData,
+  setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -23,15 +24,7 @@ const els = {
   error: document.getElementById("page-error")!,
 };
 
-async function boot() {
-  initFlowContext();
-  const slug = getSlugFromPath("email-signup");
-  if (!slug) {
-    els.error.textContent = "Missing slug.";
-    els.error.hidden = false;
-    return;
-  }
-  const cfg = (await fetchPageModule(slug, "email-signup")) as EmailSignupRecord;
+function mountEmailSignup(cfg: EmailSignupRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
   els.headline.textContent = cfg.headline;
@@ -39,8 +32,7 @@ async function boot() {
   els.emailLabel.textContent = cfg.emailLabel;
   els.submit.textContent = flowModeActive() ? flowNextLabel() : cfg.submitLabel;
   els.app.hidden = false;
-  els.form.addEventListener("input", () => engageStep(), { once: true });
-  els.form.addEventListener("submit", (e) => {
+  els.form.onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(els.form);
     const values = { name: String(fd.get("name") || "").trim(), email: String(fd.get("email") || "").trim() };
@@ -55,7 +47,25 @@ async function boot() {
       if (flow?.sessionId) await patchSessionData(flow.sessionId, { emailSignup: values }, outcomes);
       completeStep({ gameId: cfg.id, ...outcomes });
     })();
-  });
+  };
+  els.form.oninput = () => engageStep();
+}
+
+async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "1") {
+    setupPagePreview("email-signup", (cfg) => mountEmailSignup(cfg as EmailSignupRecord));
+    return;
+  }
+  initFlowContext();
+  const slug = getSlugFromPath("email-signup");
+  if (!slug) {
+    els.error.textContent = "Missing slug.";
+    els.error.hidden = false;
+    return;
+  }
+  const cfg = (await fetchPageModule(slug, "email-signup")) as EmailSignupRecord;
+  mountEmailSignup(cfg);
 }
 
 void boot().catch((e) => {

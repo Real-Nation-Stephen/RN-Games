@@ -1,6 +1,5 @@
 import type { CertificateRecord } from "@rngames/shared/page-modules";
 import { resolveSessionPath } from "@rngames/shared/page-modules";
-import { parseFlowContextFromSearch } from "@rngames/shared";
 import {
   applyPageTheme,
   completeStep,
@@ -11,6 +10,7 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initFlowContext,
+  setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -65,7 +65,27 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
   els.wrap.appendChild(stage);
 }
 
+async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<string, unknown>) {
+  applyPageTheme(cfg, document.documentElement);
+  wirePoweredBy(cfg);
+  els.headline.textContent = cfg.headline;
+  els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.downloadLabel || cfg.primaryCta.label;
+  renderCertificate(cfg, sessionRoot);
+  els.app.hidden = false;
+  engageStep();
+  els.cta.onclick = () => completeStep({ gameId: cfg.id });
+}
+
 async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "1") {
+    setupPagePreview("certificate", (cfg) => {
+      const c = cfg as CertificateRecord;
+      const sample = { form: { fieldValues: { name: "Preview Name" } } };
+      void mountCertificate(c, sample);
+    });
+    return;
+  }
   const flow = initFlowContext();
   const slug = getSlugFromPath("certificate");
   if (!slug) {
@@ -74,24 +94,13 @@ async function boot() {
   }
   try {
     const cfg = (await fetchPageModule(slug, "certificate")) as CertificateRecord;
-    applyPageTheme(cfg, document.documentElement);
-    wirePoweredBy(cfg);
-    els.headline.textContent = cfg.headline;
-    els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.primaryCta.label;
-
     const session = flow?.sessionId ? await fetchSession(flow.sessionId) : null;
     const sessionRoot = {
       ...(session?.data || {}),
       ...(session?.outcomes || {}),
       form: { fieldValues: (session?.outcomes?.["form.fieldValues"] as Record<string, unknown>) || session?.data?.formFields || {} },
     };
-    renderCertificate(cfg, sessionRoot);
-    els.app.hidden = false;
-    engageStep();
-
-    els.cta.addEventListener("click", () => {
-      completeStep({ gameId: cfg.id });
-    });
+    await mountCertificate(cfg, sessionRoot);
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");
   }

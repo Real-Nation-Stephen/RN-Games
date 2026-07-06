@@ -8,6 +8,7 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initFlowContext,
+  setupPagePreview,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -21,15 +22,7 @@ const els = {
   error: document.getElementById("page-error")!,
 };
 
-async function boot() {
-  initFlowContext();
-  const slug = getSlugFromPath("consent");
-  if (!slug) {
-    els.error.hidden = false;
-    els.error.textContent = "Missing slug.";
-    return;
-  }
-  const cfg = (await fetchPageModule(slug, "consent")) as ConsentRecord;
+function mountConsent(cfg: ConsentRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
   els.headline.textContent = cfg.headline;
@@ -39,6 +32,8 @@ async function boot() {
     els.gdpr.href = cfg.gdprUrl;
     els.gdpr.textContent = cfg.gdprLinkLabel;
     els.gdpr.hidden = false;
+  } else {
+    els.gdpr.hidden = true;
   }
   els.list.replaceChildren(
     ...cfg.items.map((it) => {
@@ -54,7 +49,7 @@ async function boot() {
     }),
   );
   els.app.hidden = false;
-  els.cta.addEventListener("click", () => {
+  els.cta.onclick = () => {
     for (const it of cfg.items) {
       if (!it.required) continue;
       const cb = els.list.querySelector<HTMLInputElement>(`input[name="${it.id}"]`);
@@ -66,7 +61,24 @@ async function boot() {
     }
     els.error.hidden = true;
     completeStep({ gameId: cfg.id, consentGranted: true });
-  });
+  };
+}
+
+async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("preview") === "1") {
+    setupPagePreview("consent", (cfg) => mountConsent(cfg as ConsentRecord));
+    return;
+  }
+  initFlowContext();
+  const slug = getSlugFromPath("consent");
+  if (!slug) {
+    els.error.hidden = false;
+    els.error.textContent = "Missing slug.";
+    return;
+  }
+  const cfg = (await fetchPageModule(slug, "consent")) as ConsentRecord;
+  mountConsent(cfg);
 }
 
 void boot().catch((e) => {
