@@ -401,7 +401,11 @@ function itemLaunchUrl(item: PublicCourseItem): string {
     courseSlug: course.slug,
     itemId: item.id,
   });
-  return `${url.origin}${withCourse}`;
+  const finalUrl = new URL(`${url.origin}${withCourse}`);
+  if (item.previewToken) {
+    finalUrl.searchParams.set("previewToken", item.previewToken);
+  }
+  return finalUrl.toString();
 }
 
 async function openItem(itemId: string) {

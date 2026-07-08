@@ -52,8 +52,8 @@ export default async (request, context) => {
       const slug = seg[1];
       const target = new URL("/play/experience.html", url);
       target.searchParams.set("slug", slug);
-      if (url.searchParams.get("previewToken")) {
-        target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
+      for (const [key, value] of url.searchParams) {
+        if (key !== "slug") target.searchParams.set(key, value);
       }
       return fetch(target);
     }
@@ -66,11 +66,8 @@ export default async (request, context) => {
       const slug = seg[1];
       const target = new URL("/play/course.html", url);
       target.searchParams.set("slug", slug);
-      if (url.searchParams.get("previewToken")) {
-        target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
-      }
-      if (url.searchParams.get("resumeToken")) {
-        target.searchParams.set("resumeToken", url.searchParams.get("resumeToken"));
+      for (const [key, value] of url.searchParams) {
+        if (key !== "slug") target.searchParams.set(key, value);
       }
       return fetch(target);
     }

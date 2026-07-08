@@ -109,6 +109,8 @@ export interface PublicCourseItem {
   iconEmoji?: string;
   launchPath: string;
   moduleType?: string;
+  /** Experience preview token — included in course draft preview only */
+  previewToken?: string;
   missing?: boolean;
   archived?: boolean;
   locked?: boolean;
@@ -351,7 +353,8 @@ const MODULE_TYPES = new Set([
 export function resolvePublicCourseItems(
   course: CourseRecord,
   moduleById: Map<string, { slug: string; title: string; archived?: boolean; gameType?: string }>,
-  experienceById: Map<string, { slug: string; title: string; archived?: boolean }>,
+  experienceById: Map<string, { slug: string; title: string; archived?: boolean; previewToken?: string; status?: string }>,
+  options?: { includeContentPreviewTokens?: boolean },
 ): PublicCourseItem[] {
   const out: PublicCourseItem[] = [];
   for (const section of course.sections || []) {
@@ -380,6 +383,10 @@ export function resolvePublicCourseItems(
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
         const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
+        const needsPreview =
+          options?.includeContentPreviewTokens &&
+          exp?.previewToken &&
+          exp.status !== "published";
         out.push({
           id: item.id,
           sectionId: section.id,
@@ -390,6 +397,7 @@ export function resolvePublicCourseItems(
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
           launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
+          previewToken: needsPreview ? exp.previewToken : undefined,
           missing: !exp,
           archived: !!exp?.archived,
         });

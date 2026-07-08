@@ -169,7 +169,7 @@ export function toCourseIndexEntry(doc) {
   };
 }
 
-export function resolvePublicCourseItems(course, moduleById, experienceById) {
+export function resolvePublicCourseItems(course, moduleById, experienceById, options = {}) {
   const out = [];
   for (const section of course.sections || []) {
     for (const item of section.items || []) {
@@ -197,6 +197,8 @@ export function resolvePublicCourseItems(course, moduleById, experienceById) {
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
         const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
+        const needsPreview =
+          options.includeContentPreviewTokens && exp?.previewToken && exp.status !== "published";
         out.push({
           id: item.id,
           sectionId: section.id,
@@ -207,6 +209,7 @@ export function resolvePublicCourseItems(course, moduleById, experienceById) {
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
           launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
+          previewToken: needsPreview ? exp.previewToken : undefined,
           missing: !exp,
           archived: !!exp?.archived,
         });

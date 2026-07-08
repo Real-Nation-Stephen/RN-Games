@@ -4,12 +4,15 @@ import {
   getCourseJson,
   readIndex,
   readExperiencesIndex,
+  getExperienceJson,
 } from "./lib/blobs.mjs";
 import {
   normalizeCourseRecord,
   resolvePublicCourseItems,
   toPublicCourse,
+  flattenCourseItems,
 } from "./lib/course.mjs";
+import { normalizeExperienceRecord } from "./lib/experience.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -55,7 +58,22 @@ export const handler = async (event) => {
     const experiences = await readExperiencesIndex();
     const moduleById = new Map(modules.map((m) => [m.id, m]));
     const experienceById = new Map(experiences.map((e) => [e.id, e]));
-    const items = resolvePublicCourseItems(course, moduleById, experienceById);
+
+    const experienceIds = new Set(
+      flattenCourseItems(course.sections)
+        .filter((item) => item.kind === "experience" && item.experienceId)
+        .map((item) => item.experienceId),
+    );
+    for (const expId of experienceIds) {
+      const expRaw = await getExperienceJson(expId);
+      if (expRaw) {
+        experienceById.set(expId, normalizeExperienceRecord(expRaw));
+      }
+    }
+
+    const items = resolvePublicCourseItems(course, moduleById, experienceById, {
+      includeContentPreviewTokens: isPreview,
+    });
 
     return {
       statusCode: 200,
