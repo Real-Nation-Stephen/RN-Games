@@ -8,7 +8,8 @@
   </head>
   <body>
     <div id="page-app" hidden>
-      <div class="page-card">
+      <div id="page-logo" class="page-logo" hidden></div>
+      <div id="signup-panel" class="page-card" style="width: min(520px, 100%)">
         <h1 id="page-headline" class="page-headline"></h1>
         <form id="page-form" class="page-form">
           <div class="page-field">
@@ -19,11 +20,26 @@
             <label id="email-label" for="signup-email"></label>
             <input id="signup-email" name="email" type="email" required autocomplete="email" />
           </div>
+          <label id="consent-row" class="page-checkbox-row" hidden>
+            <span id="consent-text" class="page-checkbox-text"></span>
+            <input id="consent-checkbox" name="consent" type="checkbox" />
+          </label>
+          <p id="consent-gdpr" hidden style="margin: 0; text-align: left">
+            <a id="consent-gdpr-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+          </p>
         </form>
-        <button type="submit" form="page-form" id="page-submit" class="page-btn" style="margin-top: 12px"></button>
+        <button type="submit" form="page-form" id="page-submit" class="page-btn" style="margin-top: 12px; width: 100%"></button>
+      </div>
+      <div id="thank-you" class="page-card page-thank-you" hidden style="width: min(520px, 100%)">
+        <h2 id="thank-you-headline" class="page-headline"></h2>
+        <p id="thank-you-body" class="page-body"></p>
+        <button type="button" id="thank-you-btn" class="page-btn" style="margin-top: 16px"></button>
       </div>
     </div>
     <p id="page-error" class="page-error" hidden></p>
+    <a id="powered-by-rn" class="powered-by-rn" href="https://www.realnation.ie" target="_blank" rel="noopener noreferrer">
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" />
+    </a>
     <script type="module" src="/src/email-signup/main.ts"></script>
   </body>
 </html>

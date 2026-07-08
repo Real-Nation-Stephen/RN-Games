@@ -10,6 +10,7 @@ import {
   initFlowContext,
   scheduleAutoContinue,
   setupPagePreview,
+  wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
 import { renderLandingBlocks } from "../page-module/blocks";
@@ -33,6 +34,7 @@ function onContinue(cfg: LandingRecord, label: string) {
 function mountLanding(cfg: LandingRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
+  wirePageLogo(cfg);
 
   const hasPrimary = renderLandingBlocks(els.blocks, cfg, {
     flowMode: flowModeActive(),

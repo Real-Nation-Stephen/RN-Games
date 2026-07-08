@@ -1,7 +1,7 @@
 # RN Game Studio — Platform roadmap (Waves 1–6)
 
 **Last updated:** July 2026  
-**Status:** Locked — Wave 1 shipped (Jul 2026); Wave 2 in progress (Jul 2026)
+**Status:** Locked — Wave 1 shipped (Jul 2026); Wave 2 in progress (Jul 2026); Courses wave scheduled next
 
 Historical phases A–E: [PLANNING.md](./PLANNING.md).  
 Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/experience.ts`
@@ -36,6 +36,8 @@ Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/e
 | **Console** | Parked (not cancelled) |
 | **Quiz redesign** | Complete before deep Experience integration |
 | **Multimedia flip cards** | Evolution of flip-cards, not new module type |
+| **Courses** | New top-level product layer scheduled as **Wave 2.5** between page modules and flow canvas |
+| **Course access** | No full account in v1 — email-linked resume / recovery |
 | **Open** | All locked — soft limit ~150–250 nodes; A/B split in Wave 4 |
 
 ---
@@ -44,7 +46,7 @@ Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/e
 
 | Before | After |
 |--------|-------|
-| Games are the product | **Experiences** are the product; games are components |
+| Games are the product | **Experiences and Courses** are the product; games are components |
 | Ad-hoc links (catch → leaderboard slug) | **Flow graph** defines order and branching |
 | Per-page analytics | **Session-scoped** events + experience aggregation |
 | Home lists every module | **Recent experiences** + 3 recent per type + library pages |
@@ -57,20 +59,21 @@ Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/e
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Studio                                                       │
-│  Component editors (existing) │ Experience flow editor (new)  │
-│  Library / search / codes     │ Autosave · Publish · QR preview│
+│  Component editors (existing) │ Experience editor │ Course editor │
+│  Library / search / codes     │ Search-first pickers · Publish  │
 └────────────────────────────┬─────────────────────────────────┘
                              │
 ┌────────────────────────────▼─────────────────────────────────┐
 │  API (storage abstracted — SQL migration path)                │
 │  /api/wheels · /api/experiences · /api/experience-session     │
+│  /api/courses · /api/course-session · /api/track              │
 │  /api/track (Wave 2+ CTA events, Wave 6 full ingest)          │
 └────────────────────────────┬─────────────────────────────────┘
                              │
 ┌────────────────────────────▼─────────────────────────────────┐
 │  Player                                                       │
-│  Standalone components │ Experience shell (/x/:slug)          │
-│  Lazy-loaded bundles   │ Retry → fallback page on error      │
+│  Standalone components │ Experience shell │ Course shell       │
+│  Lazy-loaded bundles   │ Retry → fallback page on error       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -88,6 +91,16 @@ Registry: `packages/shared/src/module-registry.ts`. Palette groups (Wave 3): **I
 4. **Redemption** — simple v1; schema allows tiers/inventory later
 5. **Consent** — pin board logic, landing-page UI style
 6. **Email signup** — exportable list; CRM later
+
+### Wave 2 refinement priorities
+
+1. **Platform-wide polish** — fix page-module background layering, thumbnail backgrounds, and logo parity across the new modules
+2. **Landing polish** — Y-position control, background scroll/static behaviour, optional entrance animation, trusted iframe/embed block
+3. **Form polish** — checkbox alignment, post-submit state, logo parity
+4. **Certificate polish** — merge-field alignment, date / score merge guidance, logo parity
+5. **Consent polish** — split colour controls more precisely, improve checkbox sizing/alignment
+6. **Email signup polish** — field alignment, thank-you state, optional consent copy + checkbox
+7. **Experience compatibility pass** — reconcile older components inside flows before expanding shell controls
 
 ### Shipped components (flow integration Wave 1 / Wave 5)
 
@@ -160,6 +173,36 @@ All shipped types should run inside experiences **as early as Wave 1 allows** �
 ### Gate
 
 Prepare concise **business/legal doc** (GDPR, retention, PII) before production client use — parallel to build.
+
+---
+
+## Wave 2.5 — Courses
+
+**Goal:** Add a second assembled product surface for structured learning and mixed-content progression without requiring a node editor.
+
+### Deliverables
+
+1. **Course record** — separate from component configs and separate from `ExperienceRecord`; mixed ordered curriculum with sections and items
+2. **Course item taxonomy** — page modules, games, quizzes, videos/lessons, and nested Experiences as selectable course items
+3. **Course shell** — public course home/progress page plus item launch/resume behaviour
+4. **Course session model** — learner progress, completion %, last-visited item, earned badges/certificates
+5. **Email-linked resume** — learner can return to progress without a full account system
+6. **Reusable picker UX** — search-first, categorised item picker for Experience and Course assembly
+7. **Course completion summary** — surface earned certificates/badges and relevant outcomes back on the course page
+
+### Product rules
+
+- **Courses are not modules** and should not become another `gameType`
+- **Do not** use the node editor for Courses in v1
+- Keep Courses **linear or sectioned** in v1; branching remains an Experience concern
+- Reuse existing module and Experience players wherever practical
+
+### Success criteria
+
+- Designer can build a mixed-content Course without code and without a node graph
+- Learner can leave and return via email-linked resume
+- Course page shows progression and earned certificates/badges
+- Large content libraries remain usable via search-first, categorised selection
 
 ---
 
@@ -240,6 +283,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 6. **Reporting toggles** — component + experience (experience aggregates)
 7. **Hide legacy link fields** in editors; API backward compat retained
 8. **Pin board + leaderboard** — slot as normal components with overrides
+9. **Experience shell presentation** — configurable HUD/button-only mode, brandable navigation, optional progress styles once compatibility contract is in place
 
 ### Out of scope
 
@@ -278,6 +322,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 | Nav group | Contents |
 |-----------|----------|
+| **Courses** | List + curriculum editor + learner progress surfaces |
 | **Experiences** | List + flow editor |
 | **Intro & pages** | Landing, consent, transition |
 | **Forms & data** | Form, email signup, pin board |
@@ -291,6 +336,8 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 **Search:** title, client, project code, design code, slug.
 
+**Picker UX:** search-first, categorised results with recent items; flat dropdowns should be treated as temporary for Experience and Course assembly.
+
 ---
 
 ## Parallel tracks (not wave-blockers)
@@ -303,7 +350,8 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 | **Multimedia flip cards** | Extend flip-cards component |
 | **Flow templates** | After editor stable; not Wave 3 priority |
 | **Localization** | Separate experiences per language for now |
-| **Experience step progress bar** | Toggleable shell UI: connected circles + fill line per step; brandable colours/fonts (future) |
+| **Experience step progress bar** | Toggleable shell UI: connected circles + fill line per step; brandable colours/fonts (future; pair with shell HUD modes) |
+| **Courses** | Scheduled as Wave 2.5 before flow-canvas work |
 
 ---
 
@@ -320,4 +368,4 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 ## Next step
 
-**Wave 2:** Landing page, form, certificate modules + minimal `/api/track` ingest.
+**Current focus:** Finish Wave 2 polish, then begin Wave 2.5 Courses foundation before Wave 3 flow-canvas work.

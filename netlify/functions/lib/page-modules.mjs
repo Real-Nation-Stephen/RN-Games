@@ -7,7 +7,11 @@ export function isPageModuleType(t) {
 }
 
 function defaultTypography() {
-  return { headlineHex: "#ffffff", bodyHex: "#e8eef5", fonts: {} };
+  return { headlineHex: "#ffffff", bodyHex: "#e8eef5", subheadHex: "#e8eef5", labelHex: "#e8eef5", fonts: {}, fontUploads: {} };
+}
+
+function defaultPostSubmit() {
+  return { enabled: false, logoUrl: "", headline: "Thank you", body: "", buttonLabel: "" };
 }
 
 function defaultCta(label = "Continue") {
@@ -30,9 +34,12 @@ function basePage(id, slug, gameType, title) {
     faviconUrl: "",
     reportingSheetTab: "",
     showPoweredBy: true,
+    logoUrl: "",
+    logoAlign: "center",
     backgroundHex: "#0a1628",
     backgrounds: { desktop: "", tablet: "", mobile: "" },
     backgroundImage: "",
+    backgroundMode: "fixed",
     typography: defaultTypography(),
     headline: title,
     body: "",
@@ -52,6 +59,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
           { id: "name", type: "text", label: "Your name", required: true },
           { id: "email", type: "email", label: "Email", required: true },
         ],
+        postSubmit: defaultPostSubmit(),
       };
     case "certificate":
       return {
@@ -70,6 +78,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
             fontSizePx: 42,
             colorHex: "#1a1a1a",
             fontWeight: "bold",
+            textAlign: "center",
           },
         ],
       };
@@ -81,6 +90,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         gdprLinkLabel: "Privacy policy",
         acceptLabel: "Accept and continue",
         items: [{ id: "consent-main", label: "I agree to the terms above", required: true }],
+        checkboxColumnWidthPx: 28,
       };
     case "email-signup":
       return {
@@ -89,6 +99,10 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         emailLabel: "Email",
         submitLabel: "Sign up",
         thankYouMessage: "Thanks — you're on the list.",
+        consentText: "",
+        consentRequired: false,
+        consentGdprUrl: "",
+        consentGdprLinkLabel: "Privacy policy",
       };
     case "redemption":
       return {
@@ -105,7 +119,14 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         experienceAutoContinue: true,
         experienceAutoContinueDelayMs: 2500,
         blocks: defaultLandingBlocks(),
-        pageSettings: { maxWidthPx: 720, contentAlign: "center", verticalAlign: "center", paddingPx: 24 },
+        pageSettings: {
+          maxWidthPx: 720,
+          contentAlign: "center",
+          verticalAlign: "center",
+          paddingPx: 24,
+          contentOffsetYPercent: 50,
+          entranceAnimation: true,
+        },
       };
   }
 }
@@ -214,6 +235,15 @@ function normalizeLandingBlock(raw, index) {
       isPrimary: !!raw.isPrimary,
     };
   }
+  if (type === "embed") {
+    return {
+      id,
+      type,
+      url: String(raw.url || ""),
+      heightPx: Math.max(120, Number(raw.heightPx) || 480),
+      title: String(raw.title || "Embedded content"),
+    };
+  }
   return {
     id,
     type: "text",
@@ -260,6 +290,8 @@ function normalizeBase(doc) {
     faviconUrl: String(doc.faviconUrl || ""),
     reportingSheetTab: String(doc.reportingSheetTab || ""),
     showPoweredBy: doc.showPoweredBy !== false,
+    logoUrl: String(doc.logoUrl || ""),
+    logoAlign: ["left", "right"].includes(doc.logoAlign) ? doc.logoAlign : "center",
     backgroundHex: String(doc.backgroundHex || "#0a1628"),
     backgrounds: {
       desktop: String(doc.backgrounds?.desktop || ""),
@@ -267,6 +299,7 @@ function normalizeBase(doc) {
       mobile: String(doc.backgrounds?.mobile || ""),
     },
     backgroundImage: String(doc.backgroundImage || ""),
+    backgroundMode: doc.backgroundMode === "scroll" ? "scroll" : "fixed",
     typography: {
       ...defaultTypography(),
       ...(doc.typography || {}),
@@ -296,7 +329,17 @@ export function normalizePageModule(doc) {
           validationHint: String(f.validationHint || ""),
         }))
       : emptyPageModuleRecord(doc.id, doc.slug, "form").fields;
-    return { ...base, gameType: "form", submitLabel: String(doc.submitLabel || "Submit"), fields };
+    return {
+      ...base,
+      gameType: "form",
+      submitLabel: String(doc.submitLabel || "Submit"),
+      fields,
+      postSubmit: {
+        ...defaultPostSubmit(),
+        ...(doc.postSubmit || {}),
+        enabled: !!doc.postSubmit?.enabled,
+      },
+    };
   }
   if (gt === "certificate") {
     const mergeFields = Array.isArray(doc.mergeFields)
@@ -309,6 +352,7 @@ export function normalizePageModule(doc) {
           fontSizePx: Math.max(8, Number(m.fontSizePx) || 24),
           colorHex: String(m.colorHex || "#111111"),
           fontWeight: m.fontWeight === "bold" ? "bold" : "normal",
+          textAlign: ["left", "right"].includes(m.textAlign) ? m.textAlign : "center",
         }))
       : [];
     return {
@@ -337,6 +381,7 @@ export function normalizePageModule(doc) {
       gdprLinkLabel: String(doc.gdprLinkLabel || "Privacy policy"),
       acceptLabel: String(doc.acceptLabel || "Accept and continue"),
       items,
+      checkboxColumnWidthPx: Math.max(20, Math.min(80, Number(doc.checkboxColumnWidthPx) || 28)),
     };
   }
   if (gt === "email-signup") {
@@ -347,6 +392,10 @@ export function normalizePageModule(doc) {
       emailLabel: String(doc.emailLabel || "Email"),
       submitLabel: String(doc.submitLabel || "Sign up"),
       thankYouMessage: String(doc.thankYouMessage || "Thanks!"),
+      consentText: String(doc.consentText || ""),
+      consentRequired: !!doc.consentRequired,
+      consentGdprUrl: String(doc.consentGdprUrl || ""),
+      consentGdprLinkLabel: String(doc.consentGdprLinkLabel || "Privacy policy"),
     };
   }
   if (gt === "redemption") {
@@ -369,6 +418,8 @@ export function normalizePageModule(doc) {
       contentAlign: ["left", "right"].includes(doc.pageSettings?.contentAlign) ? doc.pageSettings.contentAlign : "center",
       verticalAlign: doc.pageSettings?.verticalAlign === "top" ? "top" : "center",
       paddingPx: Math.max(0, Number(doc.pageSettings?.paddingPx) || 24),
+      contentOffsetYPercent: Math.max(0, Math.min(100, Number(doc.pageSettings?.contentOffsetYPercent ?? 50))),
+      entranceAnimation: doc.pageSettings?.entranceAnimation !== false,
     },
   };
 }

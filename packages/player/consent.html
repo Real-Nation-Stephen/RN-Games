@@ -8,15 +8,19 @@
   </head>
   <body>
     <div id="page-app" hidden>
+      <div id="page-logo" class="page-logo" hidden></div>
       <div class="page-card">
         <h1 id="page-headline" class="page-headline"></h1>
-        <p id="page-body" class="page-body"></p>
+        <p id="page-body" class="page-intro"></p>
         <div id="consent-list" class="consent-list"></div>
         <p><a id="gdpr-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a></p>
         <button type="button" id="page-cta" class="page-btn"></button>
       </div>
     </div>
     <p id="page-error" class="page-error" hidden></p>
+    <a id="powered-by-rn" class="powered-by-rn" href="https://www.realnation.ie" target="_blank" rel="noopener noreferrer">
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" />
+    </a>
     <script type="module" src="/src/consent/main.ts"></script>
   </body>
 </html>

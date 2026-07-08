@@ -1,4 +1,5 @@
 import type { CertificateMergeField } from "@rngames/shared";
+import { CERTIFICATE_MERGE_HINTS } from "@rngames/shared";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { HexField } from "./HexField";
 import { BgUploadRow } from "./BgUploadRow";
@@ -71,8 +72,15 @@ export function CertificateEditorFields({
 
       <h4 style={{ marginTop: 20 }}>Merge fields</h4>
       <p className="muted" style={{ fontSize: "0.85rem" }}>
-        Session keys like <code>form.fieldValues.name</code> pull values from earlier form steps.
+        Session keys pull values from earlier steps. Common keys:
       </p>
+      <ul className="muted" style={{ fontSize: "0.85rem", marginTop: 4, paddingLeft: 20 }}>
+        {CERTIFICATE_MERGE_HINTS.map((h) => (
+          <li key={h.key}>
+            <code>{h.key}</code> — {h.label}
+          </li>
+        ))}
+      </ul>
 
       {mergeFields.map((mf, i) => (
         <CollapsibleSection key={mf.id} title={mf.label || `Field ${i + 1}`} summary={mf.sourceKey}>
@@ -115,6 +123,17 @@ export function CertificateEditorFields({
               />
             </label>
             <HexField label="Colour" value={mf.colorHex} onChange={(v) => update(i, { colorHex: v })} />
+            <label className="field">
+              Text alignment
+              <select
+                value={mf.textAlign || "center"}
+                onChange={(e) => update(i, { textAlign: e.target.value as "left" | "center" | "right" })}
+              >
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
           </div>
           <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
             <input
@@ -146,6 +165,7 @@ export function CertificateEditorFields({
               fontSizePx: 32,
               colorHex: "#1a1a1a",
               fontWeight: "bold",
+              textAlign: "center",
             },
           ])
         }

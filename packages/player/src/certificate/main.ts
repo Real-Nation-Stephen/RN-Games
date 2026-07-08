@@ -1,5 +1,5 @@
 import type { CertificateRecord } from "@rngames/shared/page-modules";
-import { resolveSessionPath } from "@rngames/shared/page-modules";
+import { buildCertificateSessionRoot, resolveSessionPath } from "@rngames/shared/page-modules";
 import {
   applyPageTheme,
   completeStep,
@@ -11,6 +11,7 @@ import {
   getSlugFromPath,
   initFlowContext,
   setupPagePreview,
+  wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -52,7 +53,7 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
   overlay.className = "cert-overlay";
   for (const mf of cfg.mergeFields) {
     const el = document.createElement("div");
-    el.className = "cert-field";
+    el.className = `cert-field cert-field--${mf.textAlign || "center"}`;
     el.style.left = `${mf.xPercent}%`;
     el.style.top = `${mf.yPercent}%`;
     el.style.fontSize = `${mf.fontSizePx}px`;
@@ -68,6 +69,7 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
 async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<string, unknown>) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
+  wirePageLogo(cfg);
   els.headline.textContent = cfg.headline;
   els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.downloadLabel || cfg.primaryCta.label;
   renderCertificate(cfg, sessionRoot);
@@ -81,7 +83,10 @@ async function boot() {
   if (params.get("preview") === "1") {
     setupPagePreview("certificate", (cfg) => {
       const c = cfg as CertificateRecord;
-      const sample = { form: { fieldValues: { name: "Preview Name" } } };
+      const sample = buildCertificateSessionRoot({
+        data: { formFields: { name: "Preview Name" } },
+        outcomes: { "catch.score": 42, "runner.score": 1200, "quiz.score": 8 },
+      });
       void mountCertificate(c, sample);
     });
     return;
@@ -95,12 +100,7 @@ async function boot() {
   try {
     const cfg = (await fetchPageModule(slug, "certificate")) as CertificateRecord;
     const session = flow?.sessionId ? await fetchSession(flow.sessionId) : null;
-    const sessionRoot = {
-      ...(session?.data || {}),
-      ...(session?.outcomes || {}),
-      form: { fieldValues: (session?.outcomes?.["form.fieldValues"] as Record<string, unknown>) || session?.data?.formFields || {} },
-    };
-    await mountCertificate(cfg, sessionRoot);
+    await mountCertificate(cfg, buildCertificateSessionRoot(session || undefined));
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");
   }

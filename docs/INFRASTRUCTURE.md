@@ -8,13 +8,13 @@ Live reference for how the platform is built, hosted, secured, and where the gap
 | **Production** | [rn-games.netlify.app](https://rn-games.netlify.app) |
 | **Repository** | [Real-Nation-Stephen/RN-Games](https://github.com/Real-Nation-Stephen/RN-Games) |
 | **Last updated** | Jul 2026 |
-| **Doc version** | 0.6.0 |
+| **Doc version** | 0.6.1 |
 
 ---
 
 ## Product context
 
-RN Game Studio covers **tiers 1–3** of Real Nation’s digital product ladder: reskinnable, studio-built games and digital experiences. **Tier 4** (custom HTML5, Unity, Godot, etc.) and **tier 5** (AR/VR, interactive media, AI) sit outside this codebase.
+RN Game Studio covers **tiers 1–3** of Real Nation’s digital product ladder: reskinnable, studio-built games, digital experiences, and planned structured learning **Courses**. **Tier 4** (custom HTML5, Unity, Godot, etc.) and **tier 5** (AR/VR, interactive media, AI) sit outside this codebase.
 
 Current game types in Studio:
 
@@ -97,6 +97,9 @@ There is **no SQL database**. All persistent platform data uses **Netlify Blobs*
 | `experience:{uuid}` | Experience flow config (linear steps + graph) |
 | `experiences-index` | Index of experiences |
 | `experience-session:{sessionId}` | Per-participant journey state (resume on refresh) |
+| `course:{uuid}` | Planned course config (ordered sections/items) |
+| `courses-index` | Planned index of courses |
+| `course-session:{sessionId}` | Planned learner course progress / resume state |
 
 **Implications**
 
@@ -130,6 +133,9 @@ Redirects in `netlify.toml` map `/api/*` → `/.netlify/functions/*`.
 | `GET/POST/PUT/DELETE /api/experiences` | Studio JWT | Experience CRUD + publish |
 | `GET /api/public-experience?slug=` | Public | Published experience (draft via `previewToken`) |
 | `POST/PATCH/GET /api/experience-session` | Public | Session create, resume, advance (rate-limited) |
+| `GET/POST/PUT/DELETE /api/courses` | Studio JWT | Planned Course CRUD + publish |
+| `GET /api/public-course?slug=` | Public | Planned published course shell/config |
+| `POST/PATCH/GET /api/course-session` | Public | Planned learner progress + resume |
 
 Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studio calls `/api/wheels` with `Authorization: Bearer <Netlify Identity token>`.
 
@@ -148,6 +154,7 @@ Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studi
 
 - No login required to play published games.
 - Config is fetched by **slug** (guessable if slug is known). Slugs should be treated as unlisted URLs, not secrets.
+- Planned Courses should follow the same lightweight model: no full account in v1, but learner progress may be resumed through email-linked or tokenised resume links.
 
 ### Quiz sessions
 
@@ -269,6 +276,7 @@ Edge function `router.mjs` handles clean URLs before static fallthrough:
 | `/leaderboard/:slug` | Leaderboard live board |
 | `/leaderboard/:slug/moderator` | Leaderboard moderator (PIN) |
 | `/x/:slug` | Experience player (multi-step journey) |
+| `/course/:slug` | Planned Course shell / curriculum home |
 | `/catch/:slug` | Catch arcade player |
 | `/runner/:slug` | Runner arcade player |
 | `/quiz/:slug/host` | Quiz host |
@@ -306,6 +314,7 @@ Reserved path segments (won’t map to wheel slug): `admin`, `api`, `play`, `rep
 - Assets served from same-origin `/api/file`, not a global CDN.
 - Analytics/reporting not unified across game types.
 - No versioning UI for game configs (save overwrites blob).
+- Experience step/module selection is still using simple dropdown-based Studio UX in places; this will not scale to large libraries and is scheduled for search-first categorised pickers.
 
 ---
 
@@ -345,6 +354,9 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 | Modular **GDPR / consent / data collection** | Wave 2 — see [ROADMAP.md](./ROADMAP.md) |
 | **Experience platform** (session, `/x/:slug`, flow editor) | Wave 1 shipped — linear editor; React Flow Wave 3 |
 | **Landing / form / certificate** modules | Wave 2 skeleton shipped — refine in tandem |
+| **Wave 2 page-module polish** | In progress — backgrounds, thumbnails, logos, submit states, layout refinement |
+| **Courses** | Wave 2.5 — planned top-level assembled product using ordered curriculum editor |
+| **Search-first picker UX** | Wave 2.5 — reusable selector for Experience and Course assembly |
 | **Minimal `/api/track` ingest** | Wave 2 — `POST /api/track` (hourly blob append) |
 | **Full analytics dashboards** | Wave 6 |
 
@@ -354,6 +366,7 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 
 | Doc / platform | Date | Notes |
 |----------------|------|-------|
+| 0.6.1 | Jul 2026 | Roadmap/infrastructure update: scheduled **Courses** as Wave 2.5, documented planned course storage/API/runtime, email-linked resume direction, Wave 2 page-module polish track, and the need for search-first categorised pickers in Studio. |
 | 0.6.0 | Jul 2026 | **Wave 1:** Experience CRUD (`/api/experiences`), session API, public experience player at `/x/:slug`, linear flow editor in Studio, home/library retrofit, project/design codes on index, catch/runner flow mode + step complete bridge. |
 | 0.5.1 | Jul 2026 | Roadmap locked from completed questionnaire: dual URL model, component branding, unified Logic node, Experience Overrides, Wave 2 priority (landing/form/certificate), analytics buckets, early track ingest. |
 | 0.5.0 | Jul 2026 | Platform direction docs: experience/session schema, Waves 1–6 roadmap, planning questionnaire. |

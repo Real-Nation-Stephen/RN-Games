@@ -9,6 +9,7 @@ import {
   getSlugFromPath,
   initFlowContext,
   setupPagePreview,
+  wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -25,6 +26,8 @@ const els = {
 function mountConsent(cfg: ConsentRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
+  wirePageLogo(cfg);
+  document.documentElement.style.setProperty("--consent-checkbox-col", `${cfg.checkboxColumnWidthPx || 28}px`);
   els.headline.textContent = cfg.headline;
   els.body.textContent = cfg.introText || cfg.body;
   els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.acceptLabel;
@@ -39,12 +42,14 @@ function mountConsent(cfg: ConsentRecord) {
     ...cfg.items.map((it) => {
       const row = document.createElement("label");
       row.className = "consent-item";
+      const text = document.createElement("span");
+      text.textContent = it.label;
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.name = it.id;
       cb.required = !!it.required;
       cb.addEventListener("change", () => engageStep(), { once: true });
-      row.append(cb, document.createTextNode(it.label));
+      row.append(text, cb);
       return row;
     }),
   );
@@ -77,11 +82,12 @@ async function boot() {
     els.error.textContent = "Missing slug.";
     return;
   }
-  const cfg = (await fetchPageModule(slug, "consent")) as ConsentRecord;
-  mountConsent(cfg);
+  try {
+    mountConsent((await fetchPageModule(slug, "consent")) as ConsentRecord);
+  } catch (e) {
+    els.error.hidden = false;
+    els.error.textContent = e instanceof Error ? e.message : "Failed to load";
+  }
 }
 
-void boot().catch((e) => {
-  els.error.hidden = false;
-  els.error.textContent = e instanceof Error ? e.message : "Failed to load";
-});
+void boot();

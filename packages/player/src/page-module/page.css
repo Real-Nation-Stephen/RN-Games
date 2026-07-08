@@ -8,17 +8,28 @@ body {
   min-height: 100%;
   font-family: var(--page-font-body, system-ui, -apple-system, Segoe UI, Roboto, sans-serif);
   color: var(--page-body, #e8eef5);
-  background: var(--page-bg, #0a1628);
+  background: transparent;
 }
 
-body::before {
+html.page-bg-fixed::before,
+html.page-bg-scroll::before {
   content: "";
-  position: fixed;
   inset: 0;
+  background-color: var(--page-bg, #0a1628);
   background-image: var(--page-bg-image, none);
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   z-index: -1;
+}
+
+html.page-bg-fixed::before {
+  position: fixed;
+}
+
+html.page-bg-scroll::before {
+  position: absolute;
+  min-height: 100%;
 }
 
 #page-app {
@@ -28,6 +39,34 @@ body::before {
   align-items: center;
   justify-content: center;
   padding: 24px 16px 48px;
+  position: relative;
+  z-index: 0;
+}
+
+.page-logo {
+  width: 100%;
+  max-width: min(560px, 100%);
+  margin: 0 auto 16px;
+  display: flex;
+}
+
+.page-logo--left {
+  justify-content: flex-start;
+}
+
+.page-logo--center {
+  justify-content: center;
+}
+
+.page-logo--right {
+  justify-content: flex-end;
+}
+
+.page-logo img {
+  max-height: 72px;
+  max-width: min(240px, 100%);
+  width: auto;
+  object-fit: contain;
 }
 
 .page-card {
@@ -40,13 +79,15 @@ body::before {
   font-size: clamp(1.5rem, 4vw, 2.25rem);
   color: var(--page-headline, #fff);
   line-height: 1.2;
+  font-family: var(--page-font-heading, inherit);
 }
 
-.page-body {
+.page-body,
+.page-intro {
   margin: 0 0 24px;
   font-size: 1.05rem;
   line-height: 1.5;
-  color: var(--page-body, #e8eef5);
+  color: var(--page-subhead, var(--page-body, #e8eef5));
   white-space: pre-wrap;
 }
 
@@ -67,6 +108,30 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.landing-blocks.landing-animate-in > * {
+  animation: landingFadeUp 0.55s ease both;
+}
+
+.landing-blocks.landing-animate-in > *:nth-child(1) { animation-delay: 0.04s; }
+.landing-blocks.landing-animate-in > *:nth-child(2) { animation-delay: 0.08s; }
+.landing-blocks.landing-animate-in > *:nth-child(3) { animation-delay: 0.12s; }
+.landing-blocks.landing-animate-in > *:nth-child(4) { animation-delay: 0.16s; }
+.landing-blocks.landing-animate-in > *:nth-child(5) { animation-delay: 0.2s; }
+.landing-blocks.landing-animate-in > *:nth-child(6) { animation-delay: 0.24s; }
+.landing-blocks.landing-animate-in > *:nth-child(7) { animation-delay: 0.28s; }
+.landing-blocks.landing-animate-in > *:nth-child(8) { animation-delay: 0.32s; }
+
+@keyframes landingFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-text {
@@ -158,7 +223,8 @@ body::before {
   opacity: 0.85;
 }
 
-.landing-video {
+.landing-video,
+.landing-embed {
   position: relative;
   width: 100%;
   background: #000;
@@ -179,7 +245,8 @@ body::before {
 }
 
 .landing-video iframe,
-.landing-video video {
+.landing-video video,
+.landing-embed iframe {
   width: 100%;
   height: 100%;
   border: 0;
@@ -240,10 +307,36 @@ body::before {
   font: inherit;
 }
 
+.page-checkbox-row {
+  display: grid;
+  grid-template-columns: 1fr var(--page-checkbox-col, 28px);
+  gap: 12px;
+  align-items: start;
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--page-label, var(--page-body, #e8eef5));
+  margin: 0;
+}
+
+.page-checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  justify-self: end;
+}
+
+.page-checkbox-text {
+  line-height: 1.45;
+}
+
 .page-error {
   color: #ffb4b4;
   font-size: 0.9rem;
   margin: 0;
+}
+
+.page-thank-you {
+  text-align: center;
 }
 
 .cert-stage {
@@ -269,7 +362,16 @@ body::before {
   position: absolute;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  text-align: center;
+}
+
+.cert-field--left {
+  transform: translate(0, -50%);
+  text-align: left;
+}
+
+.cert-field--right {
+  transform: translate(-100%, -50%);
+  text-align: right;
 }
 
 .consent-list {
@@ -281,10 +383,19 @@ body::before {
 }
 
 .consent-item {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr var(--consent-checkbox-col, 28px);
+  gap: 12px;
+  align-items: start;
   font-size: 0.95rem;
+  color: var(--page-label, var(--page-body, #e8eef5));
+}
+
+.consent-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  justify-self: end;
 }
 
 .redemption-code {
@@ -300,6 +411,7 @@ body::before {
   right: 12px;
   bottom: 10px;
   opacity: 0.85;
+  z-index: 2;
 }
 
 .powered-by-rn img {

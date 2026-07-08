@@ -36,6 +36,8 @@ function blockSummary(block: LandingBlock): string {
       return "Divider line";
     case "button":
       return block.label;
+    case "embed":
+      return block.url ? "Embed set" : "No embed URL";
   }
 }
 
@@ -333,6 +335,28 @@ function BlockEditor({
             </label>
           </>
         );
+      case "embed":
+        return (
+          <>
+            <label className="field">
+              Embed URL
+              <input value={block.url} onChange={(e) => onChange({ ...block, url: e.target.value })} placeholder="https://…" />
+            </label>
+            <label className="field">
+              Height (px)
+              <input
+                type="number"
+                min={120}
+                value={block.heightPx}
+                onChange={(e) => onChange({ ...block, heightPx: Number(e.target.value) || 400 })}
+              />
+            </label>
+            <label className="field">
+              Title (accessibility)
+              <input value={block.title} onChange={(e) => onChange({ ...block, title: e.target.value })} />
+            </label>
+          </>
+        );
     }
   })();
 
@@ -402,6 +426,24 @@ export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
             <option value="center">Centred</option>
             <option value="top">Top</option>
           </select>
+        </label>
+        <label className="field" style={{ gridColumn: "1 / -1" }}>
+          Content Y offset ({doc.pageSettings.contentOffsetYPercent ?? 50}%)
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={doc.pageSettings.contentOffsetYPercent ?? 50}
+            onChange={(e) => onPageSettings({ contentOffsetYPercent: Number(e.target.value) })}
+          />
+        </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+          <input
+            type="checkbox"
+            checked={doc.pageSettings.entranceAnimation !== false}
+            onChange={(e) => onPageSettings({ entranceAnimation: e.target.checked })}
+          />
+          Entrance animation
         </label>
       </div>
 

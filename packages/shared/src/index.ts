@@ -62,6 +62,8 @@ export {
   type FormFieldType,
   type CertificateMergeField,
   type ConsentItem,
+  CERTIFICATE_MERGE_HINTS,
+  buildCertificateSessionRoot,
   LANDING_BLOCK_LABELS,
   isPageModuleGameType,
   emptyLanding,

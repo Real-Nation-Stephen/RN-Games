@@ -43,6 +43,35 @@ function publicUrl(segment: string, slug: string) {
   return `${siteUrl}/${segment}/${encodeURIComponent(slug)}`;
 }
 
+function getPageThumbnailOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  if (!idoc || !idwin) return { useCORS: true, allowTaint: false, logging: false };
+  const html = idoc.documentElement;
+  const bgSolid = idwin.getComputedStyle(html).getPropertyValue("--page-bg").trim() || "#0a1628";
+  const bgImage = idwin.getComputedStyle(html).getPropertyValue("--page-bg-image").trim();
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid,
+    onclone: (doc: Document) => {
+      const app = doc.getElementById("page-app");
+      const cloneHtml = doc.documentElement;
+      if (app) {
+        (app as HTMLElement).style.backgroundColor = bgSolid;
+        if (bgImage && bgImage !== "none") {
+          (app as HTMLElement).style.backgroundImage = bgImage;
+          (app as HTMLElement).style.backgroundSize = "cover";
+          (app as HTMLElement).style.backgroundPosition = "center";
+          (app as HTMLElement).style.backgroundRepeat = "no-repeat";
+        }
+      }
+      cloneHtml.style.background = bgSolid;
+    },
+  };
+}
+
 export default function PageModuleEditor({ gameType }: Props) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -111,7 +140,7 @@ export default function PageModuleEditor({ gameType }: Props) {
     const stage = iframe?.contentDocument?.getElementById("page-app");
     if (!stage || !doc) return;
     try {
-      const canvas = await html2canvas(stage, { scale: 0.5, useCORS: true, allowTaint: false, logging: false });
+      const canvas = await html2canvas(stage, { scale: 0.5, ...getPageThumbnailOptions(iframe) });
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
       if (!blob) return;
       const file = new File([blob], `thumb-${doc.id}.jpg`, { type: "image/jpeg" });
@@ -248,6 +277,39 @@ export default function PageModuleEditor({ gameType }: Props) {
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Page background</h3>
           <HexField label="Background colour" value={doc.backgroundHex} onChange={(v) => patch((d) => ({ ...d, backgroundHex: v }))} />
+          <label className="field">
+            Background behaviour
+            <select
+              value={doc.backgroundMode || "fixed"}
+              onChange={(e) => patch((d) => ({ ...d, backgroundMode: e.target.value as "fixed" | "scroll" }))}
+            >
+              <option value="fixed">Fixed — background stays, content scrolls</option>
+              <option value="scroll">Scroll — background moves with page</option>
+            </select>
+          </label>
+          <label className="field">Logo</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((d) => ({ ...d, logoUrl: url }));
+            }}
+          />
+          {doc.logoUrl ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 8 }}>
+            Logo alignment
+            <select
+              value={doc.logoAlign || "center"}
+              onChange={(e) => patch((d) => ({ ...d, logoAlign: e.target.value as "left" | "center" | "right" }))}
+            >
+              <option value="left">Left</option>
+              <option value="center">Centre</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
           <CollapsibleSection title="Breakpoint backgrounds" summary="Desktop / tablet / mobile">
             <BgUploadRow
               label="Desktop"
@@ -282,6 +344,20 @@ export default function PageModuleEditor({ gameType }: Props) {
             value={doc.typography.bodyHex}
             onChange={(v) => patch((d) => ({ ...d, typography: { ...d.typography, bodyHex: v } }))}
           />
+          {gameType === "consent" ? (
+            <>
+              <HexField
+                label="Intro / subhead colour"
+                value={doc.typography.subheadHex || doc.typography.bodyHex}
+                onChange={(v) => patch((d) => ({ ...d, typography: { ...d.typography, subheadHex: v } }))}
+              />
+              <HexField
+                label="Checkbox label colour"
+                value={doc.typography.labelHex || doc.typography.bodyHex}
+                onChange={(v) => patch((d) => ({ ...d, typography: { ...d.typography, labelHex: v } }))}
+              />
+            </>
+          ) : null}
           <CollapsibleSection title="Custom fonts" summary="Heading, body, button">
             {(["heading", "body", "button"] as const).map((role) => (
               <div key={role} style={{ marginTop: 10 }}>
@@ -395,6 +471,64 @@ export default function PageModuleEditor({ gameType }: Props) {
                 fields={doc.fields}
                 onChange={(fields) => patch((d) => (d.gameType === "form" ? { ...d, fields } : d))}
               />
+              <CollapsibleSection title="Post-submit screen" summary={doc.postSubmit.enabled ? "Enabled" : "Off"}>
+                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={doc.postSubmit.enabled}
+                    onChange={(e) =>
+                      patch((d) =>
+                        d.gameType === "form" ? { ...d, postSubmit: { ...d.postSubmit, enabled: e.target.checked } } : d,
+                      )
+                    }
+                  />
+                  Show thank-you screen after submit
+                </label>
+                <label className="field" style={{ marginTop: 8 }}>
+                  Logo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f || doc.gameType !== "form") return;
+                      const { url } = await uploadFile(f);
+                      patch((d) => (d.gameType === "form" ? { ...d, postSubmit: { ...d.postSubmit, logoUrl: url } } : d));
+                    }}
+                  />
+                  {doc.postSubmit.logoUrl ? <span className="muted"> ✓</span> : null}
+                </label>
+                <label className="field">
+                  Headline
+                  <input
+                    value={doc.postSubmit.headline}
+                    onChange={(e) =>
+                      patch((d) => (d.gameType === "form" ? { ...d, postSubmit: { ...d.postSubmit, headline: e.target.value } } : d))
+                    }
+                  />
+                </label>
+                <label className="field">
+                  Body
+                  <textarea
+                    rows={3}
+                    value={doc.postSubmit.body}
+                    onChange={(e) =>
+                      patch((d) => (d.gameType === "form" ? { ...d, postSubmit: { ...d.postSubmit, body: e.target.value } } : d))
+                    }
+                  />
+                </label>
+                <label className="field">
+                  Button label (blank = experience continue)
+                  <input
+                    value={doc.postSubmit.buttonLabel}
+                    onChange={(e) =>
+                      patch((d) =>
+                        d.gameType === "form" ? { ...d, postSubmit: { ...d.postSubmit, buttonLabel: e.target.value } } : d,
+                      )
+                    }
+                  />
+                </label>
+              </CollapsibleSection>
             </>
           ) : null}
 
@@ -433,6 +567,33 @@ export default function PageModuleEditor({ gameType }: Props) {
               <label className="field">
                 Thank-you message
                 <input value={doc.thankYouMessage} onChange={(e) => patch((d) => (d.gameType === "email-signup" ? { ...d, thankYouMessage: e.target.value } : d))} />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                Consent text (optional)
+                <textarea
+                  rows={2}
+                  value={doc.consentText}
+                  onChange={(e) => patch((d) => (d.gameType === "email-signup" ? { ...d, consentText: e.target.value } : d))}
+                />
+              </label>
+              <label className="field">
+                Privacy policy URL
+                <input value={doc.consentGdprUrl} onChange={(e) => patch((d) => (d.gameType === "email-signup" ? { ...d, consentGdprUrl: e.target.value } : d))} />
+              </label>
+              <label className="field">
+                Privacy link label
+                <input
+                  value={doc.consentGdprLinkLabel}
+                  onChange={(e) => patch((d) => (d.gameType === "email-signup" ? { ...d, consentGdprLinkLabel: e.target.value } : d))}
+                />
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+                <input
+                  type="checkbox"
+                  checked={doc.consentRequired}
+                  onChange={(e) => patch((d) => (d.gameType === "email-signup" ? { ...d, consentRequired: e.target.checked } : d))}
+                />
+                Consent checkbox required
               </label>
             </div>
           ) : null}
@@ -523,11 +684,21 @@ function ConsentEditor({
           Privacy link label
           <input value={doc.gdprLinkLabel} onChange={(e) => patch((d) => (d.gameType === "consent" ? { ...d, gdprLinkLabel: e.target.value } : d))} />
         </label>
-        <label className="field">
-          Accept button label
-          <input value={doc.acceptLabel} onChange={(e) => patch((d) => (d.gameType === "consent" ? { ...d, acceptLabel: e.target.value } : d))} />
-        </label>
-      </div>
+      <label className="field">
+        Accept button label
+        <input value={doc.acceptLabel} onChange={(e) => patch((d) => (d.gameType === "consent" ? { ...d, acceptLabel: e.target.value } : d))} />
+      </label>
+      <label className="field">
+        Checkbox column width (px)
+        <input
+          type="number"
+          min={20}
+          max={80}
+          value={doc.checkboxColumnWidthPx}
+          onChange={(e) => patch((d) => (d.gameType === "consent" ? { ...d, checkboxColumnWidthPx: Number(e.target.value) || 28 } : d))}
+        />
+      </label>
+    </div>
       <h4 style={{ marginTop: 16 }}>Consent items</h4>
       {doc.items.map((item, i) => (
         <div key={item.id} style={{ border: "1px solid var(--rn-border)", borderRadius: 8, padding: 10, marginBottom: 10 }}>

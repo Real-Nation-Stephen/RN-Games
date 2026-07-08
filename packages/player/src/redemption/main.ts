@@ -9,6 +9,7 @@ import {
   getSlugFromPath,
   initFlowContext,
   setupPagePreview,
+  wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
 
@@ -25,6 +26,7 @@ const els = {
 function mountRedemption(cfg: RedemptionRecord) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
+  wirePageLogo(cfg);
   els.headline.textContent = cfg.headline;
   els.body.textContent = cfg.instructions || cfg.body;
   els.codeLabel.textContent = cfg.codeLabel;

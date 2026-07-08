@@ -52,23 +52,79 @@ export function pickBackground(cfg: PageModuleRecord): string {
 
 export function applyPageTheme(cfg: PageModuleRecord, root: HTMLElement) {
   const bgUrl = pickBackground(cfg);
-  root.style.setProperty("--page-bg", cfg.backgroundHex || "#0a1628");
-  root.style.setProperty("--page-bg-image", bgUrl ? `url('${bgUrl}')` : "none");
-  root.style.setProperty("--page-headline", cfg.typography?.headlineHex || "#ffffff");
-  root.style.setProperty("--page-body", cfg.typography?.bodyHex || "#e8eef5");
-  root.style.setProperty("--page-btn-bg", cfg.primaryCta?.backgroundHex || "#2d6cdf");
-  root.style.setProperty("--page-btn-text", cfg.primaryCta?.textHex || "#ffffff");
+  const doc = root.ownerDocument;
+  const html = doc.documentElement;
+  const body = doc.body;
+
+  html.style.setProperty("--page-bg", cfg.backgroundHex || "#0a1628");
+  html.style.setProperty("--page-bg-image", bgUrl ? `url('${bgUrl}')` : "none");
+  html.style.setProperty("--page-headline", cfg.typography?.headlineHex || "#ffffff");
+  html.style.setProperty("--page-body", cfg.typography?.bodyHex || "#e8eef5");
+  html.style.setProperty("--page-subhead", cfg.typography?.subheadHex || cfg.typography?.bodyHex || "#e8eef5");
+  html.style.setProperty("--page-label", cfg.typography?.labelHex || cfg.typography?.bodyHex || "#e8eef5");
+  html.style.setProperty("--page-btn-bg", cfg.primaryCta?.backgroundHex || "#2d6cdf");
+  html.style.setProperty("--page-btn-text", cfg.primaryCta?.textHex || "#ffffff");
+
+  html.classList.remove("page-bg-fixed", "page-bg-scroll");
+  html.classList.add(cfg.backgroundMode === "scroll" ? "page-bg-scroll" : "page-bg-fixed");
+
   if (cfg.faviconUrl) {
-    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    let link = doc.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!link) {
-      link = document.createElement("link");
+      link = doc.createElement("link");
       link.rel = "icon";
-      document.head.appendChild(link);
+      doc.head.appendChild(link);
     }
     link.href = cfg.faviconUrl;
   }
-  if (cfg.title) document.title = cfg.title;
+  if (cfg.title) doc.title = cfg.title;
   applyPageFonts(cfg);
+}
+
+export function wirePageLogo(cfg: PageModuleRecord) {
+  const el = document.getElementById("page-logo");
+  if (!el) return;
+  if (cfg.logoUrl) {
+    el.replaceChildren();
+    const img = document.createElement("img");
+    img.src = cfg.logoUrl;
+    img.alt = "";
+    el.appendChild(img);
+    el.className = `page-logo page-logo--${cfg.logoAlign || "center"}`;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+    el.replaceChildren();
+  }
+}
+
+export function pageThumbnailCanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  if (!idoc || !idwin) return { useCORS: true, allowTaint: false, logging: false };
+  const html = idoc.documentElement;
+  const bgSolid = idwin.getComputedStyle(html).getPropertyValue("--page-bg").trim() || "#0a1628";
+  const bgImage = idwin.getComputedStyle(html).getPropertyValue("--page-bg-image").trim();
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid,
+    onclone: (doc: Document) => {
+      const app = doc.getElementById("page-app");
+      const cloneHtml = doc.documentElement;
+      if (app) {
+        (app as HTMLElement).style.backgroundColor = bgSolid;
+        if (bgImage && bgImage !== "none") {
+          (app as HTMLElement).style.backgroundImage = bgImage;
+          (app as HTMLElement).style.backgroundSize = "cover";
+          (app as HTMLElement).style.backgroundPosition = "center";
+          (app as HTMLElement).style.backgroundRepeat = "no-repeat";
+        }
+      }
+      cloneHtml.style.background = bgSolid;
+    },
+  };
 }
 
 export function wirePoweredBy(cfg: PageModuleRecord) {

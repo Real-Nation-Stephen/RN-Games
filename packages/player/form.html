@@ -8,11 +8,18 @@
   </head>
   <body>
     <div id="page-app" hidden>
-      <div class="page-card" style="width: min(520px, 100%)">
+      <div id="page-logo" class="page-logo" hidden></div>
+      <div id="form-panel" class="page-card" style="width: min(520px, 100%)">
         <h1 id="page-headline" class="page-headline"></h1>
         <p id="page-body" class="page-body"></p>
         <form id="page-form" class="page-form"></form>
         <button type="submit" form="page-form" id="page-submit" class="page-btn" style="margin-top: 16px; width: 100%"></button>
+      </div>
+      <div id="post-submit" class="page-card page-thank-you" hidden style="width: min(520px, 100%)">
+        <img id="post-submit-logo" alt="" hidden style="max-height: 72px; margin: 0 auto 16px; display: block" />
+        <h2 id="post-submit-headline" class="page-headline"></h2>
+        <p id="post-submit-body" class="page-body"></p>
+        <button type="button" id="post-submit-btn" class="page-btn" style="margin-top: 16px"></button>
       </div>
     </div>
     <p id="page-error" class="page-error" hidden></p>

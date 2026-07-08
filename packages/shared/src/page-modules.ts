@@ -20,11 +20,24 @@ export interface PageFontUpload {
   family: string;
 }
 
+export type PageBackgroundMode = "fixed" | "scroll";
+export type PageLogoAlign = "left" | "center" | "right";
+
 export interface PageTypography {
   headlineHex: string;
   bodyHex: string;
+  subheadHex?: string;
+  labelHex?: string;
   fonts?: { heading?: string; body?: string; button?: string };
   fontUploads?: { heading?: PageFontUpload; body?: PageFontUpload; button?: PageFontUpload };
+}
+
+export interface PagePostSubmit {
+  enabled: boolean;
+  logoUrl: string;
+  headline: string;
+  body: string;
+  buttonLabel: string;
 }
 
 export type LandingTextAlign = "left" | "center" | "right";
@@ -38,7 +51,8 @@ export type LandingBlockType =
   | "video"
   | "spacer"
   | "divider"
-  | "button";
+  | "button"
+  | "embed";
 
 export interface LandingBlockBase {
   id: string;
@@ -120,6 +134,13 @@ export interface LandingButtonBlock extends LandingBlockBase {
   isPrimary: boolean;
 }
 
+export interface LandingEmbedBlock extends LandingBlockBase {
+  type: "embed";
+  url: string;
+  heightPx: number;
+  title: string;
+}
+
 export type LandingBlock =
   | LandingTextBlock
   | LandingImageBlock
@@ -128,14 +149,27 @@ export type LandingBlock =
   | LandingVideoBlock
   | LandingSpacerBlock
   | LandingDividerBlock
-  | LandingButtonBlock;
+  | LandingButtonBlock
+  | LandingEmbedBlock;
 
 export interface LandingPageSettings {
   maxWidthPx: number;
   contentAlign: LandingTextAlign;
   verticalAlign: "top" | "center";
   paddingPx: number;
+  contentOffsetYPercent: number;
+  entranceAnimation: boolean;
 }
+
+export const CERTIFICATE_MERGE_HINTS = [
+  { key: "form.fieldValues.name", label: "Form name field" },
+  { key: "form.fieldValues.email", label: "Form email field" },
+  { key: "session.issuedDate", label: "Issue date (DD/MM/YYYY)" },
+  { key: "session.issuedDateISO", label: "Issue date (YYYY-MM-DD)" },
+  { key: "catch.score", label: "Catch game score" },
+  { key: "runner.score", label: "Runner game score" },
+  { key: "quiz.score", label: "Quiz score" },
+] as const;
 
 export interface PageModuleBase {
   id: string;
@@ -152,9 +186,12 @@ export interface PageModuleBase {
   faviconUrl?: string;
   reportingSheetTab?: string;
   showPoweredBy?: boolean;
+  logoUrl: string;
+  logoAlign: PageLogoAlign;
   backgroundHex: string;
   backgrounds: PageBreakpointBg;
   backgroundImage: string;
+  backgroundMode: PageBackgroundMode;
   typography: PageTypography;
   headline: string;
   body: string;
@@ -178,6 +215,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   spacer: "Spacer",
   divider: "Divider",
   button: "Button",
+  embed: "Embed / iframe",
 };
 
 export function newLandingBlockId(): string {
@@ -185,7 +223,18 @@ export function newLandingBlockId(): string {
 }
 
 export function defaultLandingPageSettings(): LandingPageSettings {
-  return { maxWidthPx: 720, contentAlign: "center", verticalAlign: "center", paddingPx: 24 };
+  return {
+    maxWidthPx: 720,
+    contentAlign: "center",
+    verticalAlign: "center",
+    paddingPx: 24,
+    contentOffsetYPercent: 50,
+    entranceAnimation: true,
+  };
+}
+
+function defaultPostSubmit(): PagePostSubmit {
+  return { enabled: false, logoUrl: "", headline: "Thank you", body: "", buttonLabel: "" };
 }
 
 export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock {
@@ -237,6 +286,8 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         fullWidth: false,
         isPrimary: false,
       };
+    case "embed":
+      return { id, type, url: "", heightPx: 480, title: "Embedded content" };
   }
 }
 
@@ -294,6 +345,7 @@ export type FormRecord = PageModuleBase & {
   gameType: "form";
   fields: FormField[];
   submitLabel: string;
+  postSubmit: PagePostSubmit;
 };
 
 export interface CertificateMergeField {
@@ -305,6 +357,7 @@ export interface CertificateMergeField {
   fontSizePx: number;
   colorHex: string;
   fontWeight?: "normal" | "bold";
+  textAlign?: LandingTextAlign;
 }
 
 export type CertificateRecord = PageModuleBase & {
@@ -329,6 +382,7 @@ export type ConsentRecord = PageModuleBase & {
   gdprLinkLabel: string;
   items: ConsentItem[];
   acceptLabel: string;
+  checkboxColumnWidthPx: number;
 };
 
 export type EmailSignupRecord = PageModuleBase & {
@@ -337,6 +391,10 @@ export type EmailSignupRecord = PageModuleBase & {
   nameLabel: string;
   submitLabel: string;
   thankYouMessage: string;
+  consentText: string;
+  consentRequired: boolean;
+  consentGdprUrl: string;
+  consentGdprLinkLabel: string;
 };
 
 export type RedemptionRecord = PageModuleBase & {
@@ -370,7 +428,7 @@ export function isPageModuleGameType(t: string): t is PageModuleGameType {
 }
 
 function defaultTypography(): PageTypography {
-  return { headlineHex: "#ffffff", bodyHex: "#e8eef5", fonts: {}, fontUploads: {} };
+  return { headlineHex: "#ffffff", bodyHex: "#e8eef5", subheadHex: "#e8eef5", labelHex: "#e8eef5", fonts: {}, fontUploads: {} };
 }
 
 function defaultCta(label = "Continue"): PageButtonStyle {
@@ -397,9 +455,12 @@ function basePageModule(
     faviconUrl: "",
     reportingSheetTab: "",
     showPoweredBy: true,
+    logoUrl: "",
+    logoAlign: "center",
     backgroundHex: "#0a1628",
     backgrounds: { desktop: "", tablet: "", mobile: "" },
     backgroundImage: "",
+    backgroundMode: "fixed",
     typography: defaultTypography(),
     headline: title,
     body: "",
@@ -431,6 +492,7 @@ export function emptyForm(partial: { id: string; slug: string }): FormRecord {
       { id: "name", type: "text", label: "Your name", required: true },
       { id: "email", type: "email", label: "Email", required: true },
     ],
+    postSubmit: defaultPostSubmit(),
   };
 }
 
@@ -452,6 +514,7 @@ export function emptyCertificate(partial: { id: string; slug: string }): Certifi
         fontSizePx: 42,
         colorHex: "#1a1a1a",
         fontWeight: "bold",
+        textAlign: "center",
       },
     ],
   };
@@ -466,6 +529,7 @@ export function emptyConsent(partial: { id: string; slug: string }): ConsentReco
     gdprLinkLabel: "Privacy policy",
     acceptLabel: "Accept and continue",
     items: [{ id: "consent-main", label: "I agree to the terms above", required: true }],
+    checkboxColumnWidthPx: 28,
   };
 }
 
@@ -477,6 +541,10 @@ export function emptyEmailSignup(partial: { id: string; slug: string }): EmailSi
     emailLabel: "Email",
     submitLabel: "Sign up",
     thankYouMessage: "Thanks — you're on the list.",
+    consentText: "",
+    consentRequired: false,
+    consentGdprUrl: "",
+    consentGdprLinkLabel: "Privacy policy",
   };
 }
 
@@ -506,6 +574,8 @@ function normalizeBase(doc: Partial<PageModuleBase> & { id: string; slug: string
     faviconUrl: String(doc.faviconUrl || ""),
     reportingSheetTab: String(doc.reportingSheetTab || ""),
     showPoweredBy: doc.showPoweredBy !== false,
+    logoUrl: String(doc.logoUrl || ""),
+    logoAlign: (doc.logoAlign === "left" || doc.logoAlign === "right" ? doc.logoAlign : "center") as PageLogoAlign,
     backgroundHex: String(doc.backgroundHex || "#0a1628"),
     backgrounds: {
       desktop: String(doc.backgrounds?.desktop || ""),
@@ -513,6 +583,7 @@ function normalizeBase(doc: Partial<PageModuleBase> & { id: string; slug: string
       mobile: String(doc.backgrounds?.mobile || ""),
     },
     backgroundImage: String(doc.backgroundImage || ""),
+    backgroundMode: doc.backgroundMode === "scroll" ? "scroll" : "fixed",
     typography: {
       ...defaultTypography(),
       ...(doc.typography && typeof doc.typography === "object" ? doc.typography : {}),
@@ -607,6 +678,14 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
         fullWidth: !!(raw as LandingButtonBlock).fullWidth,
         isPrimary: !!(raw as LandingButtonBlock).isPrimary,
       };
+    case "embed":
+      return {
+        id,
+        type,
+        url: String((raw as LandingEmbedBlock).url || ""),
+        heightPx: Math.max(120, Number((raw as LandingEmbedBlock).heightPx) || 480),
+        title: String((raw as LandingEmbedBlock).title || "Embedded content"),
+      };
     case "text":
     default:
       return {
@@ -665,6 +744,8 @@ function normalizeLandingPageSettings(raw?: Partial<LandingPageSettings>): Landi
     contentAlign: align === "left" || align === "right" ? align : "center",
     verticalAlign: raw.verticalAlign === "top" ? "top" : "center",
     paddingPx: Math.max(0, Number(raw.paddingPx) || d.paddingPx),
+    contentOffsetYPercent: Math.max(0, Math.min(100, Number(raw.contentOffsetYPercent) ?? d.contentOffsetYPercent)),
+    entranceAnimation: raw.entranceAnimation !== false,
   };
 }
 
@@ -698,6 +779,11 @@ export function normalizeForm(doc: Partial<FormRecord> & { id: string; slug: str
     gameType: "form",
     submitLabel: String(doc.submitLabel || "Submit"),
     fields,
+    postSubmit: {
+      ...defaultPostSubmit(),
+      ...(doc.postSubmit && typeof doc.postSubmit === "object" ? doc.postSubmit : {}),
+      enabled: !!doc.postSubmit?.enabled,
+    },
   };
 }
 
@@ -714,6 +800,7 @@ export function normalizeCertificate(
         fontSizePx: Math.max(8, Number(m.fontSizePx) || 24),
         colorHex: String(m.colorHex || "#111111"),
         fontWeight: m.fontWeight === "bold" ? ("bold" as const) : ("normal" as const),
+        textAlign: (m.textAlign === "left" || m.textAlign === "right" ? m.textAlign : "center") as LandingTextAlign,
       }))
     : [];
   return {
@@ -743,6 +830,7 @@ export function normalizeConsent(doc: Partial<ConsentRecord> & { id: string; slu
     gdprLinkLabel: String(doc.gdprLinkLabel || "Privacy policy"),
     acceptLabel: String(doc.acceptLabel || "Accept and continue"),
     items,
+    checkboxColumnWidthPx: Math.max(20, Math.min(80, Number(doc.checkboxColumnWidthPx) || 28)),
   };
 }
 
@@ -756,6 +844,10 @@ export function normalizeEmailSignup(
     emailLabel: String(doc.emailLabel || "Email"),
     submitLabel: String(doc.submitLabel || "Sign up"),
     thankYouMessage: String(doc.thankYouMessage || "Thanks!"),
+    consentText: String(doc.consentText || ""),
+    consentRequired: !!doc.consentRequired,
+    consentGdprUrl: String(doc.consentGdprUrl || ""),
+    consentGdprLinkLabel: String(doc.consentGdprLinkLabel || "Privacy policy"),
   };
 }
 
@@ -793,6 +885,31 @@ export function normalizePageModule(
 
 export function toPublicPageModule(doc: PageModuleRecord): PageModuleRecord {
   return doc;
+}
+
+export function buildCertificateSessionRoot(session?: {
+  data?: Record<string, unknown>;
+  outcomes?: Record<string, unknown>;
+}): Record<string, unknown> {
+  const now = new Date();
+  const outcomes = session?.outcomes || {};
+  const data = session?.data || {};
+  const formFields =
+    (outcomes["form.fieldValues"] as Record<string, unknown> | undefined) ||
+    (data.formFields as Record<string, unknown> | undefined) ||
+    {};
+  return {
+    ...data,
+    ...outcomes,
+    session: {
+      issuedDate: now.toLocaleDateString("en-GB"),
+      issuedDateISO: now.toISOString().slice(0, 10),
+    },
+    form: { fieldValues: formFields },
+    catch: { score: outcomes["catch.score"] ?? "" },
+    runner: { score: outcomes["runner.score"] ?? "" },
+    quiz: { score: outcomes["quiz.score"] ?? "" },
+  };
 }
 
 export function resolveSessionPath(root: Record<string, unknown>, path: string): string {

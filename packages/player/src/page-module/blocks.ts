@@ -194,6 +194,20 @@ function renderButtonBlock(
   return wrap;
 }
 
+function renderEmbedBlock(block: Extract<LandingBlock, { type: "embed" }>): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "landing-embed";
+  wrap.style.height = `${block.heightPx}px`;
+  if (!block.url) return wrap;
+  const iframe = document.createElement("iframe");
+  iframe.src = block.url;
+  iframe.title = block.title || "Embedded content";
+  iframe.loading = "lazy";
+  iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+  wrap.appendChild(iframe);
+  return wrap;
+}
+
 export function renderLandingBlocks(
   container: HTMLElement,
   cfg: LandingRecord,
@@ -249,14 +263,22 @@ export function renderLandingBlocks(
         if (block.isPrimary) hasPrimary = true;
         el = renderButtonBlock(block, opts);
         break;
+      case "embed":
+        el = renderEmbedBlock(block);
+        break;
     }
     if (el) container.appendChild(el);
   }
 
+  if (settings.entranceAnimation) container.classList.add("landing-animate-in");
+
   const app = document.getElementById("page-app");
   if (app) {
-    app.style.justifyContent = settings.verticalAlign === "top" ? "flex-start" : "center";
-    app.style.alignItems = settings.contentAlign === "left" ? "flex-start" : settings.contentAlign === "right" ? "flex-end" : "center";
+    const offset = Math.max(0, Math.min(100, settings.contentOffsetYPercent ?? 50));
+    app.style.justifyContent = "flex-start";
+    app.style.paddingTop = `calc(${offset} * 0.55vh)`;
+    app.style.alignItems =
+      settings.contentAlign === "left" ? "flex-start" : settings.contentAlign === "right" ? "flex-end" : "center";
   }
 
   return hasPrimary;
