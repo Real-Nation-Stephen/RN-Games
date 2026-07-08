@@ -151,6 +151,34 @@ export function flattenCourseItems(sections) {
   return (sections || []).flatMap((s) => s.items || []);
 }
 
+/** Draft experiences in a course preview may be loaded via course preview token. */
+export async function coursePreviewAuthorizesExperience(courseSlug, coursePreviewToken, experienceId, deps) {
+  const slug = String(courseSlug || "")
+    .trim()
+    .toLowerCase();
+  const token = String(coursePreviewToken || "").trim();
+  const expId = String(experienceId || "").trim();
+  if (!slug || !token || !expId) return false;
+
+  const readCoursesIndex = deps?.readCoursesIndex;
+  const getCourseJson = deps?.getCourseJson;
+  if (!readCoursesIndex || !getCourseJson) return false;
+
+  const list = await readCoursesIndex();
+  const row = list.find((x) => x.slug === slug);
+  if (!row) return false;
+
+  const raw = await getCourseJson(row.id);
+  if (!raw) return false;
+
+  const course = normalizeCourseRecord(raw);
+  if (token !== course.previewToken) return false;
+
+  return flattenCourseItems(course.sections).some(
+    (item) => item.kind === "experience" && item.experienceId === expId,
+  );
+}
+
 export function toCourseIndexEntry(doc) {
   const items = flattenCourseItems(doc.sections);
   return {
@@ -197,8 +225,9 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
         const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
-        const needsPreview =
-          options.includeContentPreviewTokens && exp?.previewToken && exp.status !== "published";
+        const unpublished = exp && exp.status !== "published";
+        const blockedOnLive = unpublished && course.status === "published" && !options.includeContentPreviewTokens;
+        const needsPreview = options.includeContentPreviewTokens && exp?.previewToken;
         out.push({
           id: item.id,
           sectionId: section.id,
@@ -208,9 +237,9 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
           label: resolvedTitle,
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
-          launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
+          launchPath: exp?.slug && !blockedOnLive ? `/x/${encodeURIComponent(exp.slug)}` : "",
           previewToken: needsPreview ? exp.previewToken : undefined,
-          missing: !exp,
+          missing: !exp || blockedOnLive,
           archived: !!exp?.archived,
         });
         continue;

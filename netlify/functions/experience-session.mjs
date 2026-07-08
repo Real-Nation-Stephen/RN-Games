@@ -5,9 +5,14 @@ import {
   getExperienceJson,
   getExperienceSessionJson,
   setExperienceSessionJson,
+  readCoursesIndex,
+  getCourseJson,
 } from "./lib/blobs.mjs";
 import { normalizeExperienceRecord } from "./lib/experience.mjs";
+import { coursePreviewAuthorizesExperience } from "./lib/course.mjs";
 import { blobStore } from "./lib/store.mjs";
+
+const courseDeps = { readCoursesIndex, getCourseJson };
 
 const headers = {
   "Content-Type": "application/json",
@@ -37,15 +42,20 @@ async function checkRateLimit(ip) {
   return true;
 }
 
-async function resolveExperience(slug, previewToken) {
+async function resolveExperience(slug, previewToken, courseSlug, coursePreviewToken) {
   const list = await readExperiencesIndex();
   const row = list.find((x) => x.slug === slug);
   if (!row) return null;
   const doc = normalizeExperienceRecord(await getExperienceJson(row.id));
   if (!doc) return null;
-  if (doc.status !== "published") {
-    if (!previewToken || previewToken !== doc.previewToken) return null;
+  let allowed = doc.status === "published";
+  if (!allowed && previewToken && previewToken === doc.previewToken) {
+    allowed = true;
   }
+  if (!allowed && coursePreviewToken && courseSlug) {
+    allowed = await coursePreviewAuthorizesExperience(courseSlug, coursePreviewToken, doc.id, courseDeps);
+  }
+  if (!allowed) return null;
   return doc;
 }
 
@@ -96,16 +106,27 @@ export const handler = async (event) => {
       const body = JSON.parse(event.body || "{}");
       const slug = String(body.experienceSlug || body.slug || "").trim().toLowerCase();
       const previewToken = String(body.previewToken || "").trim();
+      const coursePreviewToken = String(body.coursePreviewToken || "").trim();
+      const courseSlug = String(body.courseSlug || "").trim().toLowerCase();
       const resumeId = String(body.sessionId || "").trim();
 
       if (resumeId) {
         const existing = await getExperienceSessionJson(resumeId);
         if (existing && existing.experienceSlug === slug) {
+          if (body.restartIfComplete && existing.completedAt) {
+            const steps = (await resolveExperience(slug, previewToken, courseSlug, coursePreviewToken))?.linearSteps || [];
+            existing.currentStepIndex = 0;
+            existing.currentNodeId = steps[0]?.id || null;
+            existing.completedAt = null;
+            existing.history = [];
+            existing.updatedAt = new Date().toISOString();
+            await setExperienceSessionJson(existing.sessionId, existing);
+          }
           return { statusCode: 200, body: JSON.stringify({ session: existing, resumed: true }), headers };
         }
       }
 
-      const experience = await resolveExperience(slug, previewToken);
+      const experience = await resolveExperience(slug, previewToken, courseSlug, coursePreviewToken);
       if (!experience) {
         return { statusCode: 404, body: JSON.stringify({ error: "Experience not found" }), headers };
       }

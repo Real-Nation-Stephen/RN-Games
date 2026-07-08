@@ -78,7 +78,8 @@ body {
   cursor: not-allowed;
 }
 
-#exp-complete-actions {
+#exp-complete-actions,
+#exp-course-return-wrap {
   margin-top: 16px;
 }
 

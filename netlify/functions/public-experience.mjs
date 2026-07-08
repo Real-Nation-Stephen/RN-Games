@@ -1,15 +1,18 @@
 import { connectLambda } from "@netlify/blobs";
-import { readExperiencesIndex, getExperienceJson, readIndex } from "./lib/blobs.mjs";
+import { readExperiencesIndex, getExperienceJson, readIndex, readCoursesIndex, getCourseJson } from "./lib/blobs.mjs";
 import {
   normalizeExperienceRecord,
   resolvePublishedSteps,
   toPublicExperience,
 } from "./lib/experience.mjs";
+import { coursePreviewAuthorizesExperience } from "./lib/course.mjs";
 
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
 };
+
+const courseDeps = { readCoursesIndex, getCourseJson };
 
 export const handler = async (event) => {
   connectLambda(event);
@@ -24,6 +27,8 @@ export const handler = async (event) => {
 
     const slug = String(event.queryStringParameters?.slug || "").trim().toLowerCase();
     const previewToken = String(event.queryStringParameters?.previewToken || "").trim();
+    const coursePreviewToken = String(event.queryStringParameters?.coursePreviewToken || "").trim();
+    const courseSlug = String(event.queryStringParameters?.courseSlug || "").trim().toLowerCase();
 
     if (!slug) {
       return { statusCode: 400, body: JSON.stringify({ error: "slug required" }), headers };
@@ -41,7 +46,11 @@ export const handler = async (event) => {
     }
 
     const experience = normalizeExperienceRecord(raw);
-    const isPreview = previewToken && previewToken === experience.previewToken;
+    let isPreview = previewToken && previewToken === experience.previewToken;
+
+    if (!isPreview && experience.status !== "published" && coursePreviewToken && courseSlug) {
+      isPreview = await coursePreviewAuthorizesExperience(courseSlug, coursePreviewToken, experience.id, courseDeps);
+    }
 
     if (experience.status !== "published" && !isPreview) {
       return { statusCode: 404, body: JSON.stringify({ error: "Not found" }), headers };
@@ -55,7 +64,7 @@ export const handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         experience: toPublicExperience(experience, steps),
-        preview: isPreview,
+        preview: !!isPreview,
       }),
       headers,
     };

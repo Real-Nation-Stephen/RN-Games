@@ -33,6 +33,7 @@ type Session = {
   currentStepIndex: number;
   currentNodeId: string | null;
   completedAt?: string | null;
+  outcomes?: Record<string, unknown>;
 };
 
 /** Clean URL `/x/:slug` or direct `/play/experience.html?slug=` */
@@ -49,11 +50,30 @@ function getPreviewToken(): string {
   return new URLSearchParams(window.location.search).get("previewToken")?.trim() || "";
 }
 
+function getCoursePreviewAuth(): { courseSlug: string; coursePreviewToken: string } | null {
+  const params = new URLSearchParams(window.location.search);
+  const coursePreviewToken = params.get("coursePreviewToken")?.trim() || "";
+  const courseSlug = params.get("courseSlug")?.trim() || "";
+  if (coursePreviewToken && courseSlug) return { courseSlug, coursePreviewToken };
+  return null;
+}
+
+function courseContext() {
+  return parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+}
+
+function embeddedInCourse(): boolean {
+  const ctx = courseContext();
+  return !!ctx && window.parent !== window;
+}
+
 const els = {
   loading: document.getElementById("exp-loading")!,
   error: document.getElementById("exp-error")!,
   complete: document.getElementById("exp-complete")!,
   completeActions: document.getElementById("exp-complete-actions")!,
+  courseReturnWrap: document.getElementById("exp-course-return-wrap")!,
+  courseReturn: document.getElementById("exp-course-return")!,
   restart: document.getElementById("exp-restart")!,
   stage: document.getElementById("exp-stage")!,
   title: document.getElementById("exp-title")!,
@@ -92,6 +112,8 @@ let advancing = false;
 let stepEngaged = false;
 
 function sessionStorageKey() {
+  const ctx = courseContext();
+  if (ctx) return `rngames:experience-session:${slug}:course:${ctx.itemId}`;
   return `rngames:experience-session:${slug}`;
 }
 
@@ -137,9 +159,21 @@ function updateShellContinue() {
   }
 }
 
+function authQueryParams(): URLSearchParams {
+  const q = new URLSearchParams();
+  if (previewToken) q.set("previewToken", previewToken);
+  const coursePrev = getCoursePreviewAuth();
+  if (coursePrev) {
+    q.set("coursePreviewToken", coursePrev.coursePreviewToken);
+    q.set("courseSlug", coursePrev.courseSlug);
+  }
+  return q;
+}
+
 async function fetchExperience(): Promise<PublicExperience> {
   const q = new URLSearchParams({ slug });
-  if (previewToken) q.set("previewToken", previewToken);
+  const auth = authQueryParams();
+  auth.forEach((value, key) => q.set(key, value));
   const res = await fetch(`/api/public-experience?${q.toString()}`);
   if (!res.ok) throw new Error("Experience not found");
   const data = await res.json();
@@ -148,11 +182,15 @@ async function fetchExperience(): Promise<PublicExperience> {
 
 async function createOrResumeSession(): Promise<Session> {
   const saved = loadSessionLocal();
-  const body: Record<string, string> = { experienceSlug: slug };
-  if (previewToken) body.previewToken = previewToken;
+  const body: Record<string, string | boolean> = { experienceSlug: slug };
+  const auth = authQueryParams();
+  auth.forEach((value, key) => {
+    body[key] = value;
+  });
   if (saved?.sessionId) {
     body.sessionId = saved.sessionId;
     body.participantId = saved.participantId;
+    if (embeddedInCourse()) body.restartIfComplete = true;
   }
   const res = await fetch("/api/experience-session", {
     method: "POST",
@@ -224,6 +262,20 @@ function stepFrameUrl(step: PublicStep): string {
   return `${window.location.origin}${originRelative}`;
 }
 
+function notifyCourseComplete() {
+  const courseCtx = courseContext();
+  if (!courseCtx || !session || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: FLOW_STEP_COMPLETE,
+      courseSessionId: courseCtx.sessionId,
+      courseItemId: courseCtx.itemId,
+      outcomes: session.outcomes || {},
+    },
+    "*",
+  );
+}
+
 function preloadNextStep() {
   if (!experience || !session) return;
   const nextIdx = session.currentStepIndex + 1;
@@ -249,7 +301,9 @@ function renderStep() {
     els.stage.hidden = true;
     els.loading.hidden = true;
     els.complete.hidden = false;
-    els.completeActions.hidden = !previewToken;
+    const inCourse = embeddedInCourse();
+    els.completeActions.hidden = inCourse || !previewToken;
+    els.courseReturnWrap.hidden = !inCourse;
     track({
       type: "experience.complete",
       gameId: experience.id,
@@ -257,18 +311,6 @@ function renderStep() {
       sessionId: session.sessionId,
       payload: { slug: experience.slug },
     });
-    const courseCtx = parseCourseContextFromSearch(new URLSearchParams(window.location.search));
-    if (courseCtx && window.parent && window.parent !== window) {
-      window.parent.postMessage(
-        {
-          type: FLOW_STEP_COMPLETE,
-          courseSessionId: courseCtx.sessionId,
-          courseItemId: courseCtx.itemId,
-          outcomes: session.outcomes || {},
-        },
-        "*",
-      );
-    }
     return;
   }
 
@@ -284,6 +326,7 @@ function renderStep() {
   els.loading.hidden = true;
   els.stage.hidden = false;
   els.complete.hidden = true;
+  els.courseReturnWrap.hidden = true;
   els.fallback.hidden = true;
   els.title.textContent = experience.title;
   els.progress.textContent = `Step ${session.currentStepIndex + 1} of ${experience.steps.length}`;
@@ -368,6 +411,10 @@ function bindEvents() {
 
   els.stepContinue.addEventListener("click", () => {
     void onStepComplete({}, true);
+  });
+
+  els.courseReturn.addEventListener("click", () => {
+    notifyCourseComplete();
   });
 
   els.restart.addEventListener("click", () => {

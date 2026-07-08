@@ -405,6 +405,10 @@ function itemLaunchUrl(item: PublicCourseItem): string {
   if (item.previewToken) {
     finalUrl.searchParams.set("previewToken", item.previewToken);
   }
+  if (previewToken) {
+    finalUrl.searchParams.set("coursePreviewToken", previewToken);
+    finalUrl.searchParams.set("courseSlug", course.slug);
+  }
   return finalUrl.toString();
 }
 
@@ -476,6 +480,8 @@ async function saveEmail() {
 window.addEventListener("message", (ev) => {
   if (!isStepCompleteMessage(ev.data)) return;
   if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
+  if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
+  if (!ev.data.courseItemId) return;
   void completeActiveItem(ev.data.outcomes || {});
 });
 

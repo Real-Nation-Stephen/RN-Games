@@ -213,6 +213,16 @@ export function flattenCourseItems(sections: CourseSection[]): CourseItem[] {
   return (sections || []).flatMap((s) => s.items || []);
 }
 
+/** Draft experiences in a course preview may be loaded via course preview token. */
+export function courseCurriculumIncludesExperience(
+  course: Pick<CourseRecord, "sections">,
+  experienceId: string,
+): boolean {
+  return flattenCourseItems(course.sections).some(
+    (item) => item.kind === "experience" && item.experienceId === experienceId,
+  );
+}
+
 export function courseCompletionPercent(session: Pick<CourseSession, "completedItemIds">, itemCount: number): number {
   if (!itemCount) return 0;
   const done = new Set(session.completedItemIds || []).size;
@@ -383,10 +393,9 @@ export function resolvePublicCourseItems(
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
         const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
-        const needsPreview =
-          options?.includeContentPreviewTokens &&
-          exp?.previewToken &&
-          exp.status !== "published";
+        const unpublished = exp && exp.status !== "published";
+        const blockedOnLive = unpublished && course.status === "published" && !options?.includeContentPreviewTokens;
+        const needsPreview = options?.includeContentPreviewTokens && exp?.previewToken;
         out.push({
           id: item.id,
           sectionId: section.id,
@@ -396,9 +405,9 @@ export function resolvePublicCourseItems(
           label: resolvedTitle,
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
-          launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
+          launchPath: exp?.slug && !blockedOnLive ? `/x/${encodeURIComponent(exp.slug)}` : "",
           previewToken: needsPreview ? exp.previewToken : undefined,
-          missing: !exp,
+          missing: !exp || blockedOnLive,
           archived: !!exp?.archived,
         });
         continue;
