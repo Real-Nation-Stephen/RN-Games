@@ -182,6 +182,8 @@ export const handler = async (event, context) => {
         "designCode",
         "thumbnailUrl",
         "sections",
+        "presentation",
+        "settings",
         "archived",
       ];
       for (const k of assign) {

@@ -1,41 +1,54 @@
-import { appendCourseQuery, courseCompletionPercent } from "@rngames/shared";
-import { isStepCompleteMessage } from "@rngames/shared";
+import {
+  appendCourseQuery,
+  courseCompletionPercent,
+  isStepCompleteMessage,
+  sectionUnlockState,
+  isCourseItemAccessible,
+  type PublicCourse,
+  type PublicCourseItem,
+  type PublicCourseSection,
+  type CourseSession,
+  type CoursePresentation,
+} from "@rngames/shared";
 
-type PublicCourseItem = {
-  id: string;
-  sectionId: string;
-  sectionTitle: string;
-  kind: "module" | "experience" | "video";
-  label: string;
-  launchPath: string;
-  moduleType?: string;
-  missing?: boolean;
-  archived?: boolean;
+const els = {
+  loading: document.getElementById("course-loading")!,
+  error: document.getElementById("course-error")!,
+  home: document.getElementById("course-home")!,
+  player: document.getElementById("course-player")!,
+  logo: document.getElementById("course-logo")!,
+  title: document.getElementById("course-title")!,
+  description: document.getElementById("course-description")!,
+  progressFill: document.getElementById("course-progress-fill")!,
+  progressLabel: document.getElementById("course-progress-label")!,
+  sections: document.getElementById("course-sections")!,
+  empty: document.getElementById("course-empty")!,
+  resume: document.getElementById("course-resume")!,
+  email: document.getElementById("course-email") as HTMLInputElement,
+  saveEmail: document.getElementById("course-save-email")!,
+  resumeLink: document.getElementById("course-resume-link")!,
+  resumeStatus: document.getElementById("course-resume-status")!,
+  summary: document.getElementById("course-summary")!,
+  certList: document.getElementById("course-cert-list")!,
+  complete: document.getElementById("course-complete")!,
+  powered: document.getElementById("course-powered")!,
+  back: document.getElementById("course-back")!,
+  playerTitle: document.getElementById("course-player-title")!,
+  frame: document.getElementById("course-frame") as HTMLIFrameElement,
+  markComplete: document.getElementById("course-mark-complete")!,
 };
 
-type PublicCourse = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string;
-  sections: { id: string; title: string; items: PublicCourseItem[] }[];
-  items: PublicCourseItem[];
-  itemCount: number;
-};
+let course: PublicCourse | null = null;
+let session: CourseSession | null = null;
+let activeItem: PublicCourseItem | null = null;
+let slug = "";
+let previewToken = "";
+let resumeToken = "";
 
-type CourseSession = {
-  sessionId: string;
-  courseId: string;
-  courseSlug: string;
-  participantId: string;
-  email?: string;
-  resumeToken?: string;
-  completedItemIds: string[];
-  currentItemId: string | null;
-  lastVisitedItemId: string | null;
-  earnedCertificates: string[];
-  outcomes?: Record<string, unknown>;
-  completedAt?: string | null;
+const KIND_ICON: Record<PublicCourseItem["kind"], string> = {
+  module: "🎮",
+  experience: "✨",
+  video: "▶️",
 };
 
 function getCourseSlug(): string {
@@ -54,37 +67,6 @@ function getPreviewToken(): string {
 function getResumeToken(): string {
   return new URLSearchParams(window.location.search).get("resumeToken")?.trim() || "";
 }
-
-const els = {
-  loading: document.getElementById("course-loading")!,
-  error: document.getElementById("course-error")!,
-  home: document.getElementById("course-home")!,
-  player: document.getElementById("course-player")!,
-  title: document.getElementById("course-title")!,
-  description: document.getElementById("course-description")!,
-  progressFill: document.getElementById("course-progress-fill")!,
-  progressLabel: document.getElementById("course-progress-label")!,
-  sections: document.getElementById("course-sections")!,
-  resume: document.getElementById("course-resume")!,
-  email: document.getElementById("course-email") as HTMLInputElement,
-  saveEmail: document.getElementById("course-save-email")!,
-  resumeLink: document.getElementById("course-resume-link")!,
-  resumeStatus: document.getElementById("course-resume-status")!,
-  summary: document.getElementById("course-summary")!,
-  certList: document.getElementById("course-cert-list")!,
-  complete: document.getElementById("course-complete")!,
-  back: document.getElementById("course-back")!,
-  playerTitle: document.getElementById("course-player-title")!,
-  frame: document.getElementById("course-frame") as HTMLIFrameElement,
-  markComplete: document.getElementById("course-mark-complete")!,
-};
-
-let course: PublicCourse | null = null;
-let session: CourseSession | null = null;
-let activeItem: PublicCourseItem | null = null;
-let slug = "";
-let previewToken = "";
-let resumeToken = "";
 
 function sessionStorageKey() {
   return `rngames:course-session:${slug}`;
@@ -111,12 +93,97 @@ function loadSessionLocal(): { sessionId: string; participantId: string } | null
   }
 }
 
+type View = "loading" | "error" | "home" | "player";
+
+function showView(view: View) {
+  els.loading.hidden = view !== "loading";
+  els.error.hidden = view !== "error";
+  els.home.hidden = view !== "home";
+  els.player.hidden = view !== "player";
+}
+
 function showError(msg: string) {
-  els.loading.hidden = true;
-  els.home.hidden = true;
-  els.player.hidden = true;
-  els.error.hidden = false;
+  showView("error");
   els.error.textContent = msg;
+}
+
+function pickCourseBackground(p: CoursePresentation): string {
+  const w = window.innerWidth;
+  const bg = p.backgrounds || {};
+  if (w < 768 && bg.mobile) return bg.mobile;
+  if (w < 1024 && bg.tablet) return bg.tablet;
+  return bg.desktop || "";
+}
+
+function applyPresentation(c: PublicCourse) {
+  const p = c.presentation;
+  const html = document.documentElement;
+  const bgUrl = pickCourseBackground(p);
+
+  html.style.setProperty("--course-bg", p.backgroundHex || "#0a1628");
+  html.style.setProperty("--course-bg-image", bgUrl ? `url('${bgUrl}')` : "none");
+  html.style.setProperty("--course-card", p.cardHex || "#122038");
+  html.style.setProperty("--course-headline", p.headlineHex || "#ffffff");
+  html.style.setProperty("--course-text", p.bodyHex || "#e8eef5");
+  html.style.setProperty("--course-muted", colorMix(p.bodyHex || "#e8eef5", 55));
+  html.style.setProperty("--course-accent", p.accentHex || "#5ec8ff");
+
+  html.classList.remove("course-bg-fixed", "course-bg-scroll");
+  html.classList.add(p.backgroundMode === "scroll" ? "course-bg-scroll" : "course-bg-fixed");
+
+  if (p.faviconUrl) {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = p.faviconUrl;
+  }
+
+  document.title = c.title;
+
+  els.home.classList.remove("layout-rows", "layout-cards", "layout-bento");
+  els.home.classList.add(`layout-${c.settings?.layout || "cards"}`);
+
+  if (p.logoUrl) {
+    els.logo.replaceChildren();
+    const img = document.createElement("img");
+    img.src = p.logoUrl;
+    img.alt = "";
+    els.logo.appendChild(img);
+    els.logo.className = `course-logo course-logo--${p.logoAlign || "center"}`;
+    els.logo.hidden = false;
+  } else {
+    els.logo.hidden = true;
+    els.logo.replaceChildren();
+  }
+
+  els.powered.hidden = p.showPoweredBy === false;
+}
+
+function colorMix(hex: string, pct: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  if (Number.isNaN(n)) return "#9eb0c7";
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const mix = (c: number) => Math.round(c * (pct / 100) + 158 * (1 - pct / 100));
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+function iconHtml(iconUrl?: string, iconEmoji?: string, fallback?: string): string {
+  if (iconUrl) return `<img src="${escapeAttr(iconUrl)}" alt="" />`;
+  if (iconEmoji) return escapeHtml(iconEmoji);
+  return escapeHtml(fallback || "📚");
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeAttr(s: string): string {
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }
 
 function embedVideoUrl(url: string): string {
@@ -193,19 +260,95 @@ function itemById(id: string | null | undefined): PublicCourseItem | undefined {
   return course?.items.find((i) => i.id === id);
 }
 
+function enrichItems(): PublicCourseItem[] {
+  if (!course || !session) return [];
+  const startedAt = session.startedAt || new Date().toISOString();
+  const settings = course.settings || { navigationMode: "sequential", layout: "cards" };
+
+  return course.items.map((item) => {
+    const section = course!.sections.find((s) => s.id === item.sectionId);
+    const sectionLock = section ? sectionUnlockState(section, startedAt) : { locked: false };
+    const withLock: PublicCourseItem = {
+      ...item,
+      locked: sectionLock.locked,
+      lockReason: sectionLock.reason,
+    };
+    const access = isCourseItemAccessible(withLock, course!.items, session!, settings, sectionLock.locked);
+    if (!access.accessible && access.reason) {
+      withLock.locked = true;
+      withLock.lockReason = access.reason;
+    }
+    return withLock;
+  });
+}
+
+function renderSection(section: PublicCourseSection, items: PublicCourseItem[]): string {
+  const startedAt = session!.startedAt || new Date().toISOString();
+  const sectionLock = sectionUnlockState(section, startedAt);
+  const sectionItems = items.filter((i) => i.sectionId === section.id);
+
+  const itemsHtml = sectionItems
+    .map((item) => {
+      const done = session!.completedItemIds.includes(item.id);
+      const current = session!.currentItemId === item.id;
+      const locked = !!item.locked;
+      const title = item.displayTitle || item.label;
+      const meta = [
+        item.kind,
+        item.missing ? "missing" : "",
+        item.archived ? "archived" : "",
+        locked && item.lockReason ? item.lockReason : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      return `
+        <article class="course-item${done ? " is-complete" : ""}${current ? " is-current" : ""}${locked ? " is-locked" : ""}">
+          <div class="course-item-main">
+            <div class="course-item-icon">${iconHtml(item.iconUrl, item.iconEmoji, KIND_ICON[item.kind])}</div>
+            <div class="course-item-label">
+              <p class="course-item-title">${escapeHtml(title)}${done ? " ✓" : ""}</p>
+              <div class="course-item-meta">${escapeHtml(meta)}</div>
+            </div>
+          </div>
+          <div class="course-item-actions">
+            <button type="button" class="course-btn course-btn-primary" data-item-id="${escapeAttr(item.id)}" ${locked || item.missing || item.archived || !item.launchPath ? "disabled" : ""}>
+              ${locked ? "Locked" : done ? "Review" : "Start"}
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  const sectionIcon = iconHtml(section.iconUrl, section.iconEmoji, "📂");
+
+  return `
+    <section class="course-section">
+      <div class="course-section-head">
+        <div class="course-section-icon">${sectionIcon}</div>
+        <h3>${escapeHtml(section.title)}</h3>
+      </div>
+      ${sectionLock.locked ? `<p class="course-section-lock">🔒 ${escapeHtml(sectionLock.reason || "Section locked")}</p>` : ""}
+      <div class="course-items">${itemsHtml || '<p class="course-muted">No items in this section</p>'}</div>
+    </section>
+  `;
+}
+
 function renderHome() {
   if (!course || !session) return;
-  els.loading.hidden = true;
-  els.error.hidden = true;
-  els.home.hidden = false;
-  els.player.hidden = true;
+  applyPresentation(course);
+  showView("home");
 
   els.title.textContent = course.title;
   els.description.textContent = course.description || "";
 
   const pct = courseCompletionPercent(session, course.itemCount);
   els.progressFill.style.width = `${pct}%`;
-  els.progressLabel.textContent = `${pct}% complete · ${session.completedItemIds.length} of ${course.itemCount} items`;
+  els.progressLabel.textContent =
+    course.itemCount > 0
+      ? `${pct}% complete · ${session.completedItemIds.length} of ${course.itemCount} items`
+      : "No curriculum items yet";
 
   els.resume.hidden = false;
   if (session.email) els.email.value = session.email;
@@ -218,41 +361,22 @@ function renderHome() {
     els.resumeLink.hidden = true;
   }
 
+  const enriched = enrichItems();
   const certs = session.earnedCertificates
-    .map((id) => itemById(id))
+    .map((id) => enriched.find((i) => i.id === id))
     .filter(Boolean) as PublicCourseItem[];
   if (certs.length) {
     els.summary.hidden = false;
-    els.certList.innerHTML = certs.map((c) => `<li>${c.label}</li>`).join("");
+    els.certList.innerHTML = certs.map((c) => `<li>${escapeHtml(c.displayTitle || c.label)}</li>`).join("");
   } else {
     els.summary.hidden = true;
   }
 
   els.complete.hidden = !session.completedAt;
+  els.empty.hidden = course.itemCount > 0;
+  els.sections.hidden = course.itemCount === 0;
 
-  els.sections.innerHTML = course.sections
-    .map((section) => {
-      const items = section.items
-        .map((item) => {
-          const done = session!.completedItemIds.includes(item.id);
-          const current = session!.currentItemId === item.id;
-          const disabled = item.missing || item.archived || !item.launchPath;
-          return `
-            <div class="course-item${done ? " is-complete" : ""}${current ? " is-current" : ""}">
-              <div class="course-item-label">
-                <div>${item.label}${done ? " ✓" : ""}</div>
-                <div class="course-item-kind">${item.kind}${item.missing ? " · missing" : ""}${item.archived ? " · archived" : ""}</div>
-              </div>
-              <button type="button" class="course-btn course-btn-primary" data-item-id="${item.id}" ${disabled ? "disabled" : ""}>
-                ${done ? "Review" : "Start"}
-              </button>
-            </div>
-          `;
-        })
-        .join("");
-      return `<section class="course-section"><h3>${section.title}</h3>${items || '<p class="course-muted">No items</p>'}</section>`;
-    })
-    .join("");
+  els.sections.innerHTML = course.sections.map((section) => renderSection(section, enriched)).join("");
 
   els.sections.querySelectorAll("[data-item-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -281,14 +405,14 @@ function itemLaunchUrl(item: PublicCourseItem): string {
 }
 
 async function openItem(itemId: string) {
-  const item = itemById(itemId);
-  if (!item || !item.launchPath || item.missing) return;
+  const enriched = enrichItems();
+  const item = enriched.find((i) => i.id === itemId);
+  if (!item || !item.launchPath || item.missing || item.locked) return;
   activeItem = item;
   await patchSession({ itemId, action: "visit" });
 
-  els.home.hidden = true;
-  els.player.hidden = false;
-  els.playerTitle.textContent = item.label;
+  showView("player");
+  els.playerTitle.textContent = item.displayTitle || item.label;
   els.frame.src = itemLaunchUrl(item);
 }
 
@@ -351,6 +475,10 @@ window.addEventListener("message", (ev) => {
   void completeActiveItem(ev.data.outcomes || {});
 });
 
+window.addEventListener("resize", () => {
+  if (course) applyPresentation(course);
+});
+
 els.back.addEventListener("click", () => {
   activeItem = null;
   els.frame.src = "about:blank";
@@ -364,6 +492,8 @@ async function boot() {
   slug = getCourseSlug();
   previewToken = getPreviewToken();
   resumeToken = getResumeToken();
+  showView("loading");
+
   if (!slug) {
     showError("Missing course slug.");
     return;

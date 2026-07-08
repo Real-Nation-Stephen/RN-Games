@@ -19,6 +19,26 @@ const MODULE_TYPES = new Set([
   "redemption",
 ]);
 
+export function defaultCoursePresentation() {
+  return {
+    backgroundHex: "#0a1628",
+    backgrounds: {},
+    backgroundMode: "fixed",
+    logoUrl: "",
+    logoAlign: "center",
+    headlineHex: "#ffffff",
+    bodyHex: "#e8eef5",
+    accentHex: "#5ec8ff",
+    cardHex: "#122038",
+    faviconUrl: "",
+    showPoweredBy: true,
+  };
+}
+
+export function defaultCourseSettings() {
+  return { navigationMode: "sequential", layout: "cards" };
+}
+
 export function emptyCourseRecord(id, slug, previewToken) {
   return {
     id,
@@ -34,6 +54,8 @@ export function emptyCourseRecord(id, slug, previewToken) {
     thumbnailUrl: "",
     previewToken,
     sections: [],
+    presentation: defaultCoursePresentation(),
+    settings: defaultCourseSettings(),
     archived: false,
   };
 }
@@ -43,7 +65,10 @@ function normalizeCourseItem(raw, index) {
   return {
     id: String(raw.id || `item-${index}`),
     kind,
+    displayTitle: raw.displayTitle ? String(raw.displayTitle) : undefined,
     label: raw.label ? String(raw.label) : undefined,
+    iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
+    iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
     moduleInstanceId: raw.moduleInstanceId ? String(raw.moduleInstanceId) : undefined,
     moduleType: raw.moduleType ? String(raw.moduleType) : undefined,
     experienceId: raw.experienceId ? String(raw.experienceId) : undefined,
@@ -54,10 +79,49 @@ function normalizeCourseItem(raw, index) {
 
 function normalizeCourseSection(raw, index) {
   const items = Array.isArray(raw.items) ? raw.items.map((item, i) => normalizeCourseItem(item, i)) : [];
+  const unlockDays =
+    raw.unlockDaysAfterStart === null || raw.unlockDaysAfterStart === undefined
+      ? null
+      : Math.max(0, Number(raw.unlockDaysAfterStart) || 0);
   return {
     id: String(raw.id || `section-${index}`),
     title: String(raw.title || `Section ${index + 1}`),
+    iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
+    iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
+    unlockDate: raw.unlockDate ? String(raw.unlockDate) : null,
+    unlockDaysAfterStart: unlockDays,
     items,
+  };
+}
+
+function normalizePresentation(raw) {
+  const d = defaultCoursePresentation();
+  if (!raw || typeof raw !== "object") return d;
+  return {
+    backgroundHex: String(raw.backgroundHex || d.backgroundHex),
+    backgrounds: {
+      desktop: raw.backgrounds?.desktop ? String(raw.backgrounds.desktop) : undefined,
+      tablet: raw.backgrounds?.tablet ? String(raw.backgrounds.tablet) : undefined,
+      mobile: raw.backgrounds?.mobile ? String(raw.backgrounds.mobile) : undefined,
+    },
+    backgroundMode: raw.backgroundMode === "scroll" ? "scroll" : "fixed",
+    logoUrl: String(raw.logoUrl || ""),
+    logoAlign: raw.logoAlign === "left" || raw.logoAlign === "right" ? raw.logoAlign : "center",
+    headlineHex: String(raw.headlineHex || d.headlineHex),
+    bodyHex: String(raw.bodyHex || d.bodyHex),
+    accentHex: String(raw.accentHex || d.accentHex),
+    cardHex: String(raw.cardHex || d.cardHex),
+    faviconUrl: String(raw.faviconUrl || ""),
+    showPoweredBy: raw.showPoweredBy !== false,
+  };
+}
+
+function normalizeSettings(raw) {
+  const d = defaultCourseSettings();
+  if (!raw || typeof raw !== "object") return d;
+  return {
+    navigationMode: raw.navigationMode === "free" ? "free" : "sequential",
+    layout: raw.layout === "rows" || raw.layout === "bento" ? raw.layout : d.layout,
   };
 }
 
@@ -77,6 +141,8 @@ export function normalizeCourseRecord(doc) {
     thumbnailUrl: String(doc.thumbnailUrl || ""),
     previewToken: String(doc.previewToken || ""),
     sections,
+    presentation: normalizePresentation(doc.presentation),
+    settings: normalizeSettings(doc.settings),
     archived: !!doc.archived,
   };
 }
@@ -111,12 +177,16 @@ export function resolvePublicCourseItems(course, moduleById, experienceById) {
         const mod = item.moduleInstanceId ? moduleById.get(item.moduleInstanceId) : undefined;
         const moduleType = item.moduleType || mod?.gameType || "spinning-wheel";
         if (!MODULE_TYPES.has(moduleType)) continue;
+        const resolvedTitle = item.displayTitle || item.label || mod?.title || moduleType;
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "module",
-          label: item.label || mod?.title || moduleType,
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: mod?.slug ? componentPublicPath(moduleType, mod.slug) : "",
           moduleType,
           missing: !mod,
@@ -126,12 +196,16 @@ export function resolvePublicCourseItems(course, moduleById, experienceById) {
       }
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
+        const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "experience",
-          label: item.label || exp?.title || "Experience",
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
           missing: !exp,
           archived: !!exp?.archived,
@@ -139,12 +213,16 @@ export function resolvePublicCourseItems(course, moduleById, experienceById) {
         continue;
       }
       if (item.kind === "video" && item.videoUrl) {
+        const resolvedTitle = item.displayTitle || item.label || item.videoTitle || "Video lesson";
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "video",
-          label: item.label || item.videoTitle || "Video lesson",
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: item.videoUrl,
         });
       }
@@ -157,6 +235,10 @@ export function toPublicCourse(course, items) {
   const sections = (course.sections || []).map((section) => ({
     id: section.id,
     title: section.title,
+    iconUrl: section.iconUrl,
+    iconEmoji: section.iconEmoji,
+    unlockDate: section.unlockDate ?? null,
+    unlockDaysAfterStart: section.unlockDaysAfterStart ?? null,
     items: items.filter((i) => i.sectionId === section.id),
   }));
   return {
@@ -165,6 +247,8 @@ export function toPublicCourse(course, items) {
     title: course.title,
     description: course.description,
     status: course.status,
+    presentation: course.presentation,
+    settings: course.settings,
     sections,
     items,
     itemCount: items.length,

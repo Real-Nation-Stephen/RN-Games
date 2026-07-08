@@ -88,6 +88,11 @@ export {
   type CourseSession,
   type PublicCourse,
   type PublicCourseItem,
+  type CoursePresentation,
+  type CourseSettings,
+  type CourseLayout,
+  type CourseNavigationMode,
+  type PublicCourseSection,
   emptyCourse,
   normalizeCourse,
   flattenCourseItems,
@@ -97,6 +102,10 @@ export {
   coursePublicPath,
   courseCompletionPercent,
   newCourseId,
+  defaultCoursePresentation,
+  defaultCourseSettings,
+  sectionUnlockState,
+  isCourseItemAccessible,
 } from "./course.js";
 export {
   type CourseContext,

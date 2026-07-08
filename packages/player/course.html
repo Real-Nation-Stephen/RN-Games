@@ -7,52 +7,65 @@
     <link rel="stylesheet" href="/src/course/course.css" />
   </head>
   <body>
-    <div id="app">
-      <div id="course-loading" class="course-panel">Loading course…</div>
-      <div id="course-error" class="course-panel course-error" hidden></div>
-      <div id="course-home" hidden>
-        <header class="course-header">
-          <h1 id="course-title"></h1>
-          <p id="course-description" class="course-muted"></p>
-          <div class="course-progress-wrap">
-            <div class="course-progress-bar"><div id="course-progress-fill"></div></div>
-            <span id="course-progress-label" class="course-muted"></span>
+    <div id="course-shell">
+      <div id="app">
+        <div id="course-loading" class="course-panel">Loading course…</div>
+        <div id="course-error" class="course-panel course-error" hidden></div>
+
+        <div id="course-home" hidden>
+          <header class="course-hero">
+            <div id="course-logo" class="course-logo" hidden></div>
+            <h1 id="course-title"></h1>
+            <p id="course-description" class="course-muted"></p>
+            <div class="course-progress-wrap">
+              <div class="course-progress-bar"><div id="course-progress-fill"></div></div>
+              <span id="course-progress-label" class="course-muted"></span>
+            </div>
+          </header>
+
+          <section id="course-resume" class="course-card" hidden>
+            <h2>Resume your progress</h2>
+            <p class="course-muted">Enter your email to save progress and receive a resume link.</p>
+            <div class="course-resume-row">
+              <input id="course-email" type="email" placeholder="you@example.com" />
+              <button type="button" id="course-save-email" class="course-btn course-btn-primary">Email resume link</button>
+            </div>
+            <p id="course-resume-status" class="course-muted" hidden></p>
+            <p id="course-resume-link" class="course-muted" hidden></p>
+          </section>
+
+          <section id="course-summary" class="course-card" hidden>
+            <h2>Your achievements</h2>
+            <ul id="course-cert-list"></ul>
+          </section>
+
+          <div id="course-sections"></div>
+
+          <div id="course-empty" class="course-card" hidden>
+            <h2>Curriculum coming soon</h2>
+            <p class="course-muted">This course does not have any items yet. Check back soon.</p>
           </div>
-        </header>
 
-        <section id="course-resume" class="course-card" hidden>
-          <h2>Resume your progress</h2>
-          <p class="course-muted">Enter your email to save progress and receive a resume link.</p>
-          <div class="course-resume-row">
-            <input id="course-email" type="email" placeholder="you@example.com" />
-            <button type="button" id="course-save-email" class="course-btn course-btn-primary">Email resume link</button>
+          <div id="course-complete" class="course-card course-complete-banner" hidden>
+            <h2>Course complete</h2>
+            <p class="course-muted">You have finished all items in this course.</p>
           </div>
-          <p id="course-resume-status" class="course-muted" hidden></p>
-          <p id="course-resume-link" class="course-muted" hidden></p>
-        </section>
 
-        <section id="course-summary" class="course-card" hidden>
-          <h2>Your achievements</h2>
-          <ul id="course-cert-list"></ul>
-        </section>
-
-        <div id="course-sections"></div>
-
-        <div id="course-complete" class="course-card" hidden>
-          <h2>Course complete</h2>
-          <p class="course-muted">You have finished all items in this course.</p>
+          <footer id="course-powered" class="course-powered" hidden>
+            Powered by <strong>Real Nation</strong>
+          </footer>
         </div>
-      </div>
 
-      <div id="course-player" hidden>
-        <header class="course-player-header">
-          <button type="button" id="course-back" class="course-btn">← Back to course</button>
-          <span id="course-player-title"></span>
-        </header>
-        <iframe id="course-frame" title="Course item" allow="fullscreen"></iframe>
-        <footer class="course-player-footer">
-          <button type="button" id="course-mark-complete" class="course-btn course-btn-primary">Mark complete &amp; continue</button>
-        </footer>
+        <div id="course-player" hidden>
+          <header class="course-player-header">
+            <button type="button" id="course-back" class="course-btn">← Back to course</button>
+            <span id="course-player-title"></span>
+          </header>
+          <iframe id="course-frame" title="Course item" allow="fullscreen"></iframe>
+          <footer class="course-player-footer">
+            <button type="button" id="course-mark-complete" class="course-btn course-btn-primary">Mark complete &amp; continue</button>
+          </footer>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/course/main.ts"></script>

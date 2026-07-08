@@ -7,16 +7,47 @@ export type CourseStatus = "draft" | "published" | "archived";
 
 export type CourseItemKind = "module" | "experience" | "video";
 
+export type CourseLayout = "rows" | "cards" | "bento";
+
+export type CourseNavigationMode = "sequential" | "free";
+
+export interface CourseBreakpointBg {
+  desktop?: string;
+  tablet?: string;
+  mobile?: string;
+}
+
+export interface CoursePresentation {
+  backgroundHex: string;
+  backgrounds: CourseBreakpointBg;
+  backgroundMode: "fixed" | "scroll";
+  logoUrl: string;
+  logoAlign: "left" | "center" | "right";
+  headlineHex: string;
+  bodyHex: string;
+  accentHex: string;
+  cardHex: string;
+  faviconUrl?: string;
+  showPoweredBy?: boolean;
+}
+
+export interface CourseSettings {
+  navigationMode: CourseNavigationMode;
+  layout: CourseLayout;
+}
+
 export interface CourseItem {
   id: string;
   kind: CourseItemKind;
+  /** Custom title shown on the course home (falls back to component title). */
+  displayTitle?: string;
+  /** Legacy / fallback label from picker */
   label?: string;
-  /** Module reference */
+  iconUrl?: string;
+  iconEmoji?: string;
   moduleInstanceId?: string;
   moduleType?: string;
-  /** Nested experience */
   experienceId?: string;
-  /** External video / lesson URL */
   videoUrl?: string;
   videoTitle?: string;
 }
@@ -24,6 +55,12 @@ export interface CourseItem {
 export interface CourseSection {
   id: string;
   title: string;
+  iconUrl?: string;
+  iconEmoji?: string;
+  /** ISO date — section hidden until this calendar date */
+  unlockDate?: string | null;
+  /** Days after learner starts — section hidden until elapsed */
+  unlockDaysAfterStart?: number | null;
   items: CourseItem[];
 }
 
@@ -41,6 +78,8 @@ export interface CourseRecord {
   thumbnailUrl?: string;
   previewToken: string;
   sections: CourseSection[];
+  presentation: CoursePresentation;
+  settings: CourseSettings;
   archived?: boolean;
 }
 
@@ -64,11 +103,28 @@ export interface PublicCourseItem {
   sectionId: string;
   sectionTitle: string;
   kind: CourseItemKind;
+  displayTitle: string;
   label: string;
+  iconUrl?: string;
+  iconEmoji?: string;
   launchPath: string;
   moduleType?: string;
   missing?: boolean;
   archived?: boolean;
+  locked?: boolean;
+  lockReason?: string;
+}
+
+export interface PublicCourseSection {
+  id: string;
+  title: string;
+  iconUrl?: string;
+  iconEmoji?: string;
+  unlockDate?: string | null;
+  unlockDaysAfterStart?: number | null;
+  locked?: boolean;
+  lockReason?: string;
+  items: PublicCourseItem[];
 }
 
 export interface PublicCourse {
@@ -77,7 +133,9 @@ export interface PublicCourse {
   title: string;
   description: string;
   status: CourseStatus;
-  sections: { id: string; title: string; items: PublicCourseItem[] }[];
+  presentation: CoursePresentation;
+  settings: CourseSettings;
+  sections: PublicCourseSection[];
   items: PublicCourseItem[];
   itemCount: number;
 }
@@ -105,6 +163,29 @@ export function newCourseId(prefix: string) {
   return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 }
 
+export function defaultCoursePresentation(): CoursePresentation {
+  return {
+    backgroundHex: "#0a1628",
+    backgrounds: {},
+    backgroundMode: "fixed",
+    logoUrl: "",
+    logoAlign: "center",
+    headlineHex: "#ffffff",
+    bodyHex: "#e8eef5",
+    accentHex: "#5ec8ff",
+    cardHex: "#122038",
+    faviconUrl: "",
+    showPoweredBy: true,
+  };
+}
+
+export function defaultCourseSettings(): CourseSettings {
+  return {
+    navigationMode: "sequential",
+    layout: "cards",
+  };
+}
+
 export function emptyCourse(id: string, slug: string, previewToken: string): CourseRecord {
   return {
     id,
@@ -120,6 +201,8 @@ export function emptyCourse(id: string, slug: string, previewToken: string): Cou
     thumbnailUrl: "",
     previewToken,
     sections: [],
+    presentation: defaultCoursePresentation(),
+    settings: defaultCourseSettings(),
     archived: false,
   };
 }
@@ -146,7 +229,10 @@ export function normalizeCourseItem(raw: Partial<CourseItem>, index: number): Co
   return {
     id: String(raw.id || `item-${index}`),
     kind,
+    displayTitle: raw.displayTitle ? String(raw.displayTitle) : undefined,
     label: raw.label ? String(raw.label) : undefined,
+    iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
+    iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
     moduleInstanceId: raw.moduleInstanceId ? String(raw.moduleInstanceId) : undefined,
     moduleType: raw.moduleType ? String(raw.moduleType) : undefined,
     experienceId: raw.experienceId ? String(raw.experienceId) : undefined,
@@ -157,10 +243,49 @@ export function normalizeCourseItem(raw: Partial<CourseItem>, index: number): Co
 
 export function normalizeCourseSection(raw: Partial<CourseSection>, index: number): CourseSection {
   const items = Array.isArray(raw.items) ? raw.items.map((item, i) => normalizeCourseItem(item, i)) : [];
+  const unlockDays =
+    raw.unlockDaysAfterStart === null || raw.unlockDaysAfterStart === undefined
+      ? null
+      : Math.max(0, Number(raw.unlockDaysAfterStart) || 0);
   return {
     id: String(raw.id || `section-${index}`),
     title: String(raw.title || `Section ${index + 1}`),
+    iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
+    iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
+    unlockDate: raw.unlockDate ? String(raw.unlockDate) : null,
+    unlockDaysAfterStart: unlockDays,
     items,
+  };
+}
+
+function normalizePresentation(raw: Partial<CoursePresentation> | undefined): CoursePresentation {
+  const d = defaultCoursePresentation();
+  if (!raw || typeof raw !== "object") return d;
+  return {
+    backgroundHex: String(raw.backgroundHex || d.backgroundHex),
+    backgrounds: {
+      desktop: raw.backgrounds?.desktop ? String(raw.backgrounds.desktop) : undefined,
+      tablet: raw.backgrounds?.tablet ? String(raw.backgrounds.tablet) : undefined,
+      mobile: raw.backgrounds?.mobile ? String(raw.backgrounds.mobile) : undefined,
+    },
+    backgroundMode: raw.backgroundMode === "scroll" ? "scroll" : "fixed",
+    logoUrl: String(raw.logoUrl || ""),
+    logoAlign: raw.logoAlign === "left" || raw.logoAlign === "right" ? raw.logoAlign : "center",
+    headlineHex: String(raw.headlineHex || d.headlineHex),
+    bodyHex: String(raw.bodyHex || d.bodyHex),
+    accentHex: String(raw.accentHex || d.accentHex),
+    cardHex: String(raw.cardHex || d.cardHex),
+    faviconUrl: String(raw.faviconUrl || ""),
+    showPoweredBy: raw.showPoweredBy !== false,
+  };
+}
+
+function normalizeSettings(raw: Partial<CourseSettings> | undefined): CourseSettings {
+  const d = defaultCourseSettings();
+  if (!raw || typeof raw !== "object") return d;
+  return {
+    navigationMode: raw.navigationMode === "free" ? "free" : "sequential",
+    layout: raw.layout === "rows" || raw.layout === "bento" ? raw.layout : d.layout,
   };
 }
 
@@ -182,6 +307,8 @@ export function normalizeCourse(doc: Partial<CourseRecord> & { id: string }): Co
     thumbnailUrl: String(doc.thumbnailUrl || ""),
     previewToken: String(doc.previewToken || ""),
     sections,
+    presentation: normalizePresentation(doc.presentation),
+    settings: normalizeSettings(doc.settings),
     archived: !!doc.archived,
   };
 }
@@ -233,12 +360,16 @@ export function resolvePublicCourseItems(
         const mod = item.moduleInstanceId ? moduleById.get(item.moduleInstanceId) : undefined;
         const moduleType = item.moduleType || mod?.gameType || "spinning-wheel";
         if (!MODULE_TYPES.has(moduleType)) continue;
+        const resolvedTitle = item.displayTitle || item.label || mod?.title || moduleType;
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "module",
-          label: item.label || mod?.title || moduleType,
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: mod?.slug ? componentPublicPath(moduleType, mod.slug) : "",
           moduleType,
           missing: !mod,
@@ -248,12 +379,16 @@ export function resolvePublicCourseItems(
       }
       if (item.kind === "experience") {
         const exp = item.experienceId ? experienceById.get(item.experienceId) : undefined;
+        const resolvedTitle = item.displayTitle || item.label || exp?.title || "Experience";
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "experience",
-          label: item.label || exp?.title || "Experience",
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: exp?.slug ? `/x/${encodeURIComponent(exp.slug)}` : "",
           missing: !exp,
           archived: !!exp?.archived,
@@ -261,18 +396,66 @@ export function resolvePublicCourseItems(
         continue;
       }
       if (item.kind === "video" && item.videoUrl) {
+        const resolvedTitle = item.displayTitle || item.label || item.videoTitle || "Video lesson";
         out.push({
           id: item.id,
           sectionId: section.id,
           sectionTitle: section.title,
           kind: "video",
-          label: item.label || item.videoTitle || "Video lesson",
+          displayTitle: resolvedTitle,
+          label: resolvedTitle,
+          iconUrl: item.iconUrl,
+          iconEmoji: item.iconEmoji,
           launchPath: item.videoUrl,
         });
       }
     }
   }
   return out;
+}
+
+export function sectionUnlockState(
+  section: Pick<CourseSection, "unlockDate" | "unlockDaysAfterStart">,
+  startedAt: string,
+  now = Date.now(),
+): { locked: boolean; reason?: string } {
+  if (section.unlockDate) {
+    const unlockAt = new Date(section.unlockDate).getTime();
+    if (!Number.isNaN(unlockAt) && now < unlockAt) {
+      return {
+        locked: true,
+        reason: `Available from ${new Date(unlockAt).toLocaleDateString("en-GB")}`,
+      };
+    }
+  }
+  if (section.unlockDaysAfterStart != null && section.unlockDaysAfterStart > 0) {
+    const started = new Date(startedAt).getTime();
+    const unlockAt = started + section.unlockDaysAfterStart * 86_400_000;
+    if (now < unlockAt) {
+      const daysLeft = Math.ceil((unlockAt - now) / 86_400_000);
+      return { locked: true, reason: `Unlocks in ${daysLeft} day${daysLeft === 1 ? "" : "s"}` };
+    }
+  }
+  return { locked: false };
+}
+
+export function isCourseItemAccessible(
+  item: PublicCourseItem,
+  items: PublicCourseItem[],
+  session: Pick<CourseSession, "completedItemIds" | "startedAt">,
+  settings: CourseSettings,
+  sectionLocked: boolean,
+): { accessible: boolean; reason?: string } {
+  if (item.missing || item.archived || !item.launchPath) {
+    return { accessible: false, reason: "Unavailable" };
+  }
+  if (sectionLocked) return { accessible: false, reason: item.lockReason || "Section locked" };
+  const completed = new Set(session.completedItemIds || []);
+  if (completed.has(item.id)) return { accessible: true };
+  if (settings.navigationMode === "free") return { accessible: true };
+  const firstOpen = items.find((i) => !completed.has(i.id) && !i.missing && !i.archived && !i.locked);
+  if (firstOpen?.id === item.id) return { accessible: true };
+  return { accessible: false, reason: "Complete the previous step first" };
 }
 
 export function toPublicCourse(
@@ -282,6 +465,10 @@ export function toPublicCourse(
   const sections = (course.sections || []).map((section) => ({
     id: section.id,
     title: section.title,
+    iconUrl: section.iconUrl,
+    iconEmoji: section.iconEmoji,
+    unlockDate: section.unlockDate ?? null,
+    unlockDaysAfterStart: section.unlockDaysAfterStart ?? null,
     items: items.filter((i) => i.sectionId === section.id),
   }));
   return {
@@ -290,6 +477,8 @@ export function toPublicCourse(
     title: course.title,
     description: course.description,
     status: course.status,
+    presentation: course.presentation,
+    settings: course.settings,
     sections,
     items,
     itemCount: items.length,

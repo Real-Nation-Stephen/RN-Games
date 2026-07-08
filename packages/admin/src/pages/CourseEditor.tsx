@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CourseItem, CourseRecord, CourseSection } from "@rngames/shared";
-import { newCourseId } from "@rngames/shared";
-import { apiDelete, apiGet, apiSend } from "../api";
+import { defaultCoursePresentation, defaultCourseSettings, newCourseId } from "@rngames/shared";
+import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
+import { BgUploadRow } from "../components/BgUploadRow";
+import { CollapsibleSection } from "../components/CollapsibleSection";
+import { HexField } from "../components/HexField";
 import { ItemPicker, type PickerExperience, type PickerModule } from "../components/ItemPicker";
 import { coursePublicUrl } from "./homeShared";
 
 function newSection(): CourseSection {
   return { id: newCourseId("sec-"), title: "New section", items: [] };
+}
+
+function ensureCourseDefaults(doc: CourseRecord): CourseRecord {
+  return {
+    ...doc,
+    presentation: doc.presentation || defaultCoursePresentation(),
+    settings: doc.settings || defaultCourseSettings(),
+  };
 }
 
 export default function CourseEditor() {
@@ -30,7 +41,7 @@ export default function CourseEditor() {
       apiGet("/api/wheels"),
       apiGet("/api/experiences"),
     ]);
-    const doc = courseRes.course as CourseRecord;
+    const doc = ensureCourseDefaults(courseRes.course as CourseRecord);
     setCourse(doc);
     setModules((wheelsRes.wheels || []).filter((w: PickerModule & { archived?: boolean }) => !w.archived));
     setExperiences((expRes.experiences || []).filter((e: PickerExperience & { archived?: boolean }) => !e.archived));
@@ -52,7 +63,7 @@ export default function CourseEditor() {
     setErr(null);
     try {
       const res = await apiSend("/api/courses", "PUT", { ...course, publish });
-      setCourse(res.course as CourseRecord);
+      setCourse(ensureCourseDefaults(res.course as CourseRecord));
       setWarnings(Array.isArray(res.warnings) ? res.warnings : []);
       setMsg(publish ? "Published." : "Saved.");
     } catch (e) {
@@ -95,6 +106,16 @@ export default function CourseEditor() {
     }));
   }
 
+  function sourceLabel(item: CourseItem): string {
+    if (item.kind === "module") {
+      return modules.find((m) => m.id === item.moduleInstanceId)?.title || item.moduleType || "module";
+    }
+    if (item.kind === "experience") {
+      return experiences.find((e) => e.id === item.experienceId)?.title || "Experience";
+    }
+    return item.videoTitle || "Video";
+  }
+
   if (!course) {
     return <p className="muted">{err || "Loading…"}</p>;
   }
@@ -102,6 +123,8 @@ export default function CourseEditor() {
   const previewUrl = coursePublicUrl(course.slug, course.previewToken);
   const liveUrl = coursePublicUrl(course.slug);
   const activeSection = course.sections.find((s) => s.id === activeSectionId) || course.sections[0];
+  const p = course.presentation;
+  const s = course.settings;
 
   return (
     <div>
@@ -160,6 +183,178 @@ export default function CourseEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Course settings</h3>
+        <div className="grid2">
+          <label className="field">
+            Navigation
+            <select
+              value={s.navigationMode}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, navigationMode: e.target.value as "sequential" | "free" },
+                }))
+              }
+            >
+              <option value="sequential">Sequential — complete items in order</option>
+              <option value="free">Free — learners choose any unlocked item</option>
+            </select>
+          </label>
+          <label className="field">
+            Home layout
+            <select
+              value={s.layout}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, layout: e.target.value as "rows" | "cards" | "bento" },
+                }))
+              }
+            >
+              <option value="rows">Rows — compact list</option>
+              <option value="cards">Cards — responsive grid</option>
+              <option value="bento">Bento — mixed-size showcase grid</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginBottom: 16 }}>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Course appearance</h3>
+          <HexField
+            label="Background colour"
+            value={p.backgroundHex}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, backgroundHex: v } }))}
+          />
+          <label className="field">
+            Background behaviour
+            <select
+              value={p.backgroundMode}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  presentation: { ...c.presentation, backgroundMode: e.target.value as "fixed" | "scroll" },
+                }))
+              }
+            >
+              <option value="fixed">Fixed — background stays, content scrolls</option>
+              <option value="scroll">Scroll — background moves with page</option>
+            </select>
+          </label>
+          <label className="field">Logo</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((c) => ({ ...c, presentation: { ...c.presentation, logoUrl: url } }));
+            }}
+          />
+          {p.logoUrl ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 8 }}>
+            Logo alignment
+            <select
+              value={p.logoAlign}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  presentation: { ...c.presentation, logoAlign: e.target.value as "left" | "center" | "right" },
+                }))
+              }
+            >
+              <option value="left">Left</option>
+              <option value="center">Centre</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <CollapsibleSection title="Breakpoint backgrounds" summary="Desktop / tablet / mobile">
+            <BgUploadRow
+              label="Desktop"
+              hint="Shown at 1024px and wider."
+              value={p.backgrounds.desktop || ""}
+              onUploaded={(url) =>
+                patch((c) => ({
+                  ...c,
+                  presentation: { ...c.presentation, backgrounds: { ...c.presentation.backgrounds, desktop: url } },
+                }))
+              }
+            />
+            <BgUploadRow
+              label="Tablet"
+              hint="768px – 1023px."
+              value={p.backgrounds.tablet || ""}
+              onUploaded={(url) =>
+                patch((c) => ({
+                  ...c,
+                  presentation: { ...c.presentation, backgrounds: { ...c.presentation.backgrounds, tablet: url } },
+                }))
+              }
+            />
+            <BgUploadRow
+              label="Mobile"
+              hint="Below 768px."
+              value={p.backgrounds.mobile || ""}
+              onUploaded={(url) =>
+                patch((c) => ({
+                  ...c,
+                  presentation: { ...c.presentation, backgrounds: { ...c.presentation.backgrounds, mobile: url } },
+                }))
+              }
+            />
+          </CollapsibleSection>
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Colours & branding</h3>
+          <HexField
+            label="Headline colour"
+            value={p.headlineHex}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, headlineHex: v } }))}
+          />
+          <HexField
+            label="Body text colour"
+            value={p.bodyHex}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, bodyHex: v } }))}
+          />
+          <HexField
+            label="Accent colour"
+            value={p.accentHex}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, accentHex: v } }))}
+          />
+          <HexField
+            label="Card background"
+            value={p.cardHex}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, cardHex: v } }))}
+          />
+          <label className="field">Favicon</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((c) => ({ ...c, presentation: { ...c.presentation, faviconUrl: url } }));
+            }}
+          />
+          {p.faviconUrl ? <span className="muted"> ✓</span> : null}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={p.showPoweredBy !== false}
+              onChange={(e) =>
+                patch((c) => ({ ...c, presentation: { ...c.presentation, showPoweredBy: e.target.checked } }))
+              }
+            />
+            Show “Powered by Real Nation” on the course page
+          </label>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h3 style={{ margin: 0 }}>Curriculum</h3>
           <button type="button" className="btn btn-primary" onClick={addSection}>
@@ -190,20 +385,91 @@ export default function CourseEditor() {
 
             {activeSection ? (
               <div>
-                <label className="field">
-                  Section title
-                  <input
-                    value={activeSection.title}
-                    onChange={(e) =>
-                      patch((c) => ({
-                        ...c,
-                        sections: c.sections.map((s) =>
-                          s.id === activeSection.id ? { ...s, title: e.target.value } : s,
-                        ),
-                      }))
-                    }
-                  />
-                </label>
+                <div className="grid2">
+                  <label className="field">
+                    Section title
+                    <input
+                      value={activeSection.title}
+                      onChange={(e) =>
+                        patch((c) => ({
+                          ...c,
+                          sections: c.sections.map((s) =>
+                            s.id === activeSection.id ? { ...s, title: e.target.value } : s,
+                          ),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    Section icon (emoji)
+                    <input
+                      placeholder="e.g. 🎯"
+                      value={activeSection.iconEmoji || ""}
+                      onChange={(e) =>
+                        patch((c) => ({
+                          ...c,
+                          sections: c.sections.map((s) =>
+                            s.id === activeSection.id ? { ...s, iconEmoji: e.target.value || undefined } : s,
+                          ),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    Unlock on date
+                    <input
+                      type="date"
+                      value={activeSection.unlockDate?.slice(0, 10) || ""}
+                      onChange={(e) =>
+                        patch((c) => ({
+                          ...c,
+                          sections: c.sections.map((s) =>
+                            s.id === activeSection.id
+                              ? { ...s, unlockDate: e.target.value ? e.target.value : null }
+                              : s,
+                          ),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    Unlock days after start
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0 = no delay"
+                      value={activeSection.unlockDaysAfterStart ?? ""}
+                      onChange={(e) =>
+                        patch((c) => ({
+                          ...c,
+                          sections: c.sections.map((s) =>
+                            s.id === activeSection.id
+                              ? {
+                                  ...s,
+                                  unlockDaysAfterStart: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0),
+                                }
+                              : s,
+                          ),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="field">Section icon image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const { url } = await uploadFile(f);
+                    patch((c) => ({
+                      ...c,
+                      sections: c.sections.map((s) => (s.id === activeSection.id ? { ...s, iconUrl: url } : s)),
+                    }));
+                  }}
+                />
+                {activeSection.iconUrl ? <span className="muted"> ✓</span> : null}
 
                 {activeSection.items.length === 0 ? (
                   <p className="muted" style={{ fontSize: "0.85rem" }}>
@@ -213,22 +479,11 @@ export default function CourseEditor() {
                   <ol style={{ paddingLeft: 20, margin: "12px 0" }}>
                     {activeSection.items.map((item, i) => {
                       const itemWarnings = warnings.filter((w) => w.itemId === item.id);
-                      const label =
-                        item.label ||
-                        (item.kind === "module"
-                          ? modules.find((m) => m.id === item.moduleInstanceId)?.title
-                          : item.kind === "experience"
-                            ? experiences.find((e) => e.id === item.experienceId)?.title
-                            : item.videoTitle) ||
-                        item.kind;
                       return (
-                        <li key={item.id} style={{ marginBottom: 10 }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                            <span>
-                              {label}{" "}
-                              <span className="muted" style={{ fontSize: "0.8rem" }}>
-                                ({item.kind})
-                              </span>
+                        <li key={item.id} style={{ marginBottom: 16 }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                            <span className="muted" style={{ fontSize: "0.85rem" }}>
+                              {sourceLabel(item)} ({item.kind})
                             </span>
                             <button type="button" className="btn" disabled={i === 0} onClick={() => moveItem(activeSection.id, i, -1)}>
                               ↑
@@ -258,6 +513,74 @@ export default function CourseEditor() {
                               Remove
                             </button>
                           </div>
+                          <div className="grid2">
+                            <label className="field">
+                              Display title
+                              <input
+                                placeholder={sourceLabel(item)}
+                                value={item.displayTitle || ""}
+                                onChange={(e) =>
+                                  patch((c) => ({
+                                    ...c,
+                                    sections: c.sections.map((s) =>
+                                      s.id === activeSection.id
+                                        ? {
+                                            ...s,
+                                            items: s.items.map((it, j) =>
+                                              j === i ? { ...it, displayTitle: e.target.value || undefined } : it,
+                                            ),
+                                          }
+                                        : s,
+                                    ),
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="field">
+                              Item icon (emoji)
+                              <input
+                                placeholder="e.g. 🍀"
+                                value={item.iconEmoji || ""}
+                                onChange={(e) =>
+                                  patch((c) => ({
+                                    ...c,
+                                    sections: c.sections.map((s) =>
+                                      s.id === activeSection.id
+                                        ? {
+                                            ...s,
+                                            items: s.items.map((it, j) =>
+                                              j === i ? { ...it, iconEmoji: e.target.value || undefined } : it,
+                                            ),
+                                          }
+                                        : s,
+                                    ),
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
+                          <label className="field">Item icon image</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const { url } = await uploadFile(f);
+                              patch((c) => ({
+                                ...c,
+                                sections: c.sections.map((s) =>
+                                  s.id === activeSection.id
+                                    ? {
+                                        ...s,
+                                        items: s.items.map((it, j) => (j === i ? { ...it, iconUrl: url } : it)),
+                                      }
+                                    : s,
+                                ),
+                              }));
+                            }}
+                          />
+                          {item.iconUrl ? <span className="muted"> ✓</span> : null}
                           {itemWarnings.length > 0 ? (
                             <ul className="muted" style={{ fontSize: "0.8rem", margin: "4px 0 0", paddingLeft: 18, color: "#ffb4b4" }}>
                               {itemWarnings.map((w) => (

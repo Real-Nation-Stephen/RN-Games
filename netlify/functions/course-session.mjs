@@ -198,7 +198,7 @@ export const handler = async (event) => {
       if (!course) {
         return { statusCode: 404, body: JSON.stringify({ error: "Course not found" }), headers };
       }
-      if (!flattenCourseItems(course.sections).length) {
+      if (!flattenCourseItems(course.sections).length && !previewToken) {
         return { statusCode: 400, body: JSON.stringify({ error: "Course has no items" }), headers };
       }
 
