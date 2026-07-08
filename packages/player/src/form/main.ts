@@ -1,16 +1,15 @@
 import type { FormField, FormRecord } from "@rngames/shared/page-modules";
-import { parseFlowContextFromSearch } from "@rngames/shared";
 import {
   applyPageTheme,
   completeStep,
   engageStep,
+  embeddedShellActive,
   fetchPageModule,
-  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
-  patchSessionData,
+  initEmbeddedContexts,
   setupPagePreview,
+  syncModuleSession,
   wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
@@ -122,17 +121,14 @@ function showPostSubmit(cfg: FormRecord, onContinue: () => void) {
   }
   els.postSubmitHeadline.textContent = ps.headline || "Thank you";
   els.postSubmitBody.textContent = ps.body || "";
-  const btnLabel = ps.buttonLabel?.trim() || (flowModeActive() ? flowNextLabel() : "Continue");
+  const btnLabel = ps.buttonLabel?.trim() || (embeddedShellActive() ? flowNextLabel() : "Continue");
   els.postSubmitBtn.textContent = btnLabel;
   els.postSubmitBtn.onclick = onContinue;
 }
 
 async function finishForm(cfg: FormRecord, values: Record<string, string>) {
   const outcomes = { "form.fieldValues": values, completed: true };
-  const flow = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
-  if (flow?.sessionId) {
-    await patchSessionData(flow.sessionId, { formFields: values }, outcomes);
-  }
+  await syncModuleSession({ formFields: values }, outcomes);
   completeStep({ gameId: cfg.id, ...outcomes });
 }
 
@@ -142,7 +138,7 @@ function mountForm(cfg: FormRecord) {
   wirePageLogo(cfg);
   els.headline.textContent = cfg.headline;
   els.body.textContent = cfg.body;
-  els.submit.textContent = flowModeActive() ? flowNextLabel() : cfg.submitLabel;
+  els.submit.textContent = embeddedShellActive() ? flowNextLabel() : cfg.submitLabel;
   els.form.replaceChildren(...cfg.fields.map(renderField));
   els.formPanel.hidden = false;
   els.postSubmit.hidden = true;
@@ -176,7 +172,7 @@ async function boot() {
     setupPagePreview("form", (cfg) => mountForm(cfg as FormRecord));
     return;
   }
-  initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("form");
   if (!slug) {
     showError("Missing form slug.");

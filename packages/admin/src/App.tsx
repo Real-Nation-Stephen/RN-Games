@@ -12,6 +12,8 @@ import RunnerEditor from "./pages/RunnerEditor";
 import WheelEditor from "./pages/WheelEditor";
 import ExperienceEditor from "./pages/ExperienceEditor";
 import ExperiencesListPage from "./pages/ExperiencesListPage";
+import CourseEditor from "./pages/CourseEditor";
+import CoursesListPage from "./pages/CoursesListPage";
 import LibraryPage from "./pages/LibraryPage";
 import PageModuleEditor from "./pages/PageModuleEditor";
 
@@ -84,6 +86,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/experiences" element={<ExperiencesListPage />} />
           <Route path="/experiences/:id" element={<ExperienceEditor />} />
+          <Route path="/courses" element={<CoursesListPage />} />
+          <Route path="/courses/:id" element={<CourseEditor />} />
           <Route path="/library/:gameType" element={<LibraryPage />} />
           <Route path="/quizzes/:id" element={<QuizEditor />} />
           <Route path="/wheels/:id" element={<WheelEditor />} />

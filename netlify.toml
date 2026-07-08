@@ -102,6 +102,26 @@
   status = 200
 
 [[redirects]]
+  from = "/api/courses"
+  to = "/.netlify/functions/courses"
+  status = 200
+
+[[redirects]]
+  from = "/api/course-session"
+  to = "/.netlify/functions/course-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/public-course"
+  to = "/.netlify/functions/public-course"
+  status = 200
+
+[[redirects]]
+  from = "/api/course-resume-email"
+  to = "/.netlify/functions/course-resume-email"
+  status = 200
+
+[[redirects]]
   from = "/api/track"
   to = "/.netlify/functions/track"
   status = 200
@@ -118,6 +138,16 @@
 
 [[headers]]
   for = "/api/public-experience"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
+[[headers]]
+  for = "/api/course-session"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
+[[headers]]
+  for = "/api/public-course"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
 

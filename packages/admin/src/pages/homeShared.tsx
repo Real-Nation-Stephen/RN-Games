@@ -27,10 +27,30 @@ export type ExperienceItem = {
   stepCount?: number;
 };
 
+export type CourseItem = {
+  id: string;
+  slug: string;
+  title: string;
+  clientName: string;
+  projectCode?: string;
+  designCode?: string;
+  updatedAt: string;
+  status: string;
+  thumbnailUrl?: string;
+  itemCount?: number;
+  sectionCount?: number;
+};
+
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "");
 
 export function experiencePublicUrl(slug: string, previewToken?: string) {
   const base = `${siteUrl}/x/${encodeURIComponent(slug)}`;
+  if (previewToken) return `${base}?previewToken=${encodeURIComponent(previewToken)}`;
+  return base;
+}
+
+export function coursePublicUrl(slug: string, previewToken?: string) {
+  const base = `${siteUrl}/course/${encodeURIComponent(slug)}`;
   if (previewToken) return `${base}?previewToken=${encodeURIComponent(previewToken)}`;
   return base;
 }
@@ -164,6 +184,53 @@ export function ExperiencesTable({ items }: { items: ExperienceItem[] }) {
                 className="btn"
                 style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                 onClick={() => copy(experiencePublicUrl(x.slug))}
+              >
+                Copy URL
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export function CoursesTable({ items }: { items: CourseItem[] }) {
+  function copy(text: string) {
+    void navigator.clipboard.writeText(text);
+  }
+
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Client</th>
+          <th>Status</th>
+          <th>Items</th>
+          <th>Updated</th>
+          <th>Links</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((x) => (
+          <tr key={x.id}>
+            <td>
+              <Link to={`/courses/${x.id}`}>{x.title || "Untitled"}</Link>
+              <div className="muted" style={{ fontSize: "0.8rem" }}>
+                /course/{x.slug}
+              </div>
+            </td>
+            <td>{x.clientName || "—"}</td>
+            <td>{x.status}</td>
+            <td>{x.itemCount ?? 0}</td>
+            <td className="muted">{new Date(x.updatedAt).toLocaleString()}</td>
+            <td>
+              <button
+                type="button"
+                className="btn"
+                style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                onClick={() => copy(coursePublicUrl(x.slug))}
               >
                 Copy URL
               </button>

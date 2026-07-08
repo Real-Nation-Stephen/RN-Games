@@ -28,6 +28,8 @@ const RESERVED = new Set([
   "redemption",
   /** Experience player routes */
   "x",
+  /** Course player routes */
+  "course",
 ]);
 
 const PAGE_MODULE_ROUTES = [
@@ -52,6 +54,23 @@ export default async (request, context) => {
       target.searchParams.set("slug", slug);
       if (url.searchParams.get("previewToken")) {
         target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
+      }
+      return fetch(target);
+    }
+  }
+
+  // Course: /course/:slug
+  if (path === "/course" || path.startsWith("/course/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "course") {
+      const slug = seg[1];
+      const target = new URL("/play/course.html", url);
+      target.searchParams.set("slug", slug);
+      if (url.searchParams.get("previewToken")) {
+        target.searchParams.set("previewToken", url.searchParams.get("previewToken"));
+      }
+      if (url.searchParams.get("resumeToken")) {
+        target.searchParams.set("resumeToken", url.searchParams.get("resumeToken"));
       }
       return fetch(target);
     }

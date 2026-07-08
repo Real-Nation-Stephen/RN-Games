@@ -2,14 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExperienceLinearStep, ExperienceRecord } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend } from "../api";
+import { ItemPicker, type PickerModule } from "../components/ItemPicker";
 import { experiencePublicUrl } from "./homeShared";
-
-type ModuleOption = {
-  id: string;
-  gameType?: string;
-  slug: string;
-  title: string;
-};
 
 function newStepId() {
   return `step-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -19,11 +13,12 @@ export default function ExperienceEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<ExperienceRecord | null>(null);
-  const [modules, setModules] = useState<ModuleOption[]>([]);
+  const [modules, setModules] = useState<PickerModule[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<{ stepId: string; message: string }[]>([]);
+  const [pickerStepIndex, setPickerStepIndex] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -34,7 +29,7 @@ export default function ExperienceEditor() {
     ]);
     setGame(expRes.experience as ExperienceRecord);
     setModules(
-      (wheelsRes.wheels || []).filter((w: ModuleOption & { archived?: boolean }) => !w.archived),
+      (wheelsRes.wheels || []).filter((w: PickerModule & { archived?: boolean }) => !w.archived),
     );
   }, [id]);
 
@@ -42,14 +37,15 @@ export default function ExperienceEditor() {
     void load().catch((e) => setErr(e instanceof Error ? e.message : "Load failed"));
   }, [load]);
 
+  const moduleById = useMemo(() => new Map(modules.map((m) => [m.id, m])), [modules]);
+
   const moduleLabel = useMemo(() => {
-    const map = new Map(modules.map((m) => [m.id, m]));
     return (step: ExperienceLinearStep) => {
-      const m = map.get(step.moduleInstanceId);
+      const m = moduleById.get(step.moduleInstanceId);
       if (!m) return step.label || "— select component —";
       return `${m.title} (${m.gameType || "wheel"}) — /${m.slug}`;
     };
-  }, [modules]);
+  }, [moduleById]);
 
   function patch(fn: (g: ExperienceRecord) => ExperienceRecord) {
     setGame((g) => (g ? fn(g) : g));
@@ -81,7 +77,22 @@ export default function ExperienceEditor() {
     navigate("/");
   }
 
+  function assignModule(stepIndex: number, mod: PickerModule) {
+    patch((g) => {
+      const steps = [...g.linearSteps];
+      steps[stepIndex] = {
+        ...steps[stepIndex],
+        moduleInstanceId: mod.id,
+        moduleType: mod.gameType || "spinning-wheel",
+        label: mod.title,
+      };
+      return { ...g, linearSteps: steps };
+    });
+    setPickerStepIndex(null);
+  }
+
   function addStep() {
+    const newIndex = game.linearSteps.length;
     patch((g) => ({
       ...g,
       linearSteps: [
@@ -89,6 +100,7 @@ export default function ExperienceEditor() {
         { id: newStepId(), moduleInstanceId: "", moduleType: "spinning-wheel", label: "" },
       ],
     }));
+    setPickerStepIndex(newIndex);
   }
 
   function moveStep(index: number, dir: -1 | 1) {
@@ -97,20 +109,6 @@ export default function ExperienceEditor() {
       const j = index + dir;
       if (j < 0 || j >= steps.length) return g;
       [steps[index], steps[j]] = [steps[j], steps[index]];
-      return { ...g, linearSteps: steps };
-    });
-  }
-
-  function updateStep(index: number, moduleId: string) {
-    const mod = modules.find((m) => m.id === moduleId);
-    patch((g) => {
-      const steps = [...g.linearSteps];
-      steps[index] = {
-        ...steps[index],
-        moduleInstanceId: moduleId,
-        moduleType: mod?.gameType || "spinning-wheel",
-        label: mod?.title || steps[index].label,
-      };
       return { ...g, linearSteps: steps };
     });
   }
@@ -205,62 +203,66 @@ export default function ExperienceEditor() {
           </button>
         </div>
         {game.linearSteps.length === 0 ? (
-          <p className="muted">Add components in order. Visual node editor arrives in Wave 3.</p>
+          <p className="muted">Add components in order. Search and pick from categories below.</p>
         ) : (
           <ol style={{ paddingLeft: 20, margin: 0 }}>
             {game.linearSteps.map((step, i) => {
               const stepWarnings = warnings.filter((w) => w.stepId === step.id);
+              const picking = pickerStepIndex === i;
               return (
-              <li key={step.id} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  <select
-                    value={step.moduleInstanceId}
-                    onChange={(e) => updateStep(i, e.target.value)}
-                    style={{ minWidth: 280, flex: 1 }}
-                  >
-                    <option value="">— Select component —</option>
-                    {modules.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title} ({m.gameType || "spinning-wheel"}) — /{m.slug}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" className="btn" disabled={i === 0} onClick={() => moveStep(i, -1)}>
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={i === game.linearSteps.length - 1}
-                    onClick={() => moveStep(i, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() =>
-                      patch((g) => ({
-                        ...g,
-                        linearSteps: g.linearSteps.filter((_, j) => j !== i),
-                      }))
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
-                <div className="muted" style={{ fontSize: "0.8rem", marginTop: 4 }}>
-                  {moduleLabel(step)}
-                </div>
-                {stepWarnings.length > 0 ? (
-                  <ul className="muted" style={{ fontSize: "0.8rem", margin: "6px 0 0", paddingLeft: 18, color: "#ffb4b4" }}>
-                    {stepWarnings.map((w) => (
-                      <li key={w.message}>{w.message}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            );
+                <li key={step.id} style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <span style={{ flex: 1, minWidth: 200 }}>
+                      <strong>Step {i + 1}:</strong> {moduleLabel(step)}
+                    </span>
+                    <button type="button" className="btn" onClick={() => setPickerStepIndex(picking ? null : i)}>
+                      {picking ? "Close picker" : step.moduleInstanceId ? "Change" : "Select"}
+                    </button>
+                    <button type="button" className="btn" disabled={i === 0} onClick={() => moveStep(i, -1)}>
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={i === game.linearSteps.length - 1}
+                      onClick={() => moveStep(i, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        patch((g) => ({
+                          ...g,
+                          linearSteps: g.linearSteps.filter((_, j) => j !== i),
+                        }));
+                        if (pickerStepIndex === i) setPickerStepIndex(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {picking ? (
+                    <ItemPicker
+                      mode="module"
+                      heading={`Select component for step ${i + 1}`}
+                      modules={modules}
+                      onPickModule={(m) => assignModule(i, m)}
+                    />
+                  ) : null}
+                  {stepWarnings.length > 0 ? (
+                    <ul
+                      className="muted"
+                      style={{ fontSize: "0.8rem", margin: "6px 0 0", paddingLeft: 18, color: "#ffb4b4" }}
+                    >
+                      {stepWarnings.map((w) => (
+                        <li key={w.message}>{w.message}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              );
             })}
           </ol>
         )}

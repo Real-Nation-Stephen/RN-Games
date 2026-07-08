@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { apiGet, apiSend } from "../api";
 import { LIBRARY_TYPES, matchesType, RECENT } from "./LibraryPage";
 import {
+  CoursesTable,
   ExperiencesTable,
   GamesTable,
   SearchBar,
   SectionHeader,
+  type CourseItem,
   type ExperienceItem,
   type LibraryItem,
 } from "./homeShared";
@@ -14,6 +16,7 @@ import {
 export default function Home() {
   const [wheels, setWheels] = useState<LibraryItem[]>([]);
   const [experiences, setExperiences] = useState<ExperienceItem[]>([]);
+  const [courses, setCourses] = useState<CourseItem[]>([]);
   const [search, setSearch] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,13 @@ export default function Home() {
     } catch (e) {
       problems.push(e instanceof Error ? e.message : "Failed to load experiences");
       setExperiences([]);
+    }
+    try {
+      const c = await apiGet("/api/courses");
+      setCourses(c.courses || []);
+    } catch (e) {
+      problems.push(e instanceof Error ? e.message : "Failed to load courses");
+      setCourses([]);
     }
     if (problems.length) setErr(problems.join(" · "));
     setLoading(false);
@@ -61,6 +71,21 @@ export default function Home() {
     return list.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }, [experiences, q]);
 
+  const filteredCourses = useMemo(() => {
+    let list = [...courses];
+    if (q) {
+      list = list.filter(
+        (x) =>
+          (x.title || "").toLowerCase().includes(q) ||
+          (x.clientName || "").toLowerCase().includes(q) ||
+          (x.slug || "").toLowerCase().includes(q) ||
+          (x.projectCode || "").toLowerCase().includes(q) ||
+          (x.designCode || "").toLowerCase().includes(q),
+      );
+    }
+    return list.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  }, [courses, q]);
+
   function filterModules(gameType: string) {
     let list = wheels.filter((w) => matchesType(w, gameType));
     if (q) {
@@ -78,13 +103,13 @@ export default function Home() {
 
   const searchHint = useMemo(() => {
     if (!q) return undefined;
-    let n = filteredExperiences.length;
+    let n = filteredExperiences.length + filteredCourses.length;
     for (const meta of LIBRARY_TYPES) {
       n += filterModules(meta.gameType).length;
     }
     if (n === 0) return `No results for “${search.trim()}”.`;
     return `${n} matching item${n === 1 ? "" : "s"}.`;
-  }, [q, search, filteredExperiences, wheels]);
+  }, [q, search, filteredExperiences, filteredCourses, wheels]);
 
   async function createExperience() {
     setErr(null);
@@ -100,6 +125,23 @@ export default function Home() {
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not create experience");
+    }
+  }
+
+  async function createCourse() {
+    setErr(null);
+    try {
+      const slug = `course-${Date.now().toString(36)}`;
+      const res = await apiSend("/api/courses", "POST", {
+        slug,
+        title: "New course",
+        clientName: "",
+      });
+      if (res?.course?.id) {
+        window.location.href = `/admin/courses/${res.course.id}`;
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not create course");
     }
   }
 
@@ -162,7 +204,7 @@ export default function Home() {
   return (
     <div>
       <p className="muted" style={{ margin: "0 0 16px", fontSize: "0.9rem", maxWidth: 640, lineHeight: 1.5 }}>
-        Build reusable components, then wire them into experiences. Recent items show below — use View all for full
+        Build reusable components, then wire them into experiences and courses. Recent items show below — use View all for full
         libraries.
       </p>
 
@@ -174,6 +216,9 @@ export default function Home() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           <button type="button" className="btn btn-primary" onClick={() => void createExperience()}>
             New experience
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void createCourse()}>
+            New course
           </button>
           {LIBRARY_TYPES.map((t) => (
             <button
@@ -205,6 +250,22 @@ export default function Home() {
               </div>
             ) : (
               <ExperiencesTable items={filteredExperiences.slice(0, RECENT)} />
+            )}
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <SectionHeader
+              title="Recent courses"
+              onNew={createCourse}
+              newLabel="New course"
+              viewAllHref="/courses"
+            />
+            {filteredCourses.length === 0 ? (
+              <div className="card">
+                <p style={{ margin: 0 }}>No courses yet.</p>
+              </div>
+            ) : (
+              <CoursesTable items={filteredCourses.slice(0, RECENT)} />
             )}
           </section>
 

@@ -41,6 +41,7 @@ export default defineConfig({
         catch: resolve(__dirname, "catch.html"),
         runner: resolve(__dirname, "runner.html"),
         experience: resolve(__dirname, "experience.html"),
+        course: resolve(__dirname, "course.html"),
         landing: resolve(__dirname, "landing.html"),
         form: resolve(__dirname, "form.html"),
         certificate: resolve(__dirname, "certificate.html"),

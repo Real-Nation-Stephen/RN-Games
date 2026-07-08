@@ -1,4 +1,4 @@
-import { appendFlowQuery, componentPublicPath, track } from "@rngames/shared";
+import { appendFlowQuery, componentPublicPath, parseCourseContextFromSearch, track } from "@rngames/shared";
 import { FLOW_STEP_COMPLETE, isStepCompleteMessage, isStepEngagedMessage } from "@rngames/shared";
 
 type PublicStep = {
@@ -257,6 +257,18 @@ function renderStep() {
       sessionId: session.sessionId,
       payload: { slug: experience.slug },
     });
+    const courseCtx = parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+    if (courseCtx && window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: FLOW_STEP_COMPLETE,
+          courseSessionId: courseCtx.sessionId,
+          courseItemId: courseCtx.itemId,
+          outcomes: session.outcomes || {},
+        },
+        "*",
+      );
+    }
     return;
   }
 

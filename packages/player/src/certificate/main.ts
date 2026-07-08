@@ -4,12 +4,12 @@ import {
   applyPageTheme,
   completeStep,
   engageStep,
+  embeddedShellActive,
   fetchPageModule,
-  fetchSession,
-  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
+  initEmbeddedContexts,
+  loadModuleSessionRoot,
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
@@ -71,7 +71,7 @@ async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<stri
   wirePoweredBy(cfg);
   wirePageLogo(cfg);
   els.headline.textContent = cfg.headline;
-  els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.downloadLabel || cfg.primaryCta.label;
+  els.cta.textContent = embeddedShellActive() ? flowNextLabel() : cfg.downloadLabel || cfg.primaryCta.label;
   renderCertificate(cfg, sessionRoot);
   els.app.hidden = false;
   engageStep();
@@ -91,7 +91,7 @@ async function boot() {
     });
     return;
   }
-  const flow = initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("certificate");
   if (!slug) {
     showError("Missing certificate slug.");
@@ -99,7 +99,7 @@ async function boot() {
   }
   try {
     const cfg = (await fetchPageModule(slug, "certificate")) as CertificateRecord;
-    const session = flow?.sessionId ? await fetchSession(flow.sessionId) : null;
+    const session = await loadModuleSessionRoot();
     await mountCertificate(cfg, buildCertificateSessionRoot(session || undefined));
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");

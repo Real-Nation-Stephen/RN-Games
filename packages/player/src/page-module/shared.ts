@@ -2,8 +2,12 @@ import {
   emitStepComplete,
   emitStepEngaged,
   isFlowMode,
+  isCourseMode,
   parseFlowContextFromSearch,
+  parseCourseContextFromSearch,
   saveFlowContext,
+  saveCourseContext,
+  loadCourseContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
@@ -32,6 +36,24 @@ export function initFlowContext() {
   const flowCtx = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
   if (flowCtx) saveFlowContext(flowCtx);
   return flowCtx;
+}
+
+export function initCourseContext() {
+  const courseCtx = parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  if (courseCtx) saveCourseContext(courseCtx);
+  return courseCtx;
+}
+
+export function initEmbeddedContexts() {
+  return { flow: initFlowContext(), course: initCourseContext() };
+}
+
+export function embeddedShellActive(): boolean {
+  return flowModeActive() || courseModeActive();
+}
+
+export function courseModeActive(): boolean {
+  return isCourseMode();
 }
 
 export function flowNextLabel(): string {
@@ -145,6 +167,66 @@ export function engageStep() {
   emitStepEngaged();
 }
 
+export async function patchCourseSessionData(
+  sessionId: string,
+  itemId: string,
+  data: Record<string, unknown>,
+  outcomes: Record<string, unknown> = {},
+) {
+  await fetch("/api/course-session", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, itemId, action: "sync", data, outcomes }),
+  });
+}
+
+export async function fetchCourseSession(sessionId: string) {
+  const res = await fetch(`/api/course-session?id=${encodeURIComponent(sessionId)}`);
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.session as {
+    outcomes?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+    itemOutcomes?: Record<string, Record<string, unknown>>;
+  };
+}
+
+/** Load session data for merge fields — experience flow first, then course shell. */
+export async function loadModuleSessionRoot(): Promise<{
+  data?: Record<string, unknown>;
+  outcomes?: Record<string, unknown>;
+} | null> {
+  const flow = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  if (flow?.sessionId) {
+    return (await fetchSession(flow.sessionId)) || null;
+  }
+  const course = loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  if (course?.sessionId) {
+    const session = await fetchCourseSession(course.sessionId);
+    if (!session) return null;
+    return {
+      data: session.data,
+      outcomes: session.outcomes,
+    };
+  }
+  return null;
+}
+
+export async function syncModuleSession(
+  data: Record<string, unknown>,
+  outcomes: Record<string, unknown> = {},
+) {
+  const params = new URLSearchParams(window.location.search);
+  const flow = parseFlowContextFromSearch(params);
+  const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
+  if (course?.sessionId) {
+    await patchCourseSessionData(course.sessionId, course.itemId, data, outcomes);
+  }
+  if (flow?.sessionId) {
+    await patchSessionData(flow.sessionId, data, outcomes);
+  }
+}
+
 export async function patchSessionData(
   sessionId: string,
   data: Record<string, unknown>,
@@ -168,7 +250,7 @@ export async function fetchSession(sessionId: string) {
 }
 
 export function scheduleAutoContinue(cfg: PageModuleRecord, onContinue: () => void) {
-  if (!flowModeActive() || !cfg.experienceAutoContinue) return;
+  if (!embeddedShellActive() || !cfg.experienceAutoContinue) return;
   const ms = Math.max(500, cfg.experienceAutoContinueDelayMs || 2000);
   window.setTimeout(onContinue, ms);
 }

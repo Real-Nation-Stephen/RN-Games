@@ -123,3 +123,62 @@ export async function deleteExperienceSessionJson(sessionId) {
   const st = await blobStore();
   await st.delete(`experience-session:${sessionId}`);
 }
+
+const COURSES_INDEX_KEY = "courses-index";
+
+export async function readCoursesIndex() {
+  const st = await blobStore();
+  const raw = await st.get(COURSES_INDEX_KEY, { type: "json" });
+  if (!raw || !Array.isArray(raw.list)) return [];
+  return raw.list;
+}
+
+export async function writeCoursesIndex(list) {
+  const st = await blobStore();
+  await st.setJSON(COURSES_INDEX_KEY, { list, updatedAt: new Date().toISOString() });
+}
+
+export async function getCourseJson(id) {
+  const st = await blobStore();
+  return st.get(`course:${id}`, { type: "json" });
+}
+
+export async function setCourseJson(id, data) {
+  const st = await blobStore();
+  await st.setJSON(`course:${id}`, data);
+}
+
+export async function deleteCourseBlob(id) {
+  const st = await blobStore();
+  await st.delete(`course:${id}`);
+}
+
+export async function getCourseSessionJson(sessionId) {
+  const st = await blobStore();
+  return st.get(`course-session:${sessionId}`, { type: "json" });
+}
+
+export async function setCourseSessionJson(sessionId, data) {
+  const st = await blobStore();
+  await st.setJSON(`course-session:${sessionId}`, data);
+}
+
+export async function getCourseResumeIndex(resumeToken) {
+  const st = await blobStore();
+  return st.get(`course-resume:${resumeToken}`, { type: "json" });
+}
+
+export async function setCourseResumeIndex(resumeToken, data) {
+  const st = await blobStore();
+  await st.setJSON(`course-resume:${resumeToken}`, data);
+}
+
+export async function getCourseEmailIndex(courseSlug, email) {
+  const st = await blobStore();
+  return st.get(`course-email:${courseSlug}:${email}`, { type: "json" });
+}
+
+export async function setCourseEmailIndex(courseSlug, email, data) {
+  const st = await blobStore();
+  await st.setJSON(`course-email:${courseSlug}:${email}`, data);
+}

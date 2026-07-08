@@ -79,6 +79,34 @@ export {
   resolveSessionPath,
 } from "./page-modules.js";
 export {
+  type CourseRecord,
+  type CourseSection,
+  type CourseItem,
+  type CourseItemKind,
+  type CourseStatus,
+  type CourseIndexRow,
+  type CourseSession,
+  type PublicCourse,
+  type PublicCourseItem,
+  emptyCourse,
+  normalizeCourse,
+  flattenCourseItems,
+  toCourseIndexEntry,
+  toPublicCourse,
+  resolvePublicCourseItems,
+  coursePublicPath,
+  courseCompletionPercent,
+  newCourseId,
+} from "./course.js";
+export {
+  type CourseContext,
+  parseCourseContextFromSearch,
+  saveCourseContext,
+  loadCourseContext,
+  isCourseMode,
+  appendCourseQuery,
+} from "./course-bridge.js";
+export {
   type FlowContext,
   type StepCompleteMessage,
   FLOW_CTX_STORAGE_KEY,

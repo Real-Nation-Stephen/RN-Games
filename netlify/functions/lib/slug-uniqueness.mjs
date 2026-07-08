@@ -1,11 +1,13 @@
-import { readIndex, readExperiencesIndex } from "./blobs.mjs";
+import { readIndex, readExperiencesIndex, readCoursesIndex } from "./blobs.mjs";
 import { validateSlug } from "./validate.mjs";
 
-export async function isSlugTaken(slug, { excludeWheelId, excludeExperienceId } = {}) {
+export async function isSlugTaken(slug, { excludeWheelId, excludeExperienceId, excludeCourseId } = {}) {
   const wheels = await readIndex();
   if (wheels.some((w) => w.slug === slug && w.id !== excludeWheelId)) return true;
   const experiences = await readExperiencesIndex();
   if (experiences.some((e) => e.slug === slug && e.id !== excludeExperienceId)) return true;
+  const courses = await readCoursesIndex();
+  if (courses.some((c) => c.slug === slug && c.id !== excludeCourseId)) return true;
   return false;
 }
 
