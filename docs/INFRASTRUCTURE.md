@@ -8,7 +8,7 @@ Live reference for how the platform is built, hosted, secured, and where the gap
 | **Production** | [rn-games.netlify.app](https://rn-games.netlify.app) |
 | **Repository** | [Real-Nation-Stephen/RN-Games](https://github.com/Real-Nation-Stephen/RN-Games) |
 | **Last updated** | Jul 2026 |
-| **Doc version** | 0.6.1 |
+| **Doc version** | 0.7.0 |
 
 ---
 
@@ -28,6 +28,14 @@ Current game types in Studio:
 | `leaderboard` | `/admin/leaderboards/:id` | `/leaderboard/:slug`, `/moderator` |
 | `catch` | `/admin/catch/:id` | `/catch/:slug` · `/play/catch.html?slug=` |
 | `runner` | `/admin/runner/:id` | `/runner/:slug` · `/play/runner.html?slug=` |
+| `landing` | `/admin/landing/:id` | `/landing/:slug` |
+| `form` | `/admin/forms/:id` | `/form/:slug` |
+| `certificate` | `/admin/certificates/:id` | `/certificate/:slug` |
+| `badge` | `/admin/badges/:id` | `/badge/:slug` |
+| `consent` | `/admin/consent/:id` | `/consent/:slug` |
+| `email-signup` | `/admin/email-signups/:id` | `/email-signup/:slug` |
+| `redemption` | `/admin/redemptions/:id` | `/redemption/:slug` |
+| `mini-quiz` | `/admin/mini-quizzes/:id` | `/mini-quiz/:slug` |
 
 Arcade games (`catch`, `runner`) use the same blob + `/api/wheels` CRUD as other game types; public config is served via `GET /api/public-wheel?slug=` with type-specific stripping (`lib/catch.mjs`, `lib/runner.mjs`).
 
@@ -97,9 +105,11 @@ There is **no SQL database**. All persistent platform data uses **Netlify Blobs*
 | `experience:{uuid}` | Experience flow config (linear steps + graph) |
 | `experiences-index` | Index of experiences |
 | `experience-session:{sessionId}` | Per-participant journey state (resume on refresh) |
-| `course:{uuid}` | Planned course config (ordered sections/items) |
-| `courses-index` | Planned index of courses |
-| `course-session:{sessionId}` | Planned learner course progress / resume state |
+| `course:{uuid}` | Course config (sections, items, learning-link settings) |
+| `courses-index` | Index of courses |
+| `course-session:{sessionId}` | Learner course progress, `email`, `earnedBadges[]`, `earnedCertificates[]`, item outcomes |
+| `course-email:{slug}:{email}` | Resume lookup index for learning-link emails |
+| `track-log:{YYYY-MM-DDTHH}` | Hourly append-only analytics event batches from `POST /api/track` |
 
 **Implications**
 
@@ -133,9 +143,12 @@ Redirects in `netlify.toml` map `/api/*` → `/.netlify/functions/*`.
 | `GET/POST/PUT/DELETE /api/experiences` | Studio JWT | Experience CRUD + publish |
 | `GET /api/public-experience?slug=` | Public | Published experience (draft via `previewToken`) |
 | `POST/PATCH/GET /api/experience-session` | Public | Session create, resume, advance (rate-limited) |
-| `GET/POST/PUT/DELETE /api/courses` | Studio JWT | Planned Course CRUD + publish |
-| `GET /api/public-course?slug=` | Public | Planned published course shell/config |
-| `POST/PATCH/GET /api/course-session` | Public | Planned learner progress + resume |
+| `GET/POST/PUT/DELETE /api/courses` | Studio JWT | Course CRUD + publish |
+| `GET /api/public-course?slug=` | Public | Published course shell/config |
+| `POST/PATCH/GET /api/course-session` | Public | Learner progress + resume |
+| `POST /api/course-resume-email` | Public | Send learning link email (stores email on session) |
+| `POST /api/track` | Public | Append analytics events (hourly blob) |
+| `GET /api/track-stats` | Studio JWT | Aggregate dashboards + `?format=csv` export |
 
 Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studio calls `/api/wheels` with `Authorization: Bearer <Netlify Identity token>`.
 
@@ -154,7 +167,7 @@ Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studi
 
 - No login required to play published games.
 - Config is fetched by **slug** (guessable if slug is known). Slugs should be treated as unlisted URLs, not secrets.
-- Planned Courses should follow the same lightweight model: no full account in v1, but learner progress may be resumed through email-linked or tokenised resume links.
+- Planned Courses should follow the same lightweight model: no full account in v1, but learner progress is resumed through **learning link** emails (email stored on `course-session` for lookup).
 
 ### Quiz sessions
 
@@ -349,16 +362,13 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 | **Catch** + **Runner** arcade games | ✅ Phases D + E (ongoing polish) |
 | **Designer instructions** (`docs/DESIGNER_INSTRUCTIONS.md`) | ✅ Started (Catch); Runner TBD |
 | **Console + cartridge** | ⏸ Phase F — under roadmap re-evaluation |
-| **Tracking ingest + dashboards** | Phase G — pending sign-off |
-| **Campaign landing pages** | Phase H |
-| Modular **GDPR / consent / data collection** | Wave 2 — see [ROADMAP.md](./ROADMAP.md) |
-| **Experience platform** (session, `/x/:slug`, flow editor) | Wave 1 shipped — linear editor; React Flow Wave 3 |
-| **Landing / form / certificate** modules | Wave 2 skeleton shipped — refine in tandem |
-| **Wave 2 page-module polish** | In progress — backgrounds, thumbnails, logos, submit states, layout refinement |
-| **Courses** | Wave 2.5 — planned top-level assembled product using ordered curriculum editor |
-| **Search-first picker UX** | Wave 2.5 — reusable selector for Experience and Course assembly |
-| **Minimal `/api/track` ingest** | Wave 2 — `POST /api/track` (hourly blob append) |
-| **Full analytics dashboards** | Wave 6 |
+| **Tracking ingest + dashboards** | Wave 6 pilot — `POST /api/track`, `GET /api/track-stats`, Studio `/admin/analytics` |
+| **Campaign landing pages** | Wave 2 shipped |
+| **Experience platform** (session, `/x/:slug`, flow editor) | Wave 3 — React Flow canvas (`@xyflow/react`); logic stub passthrough |
+| **Landing / form / certificate / badge / mini-quiz** | Wave 2 + pilot modules shipped |
+| **Wave 2 page-module polish** | Shipped for pilot (backgrounds, logos, submit states, certificate download) |
+| **Courses** | Wave 2.5 shipped — learning link, badge grid, curriculum editor |
+| **Full analytics dashboards** | Wave 6 pilot — Studio dashboards + CSV; League deferred |
 
 ---
 
@@ -366,6 +376,7 @@ High-level intent; **locked decisions and phase order** live in [PLANNING.md](./
 
 | Doc / platform | Date | Notes |
 |----------------|------|-------|
+| 0.7.0 | Jul 2026 | **Pilot rollout:** learning link UX + GDPR acknowledgement; mini-quiz + badge modules; certificate PNG/PDF download; React Flow experience editor; experience node overrides; `GET /api/track-stats` + Studio analytics page; pilot-first roadmap reprioritisation. |
 | 0.6.1 | Jul 2026 | Roadmap/infrastructure update: scheduled **Courses** as Wave 2.5, documented planned course storage/API/runtime, email-linked resume direction, Wave 2 page-module polish track, and the need for search-first categorised pickers in Studio. |
 | 0.6.0 | Jul 2026 | **Wave 1:** Experience CRUD (`/api/experiences`), session API, public experience player at `/x/:slug`, linear flow editor in Studio, home/library retrofit, project/design codes on index, catch/runner flow mode + step complete bridge. |
 | 0.5.1 | Jul 2026 | Roadmap locked from completed questionnaire: dual URL model, component branding, unified Logic node, Experience Overrides, Wave 2 priority (landing/form/certificate), analytics buckets, early track ingest. |

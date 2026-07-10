@@ -24,12 +24,16 @@
           </header>
 
           <section id="course-resume" class="course-card" hidden>
-            <h2>Resume your progress</h2>
-            <p class="course-muted">Enter your email to save progress and receive a resume link.</p>
+            <h2 id="course-learning-title">Save your progress</h2>
+            <p id="course-learning-intro" class="course-muted"></p>
             <div class="course-resume-row">
               <input id="course-email" type="email" placeholder="you@example.com" />
-              <button type="button" id="course-save-email" class="course-btn course-btn-primary">Email resume link</button>
+              <button type="button" id="course-save-email" class="course-btn course-btn-primary">Email learning link</button>
             </div>
+            <label id="course-learning-ack-wrap" class="course-ack" hidden>
+              <input type="checkbox" id="course-learning-ack" />
+              <span id="course-learning-ack-text"></span>
+            </label>
             <p id="course-resume-status" class="course-muted" hidden></p>
             <p id="course-resume-link" class="course-muted" hidden></p>
           </section>
@@ -37,6 +41,11 @@
           <section id="course-summary" class="course-card" hidden>
             <h2>Your achievements</h2>
             <ul id="course-cert-list"></ul>
+          </section>
+
+          <section id="course-badges" class="course-card" hidden>
+            <h2>Your badges</h2>
+            <div id="course-badge-grid" class="course-badge-grid"></div>
           </section>
 
           <div id="course-sections"></div>

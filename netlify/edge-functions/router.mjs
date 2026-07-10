@@ -23,9 +23,12 @@ const RESERVED = new Set([
   "landing",
   "form",
   "certificate",
+  "badge",
   "consent",
   "email-signup",
   "redemption",
+  /** Branded single-player mini quiz */
+  "mini-quiz",
   /** Experience player routes */
   "x",
   /** Course player routes */
@@ -36,9 +39,11 @@ const PAGE_MODULE_ROUTES = [
   ["landing", "landing.html"],
   ["form", "form.html"],
   ["certificate", "certificate.html"],
+  ["badge", "badge.html"],
   ["consent", "consent.html"],
   ["email-signup", "email-signup.html"],
   ["redemption", "redemption.html"],
+  ["mini-quiz", "mini-quiz.html"],
 ];
 
 export default async (request, context) => {

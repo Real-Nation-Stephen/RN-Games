@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ExperienceLinearStep, ExperienceRecord } from "@rngames/shared";
+import type { ExperienceGraph, ExperienceRecord } from "@rngames/shared";
+import { graphToLinearSteps } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend } from "../api";
-import { ItemPicker, type PickerModule } from "../components/ItemPicker";
+import { ExperienceFlowCanvas } from "../components/ExperienceFlowCanvas";
+import { ExperienceNodeOverridesPanel } from "../components/ExperienceNodeOverridesPanel";
+import type { PickerModule } from "../components/ItemPicker";
 import { experiencePublicUrl } from "./homeShared";
-
-function newStepId() {
-  return `step-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-}
 
 export default function ExperienceEditor() {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +17,8 @@ export default function ExperienceEditor() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<{ stepId: string; message: string }[]>([]);
-  const [pickerStepIndex, setPickerStepIndex] = useState<number | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -37,19 +37,39 @@ export default function ExperienceEditor() {
     void load().catch((e) => setErr(e instanceof Error ? e.message : "Load failed"));
   }, [load]);
 
-  const moduleById = useMemo(() => new Map(modules.map((m) => [m.id, m])), [modules]);
-
-  const moduleLabel = useMemo(() => {
-    return (step: ExperienceLinearStep) => {
-      const m = moduleById.get(step.moduleInstanceId);
-      if (!m) return step.label || "— select component —";
-      return `${m.title} (${m.gameType || "wheel"}) — /${m.slug}`;
-    };
-  }, [moduleById]);
-
   function patch(fn: (g: ExperienceRecord) => ExperienceRecord) {
     setGame((g) => (g ? fn(g) : g));
   }
+
+  function handleGraphChange(graph: ExperienceGraph) {
+    patch((g) => ({
+      ...g,
+      graph,
+      linearSteps: graphToLinearSteps(graph),
+    }));
+  }
+
+  function patchNodeOverrides(nodeId: string, overrides: ExperienceRecord["linearSteps"][0]["overrides"]) {
+    patch((g) => {
+      const graph = {
+        ...g.graph,
+        nodes: g.graph.nodes.map((n) =>
+          n.kind === "module" && n.id === nodeId ? { ...n, overrides } : n,
+        ),
+      };
+      return {
+        ...g,
+        graph,
+        linearSteps: graphToLinearSteps(graph),
+      };
+    });
+  }
+
+  const selectedModuleNode = useMemo(() => {
+    if (!game || !selectedNodeId) return null;
+    const n = game.graph.nodes.find((x) => x.kind === "module" && x.id === selectedNodeId);
+    return n?.kind === "module" ? n : null;
+  }, [game, selectedNodeId]);
 
   async function save(publish = false) {
     if (!game) return;
@@ -77,47 +97,26 @@ export default function ExperienceEditor() {
     navigate("/");
   }
 
-  function assignModule(stepIndex: number, mod: PickerModule) {
-    patch((g) => {
-      const steps = [...g.linearSteps];
-      steps[stepIndex] = {
-        ...steps[stepIndex],
-        moduleInstanceId: mod.id,
-        moduleType: mod.gameType || "spinning-wheel",
-        label: mod.title,
-      };
-      return { ...g, linearSteps: steps };
-    });
-    setPickerStepIndex(null);
-  }
+  const previewUrl = game ? experiencePublicUrl(game.slug, game.previewToken) : "";
 
-  function addStep() {
-    const newIndex = game.linearSteps.length;
-    patch((g) => ({
-      ...g,
-      linearSteps: [
-        ...g.linearSteps,
-        { id: newStepId(), moduleInstanceId: "", moduleType: "spinning-wheel", label: "" },
-      ],
-    }));
-    setPickerStepIndex(newIndex);
-  }
-
-  function moveStep(index: number, dir: -1 | 1) {
-    patch((g) => {
-      const steps = [...g.linearSteps];
-      const j = index + dir;
-      if (j < 0 || j >= steps.length) return g;
-      [steps[index], steps[j]] = [steps[j], steps[index]];
-      return { ...g, linearSteps: steps };
-    });
-  }
+  useEffect(() => {
+    if (!previewUrl) return;
+    let cancelled = false;
+    void import("qrcode")
+      .then((QR) => QR.toDataURL(previewUrl, { margin: 1, width: 160 }))
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => setQrDataUrl(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [previewUrl]);
 
   if (!game) {
     return <p className="muted">{err || "Loading…"}</p>;
   }
 
-  const previewUrl = experiencePublicUrl(game.slug, game.previewToken);
   const liveUrl = experiencePublicUrl(game.slug);
 
   return (
@@ -183,6 +182,32 @@ export default function ExperienceEditor() {
               }
             />
           </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={game.foundation.trackingEnabled !== false}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  foundation: { ...g.foundation, trackingEnabled: e.target.checked },
+                }))
+              }
+            />
+            Tracking enabled
+          </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={!!game.foundation.reportingEnabled}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  foundation: { ...g.foundation, reportingEnabled: e.target.checked },
+                }))
+              }
+            />
+            Reporting enabled
+          </label>
         </div>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Live: <code>{liveUrl}</code>
@@ -196,76 +221,24 @@ export default function ExperienceEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h3 style={{ margin: 0 }}>Flow steps (linear)</h3>
-          <button type="button" className="btn btn-primary" onClick={addStep}>
-            Add step
-          </button>
-        </div>
-        {game.linearSteps.length === 0 ? (
-          <p className="muted">Add components in order. Search and pick from categories below.</p>
-        ) : (
-          <ol style={{ paddingLeft: 20, margin: 0 }}>
-            {game.linearSteps.map((step, i) => {
-              const stepWarnings = warnings.filter((w) => w.stepId === step.id);
-              const picking = pickerStepIndex === i;
-              return (
-                <li key={step.id} style={{ marginBottom: 16 }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                    <span style={{ flex: 1, minWidth: 200 }}>
-                      <strong>Step {i + 1}:</strong> {moduleLabel(step)}
-                    </span>
-                    <button type="button" className="btn" onClick={() => setPickerStepIndex(picking ? null : i)}>
-                      {picking ? "Close picker" : step.moduleInstanceId ? "Change" : "Select"}
-                    </button>
-                    <button type="button" className="btn" disabled={i === 0} onClick={() => moveStep(i, -1)}>
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={i === game.linearSteps.length - 1}
-                      onClick={() => moveStep(i, 1)}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        patch((g) => ({
-                          ...g,
-                          linearSteps: g.linearSteps.filter((_, j) => j !== i),
-                        }));
-                        if (pickerStepIndex === i) setPickerStepIndex(null);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  {picking ? (
-                    <ItemPicker
-                      mode="module"
-                      heading={`Select component for step ${i + 1}`}
-                      modules={modules}
-                      onPickModule={(m) => assignModule(i, m)}
-                    />
-                  ) : null}
-                  {stepWarnings.length > 0 ? (
-                    <ul
-                      className="muted"
-                      style={{ fontSize: "0.8rem", margin: "6px 0 0", paddingLeft: 18, color: "#ffb4b4" }}
-                    >
-                      {stepWarnings.map((w) => (
-                        <li key={w.message}>{w.message}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        )}
+        <h3 style={{ marginTop: 0 }}>Flow canvas</h3>
+        <p className="muted" style={{ fontSize: "0.85rem", marginTop: 0 }}>
+          Drag nodes to arrange. Logic nodes are passthrough stubs until Wave 4 branching ships.
+        </p>
+        <ExperienceFlowCanvas
+          graph={game.graph}
+          modules={modules}
+          warnings={warnings}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={setSelectedNodeId}
+          onChange={handleGraphChange}
+        />
+        {selectedModuleNode ? (
+          <ExperienceNodeOverridesPanel
+            overrides={selectedModuleNode.overrides}
+            onChange={(overrides) => patchNodeOverrides(selectedModuleNode.id, overrides)}
+          />
+        ) : null}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -273,9 +246,19 @@ export default function ExperienceEditor() {
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Save first, then open preview in a new tab (uses draft preview token when unpublished).
         </p>
-        <a href={previewUrl} target="_blank" rel="noreferrer" className="btn">
-          Open preview
-        </a>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <a href={previewUrl} target="_blank" rel="noreferrer" className="btn">
+            Open preview
+          </a>
+          {qrDataUrl ? (
+            <div>
+              <img src={qrDataUrl} alt="Preview QR code" width={160} height={160} />
+              <p className="muted" style={{ fontSize: "0.75rem", margin: "4px 0 0" }}>
+                Scan for mobile preview
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {err ? <p className="muted">{err}</p> : null}

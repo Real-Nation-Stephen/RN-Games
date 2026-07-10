@@ -14,9 +14,11 @@ const MODULE_TYPES = new Set([
   "landing",
   "form",
   "certificate",
+  "badge",
   "consent",
   "email-signup",
   "redemption",
+  "mini-quiz",
 ]);
 
 export function defaultCoursePresentation() {
@@ -36,7 +38,19 @@ export function defaultCoursePresentation() {
 }
 
 export function defaultCourseSettings() {
-  return { navigationMode: "sequential", layout: "cards" };
+  return {
+    navigationMode: "sequential",
+    layout: "cards",
+    learningLinkLabel: "Learning link",
+    learningLinkIntro:
+      "Enter your email to receive your learning link so you can return and pick up where you left off.",
+    learningLinkRequireAcknowledgement: true,
+    learningLinkAcknowledgementText:
+      "I understand my email will be used only to send my learning link and reconnect my progress — not for marketing unless I opt in elsewhere.",
+    learningLinkPrivacyUrl: "",
+    enrollmentMode: "open",
+    profilePanel: { enabled: false },
+  };
 }
 
 export function emptyCourseRecord(id, slug, previewToken) {
@@ -119,9 +133,28 @@ function normalizePresentation(raw) {
 function normalizeSettings(raw) {
   const d = defaultCourseSettings();
   if (!raw || typeof raw !== "object") return d;
+  const profile = raw.profilePanel && typeof raw.profilePanel === "object" ? raw.profilePanel : {};
   return {
     navigationMode: raw.navigationMode === "free" ? "free" : "sequential",
     layout: raw.layout === "rows" || raw.layout === "bento" ? raw.layout : d.layout,
+    learningLinkLabel: String(raw.learningLinkLabel || d.learningLinkLabel),
+    learningLinkIntro: String(raw.learningLinkIntro ?? d.learningLinkIntro),
+    learningLinkRequireAcknowledgement: raw.learningLinkRequireAcknowledgement !== false,
+    learningLinkAcknowledgementText: String(
+      raw.learningLinkAcknowledgementText ?? d.learningLinkAcknowledgementText,
+    ),
+    learningLinkPrivacyUrl: String(raw.learningLinkPrivacyUrl || ""),
+    enrollmentMode: raw.enrollmentMode === "class" ? "class" : "open",
+    profilePanel: {
+      enabled: !!profile.enabled,
+      showDisplayName: profile.showDisplayName !== false,
+      showCourseStartDate: !!profile.showCourseStartDate,
+      showCourseDeadline: !!profile.showCourseDeadline,
+      showLastQuizScore: !!profile.showLastQuizScore,
+      showAvgQuizScore: !!profile.showAvgQuizScore,
+      showLatestGameScore: !!profile.showLatestGameScore,
+      showLeaderboardRank: !!profile.showLeaderboardRank,
+    },
   };
 }
 
@@ -217,6 +250,10 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
           iconEmoji: item.iconEmoji,
           launchPath: mod?.slug ? componentPublicPath(moduleType, mod.slug) : "",
           moduleType,
+          badgeArtUrl:
+            moduleType === "badge"
+              ? String(mod?.badgeBackgroundUrl || item.iconUrl || "")
+              : undefined,
           missing: !mod,
           archived: !!mod?.archived,
         });

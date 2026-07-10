@@ -5,6 +5,7 @@ import {
   readIndex,
   readExperiencesIndex,
   getExperienceJson,
+  getWheelJson,
 } from "./lib/blobs.mjs";
 import {
   normalizeCourseRecord,
@@ -68,6 +69,24 @@ export const handler = async (event) => {
       const expRaw = await getExperienceJson(expId);
       if (expRaw) {
         experienceById.set(expId, normalizeExperienceRecord(expRaw));
+      }
+    }
+
+    const badgeModuleIds = new Set(
+      flattenCourseItems(course.sections)
+        .filter((item) => {
+          if (item.kind !== "module" || !item.moduleInstanceId) return false;
+          const mod = moduleById.get(item.moduleInstanceId);
+          const moduleType = item.moduleType || mod?.gameType;
+          return moduleType === "badge";
+        })
+        .map((item) => item.moduleInstanceId),
+    );
+    for (const modId of badgeModuleIds) {
+      const raw = await getWheelJson(modId);
+      if (raw?.gameType === "badge") {
+        const entry = moduleById.get(modId) || {};
+        moduleById.set(modId, { ...entry, badgeBackgroundUrl: raw.badgeBackgroundUrl || "" });
       }
     }
 

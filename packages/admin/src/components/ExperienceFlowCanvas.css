@@ -1,0 +1,67 @@
+.experience-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.experience-flow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.experience-flow-picker {
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius);
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.experience-flow-canvas {
+  height: 480px;
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius);
+  overflow: hidden;
+  background: var(--rn-navy-mid);
+}
+
+.flow-node {
+  min-width: 160px;
+  max-width: 220px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(10, 22, 40, 0.95);
+  color: var(--rn-white);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.flow-node--entry {
+  border-color: rgba(61, 111, 184, 0.6);
+  background: rgba(61, 111, 184, 0.2);
+}
+
+.flow-node--exit {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.flow-node--module {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.flow-node--logic {
+  border-color: rgba(255, 200, 100, 0.45);
+  background: rgba(255, 200, 100, 0.08);
+}
+
+.flow-node--warn {
+  border-color: rgba(255, 120, 120, 0.6);
+}
+
+.flow-node-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}

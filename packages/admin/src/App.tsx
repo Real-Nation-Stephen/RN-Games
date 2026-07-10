@@ -16,6 +16,9 @@ import CourseEditor from "./pages/CourseEditor";
 import CoursesListPage from "./pages/CoursesListPage";
 import LibraryPage from "./pages/LibraryPage";
 import PageModuleEditor from "./pages/PageModuleEditor";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import BadgeEditor from "./pages/BadgeEditor";
+import MiniQuizEditor from "./pages/MiniQuizEditor";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
 
@@ -84,6 +87,7 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/experiences" element={<ExperiencesListPage />} />
           <Route path="/experiences/:id" element={<ExperienceEditor />} />
           <Route path="/courses" element={<CoursesListPage />} />
@@ -100,9 +104,11 @@ export default function App() {
           <Route path="/landing/:id" element={<PageModuleEditor gameType="landing" />} />
           <Route path="/forms/:id" element={<PageModuleEditor gameType="form" />} />
           <Route path="/certificates/:id" element={<PageModuleEditor gameType="certificate" />} />
+          <Route path="/badges/:id" element={<BadgeEditor />} />
           <Route path="/consent/:id" element={<PageModuleEditor gameType="consent" />} />
           <Route path="/email-signups/:id" element={<PageModuleEditor gameType="email-signup" />} />
           <Route path="/redemptions/:id" element={<PageModuleEditor gameType="redemption" />} />
+          <Route path="/mini-quizzes/:id" element={<MiniQuizEditor />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

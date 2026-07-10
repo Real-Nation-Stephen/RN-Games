@@ -117,10 +117,11 @@ export const handler = async (event) => {
         : `${origin}/course/${encodeURIComponent(session.courseSlug)}`);
 
     const from = process.env.COURSE_EMAIL_FROM?.trim() || "RN Game Studio <onboarding@resend.dev>";
-    const subject = `Resume your course: ${courseTitle}`;
+    const subject = `Your learning link: ${courseTitle}`;
     const html = `
       <p>Hi,</p>
       <p>Use the link below to return to <strong>${courseTitle}</strong> and pick up where you left off.</p>
+      <p>We use your email only to send this learning link and reconnect your progress — not for marketing unless you opt in elsewhere.</p>
       <p><a href="${resumeUrl}">${resumeUrl}</a></p>
       <p>If you did not request this email, you can ignore it.</p>
     `;

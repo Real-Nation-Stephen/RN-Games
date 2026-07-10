@@ -69,6 +69,13 @@ const LIBRARY_TYPES: {
     publicUrl: (w) => `${window.location.origin}/certificate/${w.slug}`,
   },
   {
+    gameType: "badge",
+    title: "Badges",
+    newLabel: "New badge",
+    editPrefix: "/badges",
+    publicUrl: (w) => `${window.location.origin}/badge/${w.slug}`,
+  },
+  {
     gameType: "consent",
     title: "Consent",
     newLabel: "New consent",
@@ -88,6 +95,13 @@ const LIBRARY_TYPES: {
     newLabel: "New redemption",
     editPrefix: "/redemptions",
     publicUrl: (w) => `${window.location.origin}/redemption/${w.slug}`,
+  },
+  {
+    gameType: "mini-quiz",
+    title: "Mini quizzes",
+    newLabel: "New mini quiz",
+    editPrefix: "/mini-quizzes",
+    publicUrl: (w) => `${window.location.origin}/mini-quiz/${w.slug}`,
   },
 ];
 

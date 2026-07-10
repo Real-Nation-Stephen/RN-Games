@@ -56,6 +56,16 @@ Component editors unchanged. Flow editor edits **Experience** records only.
 
 Logic nodes read from session outcomes using these paths.
 
+### Mini Quiz outcomes (pilot)
+
+`gameType: mini-quiz` emits the same quiz outcome keys as kiosk quiz for flow/course consumption:
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `quiz.score` | number | Total points |
+| `quiz.correctCount` | number | Correct answers |
+| `quiz.scorePercent` | number | 0–100 |
+
 ---
 
 ## Experience graph

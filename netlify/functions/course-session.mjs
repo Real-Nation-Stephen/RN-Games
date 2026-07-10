@@ -74,6 +74,7 @@ function emptySession(course, participantId, email) {
     currentItemId: first?.id || null,
     lastVisitedItemId: null,
     earnedCertificates: [],
+    earnedBadges: [],
     outcomes: {},
     itemOutcomes: {},
     data: {},
@@ -81,6 +82,12 @@ function emptySession(course, participantId, email) {
     updatedAt: new Date().toISOString(),
     completedAt: null,
   };
+}
+
+function normalizeSession(session) {
+  if (!Array.isArray(session.earnedCertificates)) session.earnedCertificates = [];
+  if (!Array.isArray(session.earnedBadges)) session.earnedBadges = [];
+  return session;
 }
 
 async function indexSession(session) {
@@ -114,7 +121,7 @@ export const handler = async (event) => {
         if (!session) {
           return { statusCode: 404, body: JSON.stringify({ error: "Session not found" }), headers };
         }
-        return { statusCode: 200, body: JSON.stringify({ session }), headers };
+        return { statusCode: 200, body: JSON.stringify({ session: normalizeSession(session) }), headers };
       }
       if (!sessionId) {
         return { statusCode: 400, body: JSON.stringify({ error: "id or resumeToken required" }), headers };
@@ -123,7 +130,7 @@ export const handler = async (event) => {
       if (!session) {
         return { statusCode: 404, body: JSON.stringify({ error: "Session not found" }), headers };
       }
-      return { statusCode: 200, body: JSON.stringify({ session }), headers };
+      return { statusCode: 200, body: JSON.stringify({ session: normalizeSession(session) }), headers };
     }
 
     if (event.httpMethod === "POST") {
@@ -147,7 +154,7 @@ export const handler = async (event) => {
             return {
               statusCode: 200,
               body: JSON.stringify({
-                session: existing,
+                session: normalizeSession(existing),
                 resumed: true,
                 resumeUrl: `/course/${existing.courseSlug}?resumeToken=${existing.resumeToken}`,
               }),
@@ -163,7 +170,7 @@ export const handler = async (event) => {
           return {
             statusCode: 200,
             body: JSON.stringify({
-              session: existing,
+              session: normalizeSession(existing),
               resumed: true,
               resumeUrl: existing.resumeToken
                 ? `/course/${existing.courseSlug}?resumeToken=${existing.resumeToken}`
@@ -182,7 +189,7 @@ export const handler = async (event) => {
             return {
               statusCode: 200,
               body: JSON.stringify({
-                session: existing,
+                session: normalizeSession(existing),
                 resumed: true,
                 resumeUrl: existing.resumeToken
                   ? `/course/${existing.courseSlug}?resumeToken=${existing.resumeToken}`
@@ -210,7 +217,7 @@ export const handler = async (event) => {
       return {
         statusCode: 201,
         body: JSON.stringify({
-          session,
+          session: normalizeSession(session),
           resumed: false,
           resumeUrl: session.resumeToken
             ? `/course/${session.courseSlug}?resumeToken=${session.resumeToken}`
@@ -291,6 +298,11 @@ export const handler = async (event) => {
             earned.add(itemId);
             session.earnedCertificates = [...earned];
           }
+          if (item?.kind === "module" && item.moduleType === "badge") {
+            const earned = new Set(session.earnedBadges || []);
+            earned.add(itemId);
+            session.earnedBadges = [...earned];
+          }
 
           const next = items.find((i) => !session.completedItemIds.includes(i.id));
           session.currentItemId = next?.id || null;
@@ -300,7 +312,7 @@ export const handler = async (event) => {
 
       session.updatedAt = new Date().toISOString();
       await setCourseSessionJson(sessionId, session);
-      return { statusCode: 200, body: JSON.stringify({ session }), headers };
+      return { statusCode: 200, body: JSON.stringify({ session: normalizeSession(session) }), headers };
     }
 
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }), headers };

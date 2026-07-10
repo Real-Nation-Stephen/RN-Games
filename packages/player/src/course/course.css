@@ -63,7 +63,8 @@ body {
 #course-complete[hidden],
 #course-powered[hidden],
 #course-logo[hidden],
-#course-resume[hidden] {
+#course-resume[hidden],
+#course-badges[hidden] {
   display: none !important;
 }
 
@@ -364,6 +365,22 @@ body {
   font: inherit;
 }
 
+.course-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--course-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-ack input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
 .course-complete-banner {
   border-color: color-mix(in srgb, var(--course-accent) 50%, var(--course-border));
   background: color-mix(in srgb, var(--course-accent) 12%, var(--course-card));
@@ -423,4 +440,52 @@ body {
 #course-cert-list {
   margin: 0;
   padding-left: 18px;
+}
+
+.course-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 16px;
+}
+
+.course-badge {
+  margin: 0;
+  text-align: center;
+}
+
+.course-badge img,
+.course-badge--placeholder span {
+  display: block;
+  width: 100%;
+  max-width: 120px;
+  margin: 0 auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.course-badge--placeholder span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  background: color-mix(in srgb, var(--course-card) 80%, #000);
+  border: 1px dashed var(--course-border);
+}
+
+.course-badge--locked img,
+.course-badge--locked.course-badge--placeholder span {
+  filter: grayscale(1) brightness(0.35) contrast(1.1);
+  opacity: 0.85;
+}
+
+.course-badge figcaption {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--course-muted);
+  line-height: 1.2;
+}
+
+.course-badge--locked figcaption {
+  opacity: 0.7;
 }

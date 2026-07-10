@@ -10,6 +10,36 @@ export function defaultExperienceFoundation() {
   };
 }
 
+export function graphToLinearSteps(graph) {
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const moduleById = new Map(nodes.filter((n) => n.kind === "module").map((n) => [n.id, n]));
+  const out = new Map();
+  for (const e of edges) {
+    if (!out.has(e.sourceNodeId)) out.set(e.sourceNodeId, e.targetNodeId);
+  }
+  const steps = [];
+  let cursor = graph.entryNodeId || "entry";
+  const seen = new Set();
+  while (cursor && !seen.has(cursor)) {
+    seen.add(cursor);
+    const next = out.get(cursor);
+    if (!next) break;
+    const mod = moduleById.get(next);
+    if (mod) {
+      steps.push({
+        id: mod.id,
+        moduleInstanceId: mod.moduleInstanceId,
+        moduleType: mod.moduleType,
+        label: mod.label,
+        overrides: mod.overrides,
+      });
+    }
+    cursor = next;
+  }
+  return steps;
+}
+
 export function linearStepsToGraph(steps) {
   const nodes = [];
   const edges = [];
@@ -26,6 +56,7 @@ export function linearStepsToGraph(steps) {
       moduleInstanceId: step.moduleInstanceId,
       moduleType: step.moduleType,
       label: step.label,
+      overrides: step.overrides,
     });
     edges.push({ id: `e-${prevId}-${nodeId}`, sourceNodeId: prevId, targetNodeId: nodeId });
     prevId = nodeId;
@@ -68,6 +99,7 @@ export function normalizeExperienceRecord(doc) {
         moduleInstanceId: String(s.moduleInstanceId || ""),
         moduleType: String(s.moduleType || ""),
         label: s.label ? String(s.label) : undefined,
+        overrides: s.overrides && typeof s.overrides === "object" ? s.overrides : undefined,
       }))
     : [];
 
@@ -118,9 +150,11 @@ const MODULE_NODE_TYPES = new Set([
   "landing",
   "form",
   "certificate",
+  "badge",
   "consent",
   "email-signup",
   "redemption",
+  "mini-quiz",
 ]);
 
 export function resolvePublishedSteps(experience, moduleById) {
@@ -200,12 +234,16 @@ export function componentPublicPath(moduleType, slug) {
       return `/form/${encodeURIComponent(slug)}`;
     case "certificate":
       return `/certificate/${encodeURIComponent(slug)}`;
+    case "badge":
+      return `/badge/${encodeURIComponent(slug)}`;
     case "consent":
       return `/consent/${encodeURIComponent(slug)}`;
     case "email-signup":
       return `/email-signup/${encodeURIComponent(slug)}`;
     case "redemption":
       return `/redemption/${encodeURIComponent(slug)}`;
+    case "mini-quiz":
+      return `/mini-quiz/${encodeURIComponent(slug)}`;
     default:
       return `/${encodeURIComponent(slug)}`;
   }

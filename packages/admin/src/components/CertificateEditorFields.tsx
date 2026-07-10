@@ -14,6 +14,8 @@ type Props = {
   onCanvas: (w: number, h: number) => void;
   downloadLabel: string;
   onDownloadLabel: (v: string) => void;
+  backgroundLabel?: string;
+  backgroundHint?: string;
 };
 
 function newMergeId() {
@@ -30,6 +32,8 @@ export function CertificateEditorFields({
   onCanvas,
   downloadLabel,
   onDownloadLabel,
+  backgroundLabel = "Certificate background",
+  backgroundHint = "Upload the certificate artwork (PNG/JPG). Merge fields are positioned as percentages over this image.",
 }: Props) {
   function update(i: number, patch: Partial<CertificateMergeField>) {
     const next = [...mergeFields];
@@ -40,8 +44,8 @@ export function CertificateEditorFields({
   return (
     <div>
       <BgUploadRow
-        label="Certificate background"
-        hint="Upload the certificate artwork (PNG/JPG). Merge fields are positioned as percentages over this image."
+        label={backgroundLabel}
+        hint={backgroundHint}
         value={backgroundUrl}
         onUploaded={onBackground}
       />

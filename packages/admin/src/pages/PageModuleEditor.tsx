@@ -18,12 +18,13 @@ import { HexField } from "../components/HexField";
 import { LandingBlocksEditor } from "../components/LandingBlocksEditor";
 
 const META: Record<
-  PageModuleGameType,
+  Exclude<PageModuleGameType, "mini-quiz">,
   { label: string; playSegment: string; html: string; listPath: string; editTitle: string }
 > = {
   landing: { label: "Landing page", playSegment: "landing", html: "landing.html", listPath: "landing", editTitle: "Edit landing page" },
   form: { label: "Form", playSegment: "form", html: "form.html", listPath: "form", editTitle: "Edit form" },
   certificate: { label: "Certificate", playSegment: "certificate", html: "certificate.html", listPath: "certificate", editTitle: "Edit certificate" },
+  badge: { label: "Badge", playSegment: "badge", html: "badge.html", listPath: "badge", editTitle: "Edit badge" },
   consent: { label: "Consent", playSegment: "consent", html: "consent.html", listPath: "consent", editTitle: "Edit consent" },
   "email-signup": {
     label: "Email signup",
@@ -37,7 +38,7 @@ const META: Record<
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
-type Props = { gameType: PageModuleGameType };
+type Props = { gameType: Exclude<PageModuleGameType, "mini-quiz"> };
 
 function publicUrl(segment: string, slug: string) {
   return `${siteUrl}/${segment}/${encodeURIComponent(slug)}`;
@@ -388,7 +389,7 @@ export default function PageModuleEditor({ gameType }: Props) {
 
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Experience flow</h3>
-          {(gameType === "landing" || gameType === "certificate") && (
+          {(gameType === "landing" || gameType === "certificate" || gameType === "badge") && (
             <>
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
@@ -409,7 +410,7 @@ export default function PageModuleEditor({ gameType }: Props) {
               </label>
             </>
           )}
-          {gameType !== "landing" && gameType !== "certificate" && (
+          {gameType !== "landing" && gameType !== "certificate" && gameType !== "badge" && (
             <p className="muted" style={{ fontSize: "0.85rem" }}>
               User must complete this step (submit form, accept consent, etc.) before continuing.
             </p>
@@ -543,6 +544,22 @@ export default function PageModuleEditor({ gameType }: Props) {
               onCanvas={(w, h) => patch((d) => (d.gameType === "certificate" ? { ...d, canvasWidth: w, canvasHeight: h } : d))}
               downloadLabel={doc.downloadLabel}
               onDownloadLabel={(v) => patch((d) => (d.gameType === "certificate" ? { ...d, downloadLabel: v } : d))}
+            />
+          ) : null}
+
+          {gameType === "badge" && doc.gameType === "badge" ? (
+            <CertificateEditorFields
+              mergeFields={doc.mergeFields}
+              onChange={(mergeFields) => patch((d) => (d.gameType === "badge" ? { ...d, mergeFields } : d))}
+              backgroundUrl={doc.badgeBackgroundUrl}
+              onBackground={(url) => patch((d) => (d.gameType === "badge" ? { ...d, badgeBackgroundUrl: url } : d))}
+              canvasWidth={doc.canvasWidth}
+              canvasHeight={doc.canvasHeight}
+              onCanvas={(w, h) => patch((d) => (d.gameType === "badge" ? { ...d, canvasWidth: w, canvasHeight: h } : d))}
+              downloadLabel={doc.downloadLabel}
+              onDownloadLabel={(v) => patch((d) => (d.gameType === "badge" ? { ...d, downloadLabel: v } : d))}
+              backgroundLabel="Badge artwork"
+              backgroundHint="Upload the badge artwork (PNG). Merge fields are positioned as percentages over this image."
             />
           ) : null}
 

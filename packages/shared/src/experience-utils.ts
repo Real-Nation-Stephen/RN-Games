@@ -4,6 +4,7 @@
 export type { ExperienceLinearStep, ExperienceRecord } from "./experience-record.js";
 export {
   emptyExperience,
+  graphToLinearSteps,
   linearStepsToGraph,
   normalizeExperience,
 } from "./experience-record.js";
@@ -32,12 +33,16 @@ export function componentPublicPath(moduleType: string, slug: string): string {
       return `/form/${encodeURIComponent(slug)}`;
     case "certificate":
       return `/certificate/${encodeURIComponent(slug)}`;
+    case "badge":
+      return `/badge/${encodeURIComponent(slug)}`;
     case "consent":
       return `/consent/${encodeURIComponent(slug)}`;
     case "email-signup":
       return `/email-signup/${encodeURIComponent(slug)}`;
     case "redemption":
       return `/redemption/${encodeURIComponent(slug)}`;
+    case "mini-quiz":
+      return `/mini-quiz/${encodeURIComponent(slug)}`;
     case "spinning-wheel":
     default:
       return `/${encodeURIComponent(slug)}`;

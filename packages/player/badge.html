@@ -3,18 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Certificate</title>
+    <title>Badge</title>
     <link rel="stylesheet" href="/src/page-module/page.css" />
   </head>
   <body>
     <div id="page-app" hidden>
       <div id="page-logo" class="page-logo" hidden></div>
-      <div class="page-card" style="width: min(720px, 100%)">
+      <div class="page-card" style="width: min(480px, 100%)">
         <h1 id="page-headline" class="page-headline"></h1>
-        <div id="cert-wrap" class="cert-stage"></div>
-        <div id="cert-downloads" class="cert-downloads" hidden>
-          <button type="button" id="cert-download-png" class="page-btn page-btn-secondary">Download PNG</button>
-          <button type="button" id="cert-download-pdf" class="page-btn page-btn-secondary">Download PDF</button>
+        <div id="badge-wrap" class="cert-stage"></div>
+        <div id="badge-downloads" class="cert-downloads" hidden>
+          <button type="button" id="badge-download-png" class="page-btn page-btn-secondary">Download PNG</button>
         </div>
         <button type="button" id="page-cta" class="page-btn"></button>
       </div>
@@ -23,6 +22,6 @@
     <a id="powered-by-rn" class="powered-by-rn" href="https://www.realnation.ie" target="_blank" rel="noopener noreferrer">
       <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" />
     </a>
-    <script type="module" src="/src/certificate/main.ts"></script>
+    <script type="module" src="/src/badge/main.ts"></script>
   </body>
 </html>

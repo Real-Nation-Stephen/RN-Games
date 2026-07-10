@@ -217,6 +217,72 @@ export default function CourseEditor() {
             </select>
           </label>
         </div>
+        <CollapsibleSection title="Learning link" summary="Email link label and privacy copy">
+          <label className="field">
+            Link label
+            <input
+              value={s.learningLinkLabel || "Learning link"}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, learningLinkLabel: e.target.value },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Intro text
+            <textarea
+              rows={2}
+              value={s.learningLinkIntro || ""}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, learningLinkIntro: e.target.value },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Privacy policy URL
+            <input
+              placeholder="https://…"
+              value={s.learningLinkPrivacyUrl || ""}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, learningLinkPrivacyUrl: e.target.value },
+                }))
+              }
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={s.learningLinkRequireAcknowledgement !== false}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, learningLinkRequireAcknowledgement: e.target.checked },
+                }))
+              }
+            />
+            Require acknowledgement checkbox
+          </label>
+          <label className="field">
+            Acknowledgement text
+            <textarea
+              rows={3}
+              value={s.learningLinkAcknowledgementText || ""}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: { ...c.settings, learningLinkAcknowledgementText: e.target.value },
+                }))
+              }
+            />
+          </label>
+        </CollapsibleSection>
       </div>
 
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginBottom: 16 }}>

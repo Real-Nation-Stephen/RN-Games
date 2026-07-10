@@ -97,6 +97,7 @@ const NATIVE_FLOW_TYPES = new Set([
   "landing",
   "form",
   "certificate",
+  "badge",
   "consent",
   "email-signup",
   "redemption",

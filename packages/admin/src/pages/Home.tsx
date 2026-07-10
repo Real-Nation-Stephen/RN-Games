@@ -205,7 +205,7 @@ export default function Home() {
     <div>
       <p className="muted" style={{ margin: "0 0 16px", fontSize: "0.9rem", maxWidth: 640, lineHeight: 1.5 }}>
         Build reusable components, then wire them into experiences and courses. Recent items show below — use View all for full
-        libraries.
+        libraries. <Link to="/analytics">Analytics dashboards</Link>
       </p>
 
       <SearchBar value={search} onChange={setSearch} resultHint={searchHint} />

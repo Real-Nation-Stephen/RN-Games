@@ -1,6 +1,6 @@
 /** Wave 2 page modules — record helpers (mirrors shared/page-modules.ts). */
 
-const PAGE_TYPES = new Set(["landing", "form", "certificate", "consent", "email-signup", "redemption"]);
+const PAGE_TYPES = new Set(["landing", "form", "certificate", "badge", "consent", "email-signup", "redemption", "mini-quiz"]);
 
 export function isPageModuleType(t) {
   return PAGE_TYPES.has(t);
@@ -82,6 +82,27 @@ export function emptyPageModuleRecord(id, slug, gameType) {
           },
         ],
       };
+    case "badge":
+      return {
+        ...basePage(id, slug, "badge", "Untitled badge"),
+        canvasWidth: 512,
+        canvasHeight: 512,
+        badgeBackgroundUrl: "",
+        downloadLabel: "Download",
+        mergeFields: [
+          {
+            id: "name",
+            label: "Name",
+            sourceKey: "form.fieldValues.name",
+            xPercent: 50,
+            yPercent: 55,
+            fontSizePx: 28,
+            colorHex: "#1a1a1a",
+            fontWeight: "bold",
+            textAlign: "center",
+          },
+        ],
+      };
     case "consent":
       return {
         ...basePage(id, slug, "consent", "Untitled consent"),
@@ -111,6 +132,30 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         codeLabel: "Your code",
         redemptionCode: "SAMPLE-CODE",
       };
+    case "mini-quiz": {
+      const choiceA = newMiniQuizId();
+      const choiceB = newMiniQuizId();
+      return {
+        ...basePage(id, slug, "mini-quiz", "Untitled mini quiz"),
+        headline: "Quick quiz",
+        body: "Answer a few questions to test your knowledge.",
+        startLabel: "Start quiz",
+        resultsHeadline: "Your results",
+        resultsBody: "Thanks for playing!",
+        continueLabel: "Continue",
+        questions: [
+          {
+            id: newMiniQuizId(),
+            prompt: "Sample question?",
+            choices: [
+              { id: choiceA, label: "Option A" },
+              { id: choiceB, label: "Option B" },
+            ],
+            correctChoiceId: choiceA,
+          },
+        ],
+      };
+    }
     case "landing":
     default:
       return {
@@ -133,6 +178,10 @@ export function emptyPageModuleRecord(id, slug, gameType) {
 
 function newLandingBlockId() {
   return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function newMiniQuizId() {
+  return `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function defaultLandingBlocks() {
@@ -365,6 +414,30 @@ export function normalizePageModule(doc) {
       mergeFields,
     };
   }
+  if (gt === "badge") {
+    const mergeFields = Array.isArray(doc.mergeFields)
+      ? doc.mergeFields.map((m, i) => ({
+          id: String(m.id || `mf-${i}`),
+          label: String(m.label || ""),
+          sourceKey: String(m.sourceKey || ""),
+          xPercent: Math.max(0, Math.min(100, Number(m.xPercent) || 50)),
+          yPercent: Math.max(0, Math.min(100, Number(m.yPercent) || 50)),
+          fontSizePx: Math.max(8, Number(m.fontSizePx) || 24),
+          colorHex: String(m.colorHex || "#111111"),
+          fontWeight: m.fontWeight === "bold" ? "bold" : "normal",
+          textAlign: ["left", "right"].includes(m.textAlign) ? m.textAlign : "center",
+        }))
+      : [];
+    return {
+      ...base,
+      gameType: "badge",
+      canvasWidth: Math.max(160, Number(doc.canvasWidth) || 512),
+      canvasHeight: Math.max(160, Number(doc.canvasHeight) || 512),
+      badgeBackgroundUrl: String(doc.badgeBackgroundUrl || ""),
+      downloadLabel: String(doc.downloadLabel || "Download"),
+      mergeFields,
+    };
+  }
   if (gt === "consent") {
     const items = Array.isArray(doc.items)
       ? doc.items.map((it, i) => ({
@@ -405,6 +478,40 @@ export function normalizePageModule(doc) {
       instructions: String(doc.instructions || ""),
       codeLabel: String(doc.codeLabel || "Your code"),
       redemptionCode: String(doc.redemptionCode || ""),
+    };
+  }
+  if (gt === "mini-quiz") {
+    const defaults = emptyPageModuleRecord(doc.id, doc.slug, "mini-quiz");
+    const questions = Array.isArray(doc.questions) && doc.questions.length
+      ? doc.questions.map((q, i) => {
+          const rawChoices = Array.isArray(q.choices) ? q.choices.slice(0, 4) : [];
+          const choices = rawChoices.map((c, ci) => ({
+            id: String(c.id || `choice-${i}-${ci}`),
+            label: String(c.label || `Option ${ci + 1}`),
+          }));
+          while (choices.length < 2) {
+            const id = newMiniQuizId();
+            choices.push({ id, label: `Option ${choices.length + 1}` });
+          }
+          const correctChoiceId = choices.some((c) => c.id === q.correctChoiceId)
+            ? String(q.correctChoiceId)
+            : choices[0].id;
+          return {
+            id: String(q.id || `question-${i}`),
+            prompt: String(q.prompt || `Question ${i + 1}`),
+            choices,
+            correctChoiceId,
+          };
+        })
+      : defaults.questions;
+    return {
+      ...base,
+      gameType: "mini-quiz",
+      startLabel: String(doc.startLabel || defaults.startLabel),
+      resultsHeadline: String(doc.resultsHeadline || defaults.resultsHeadline),
+      resultsBody: String(doc.resultsBody || defaults.resultsBody),
+      continueLabel: String(doc.continueLabel || defaults.continueLabel),
+      questions,
     };
   }
   return {

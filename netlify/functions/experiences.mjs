@@ -14,6 +14,7 @@ import {
   emptyExperienceRecord,
   normalizeExperienceRecord,
   linearStepsToGraph,
+  graphToLinearSteps,
   toExperienceIndexEntry,
 } from "./lib/experience.mjs";
 import { validateUniqueSlug } from "./lib/slug-uniqueness.mjs";
@@ -140,6 +141,7 @@ export const handler = async (event, context) => {
         "foundation",
         "archived",
         "linearSteps",
+        "graph",
       ];
       for (const k of assign) {
         if (body[k] !== undefined) existing[k] = body[k];
@@ -158,7 +160,10 @@ export const handler = async (event, context) => {
         }
       }
 
-      if (Array.isArray(body.linearSteps)) {
+      if (body.graph && Array.isArray(body.graph.nodes) && body.graph.nodes.length > 0) {
+        existing.graph = body.graph;
+        existing.linearSteps = graphToLinearSteps(body.graph);
+      } else if (Array.isArray(body.linearSteps)) {
         existing.linearSteps = body.linearSteps;
         existing.graph = linearStepsToGraph(existing.linearSteps);
       }

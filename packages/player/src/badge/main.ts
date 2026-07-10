@@ -1,7 +1,6 @@
 import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
-import type { CertificateRecord } from "@rngames/shared/page-modules";
-import { buildCertificateSessionRoot, resolveSessionPath } from "@rngames/shared/page-modules";
+import type { BadgeRecord } from "@rngames/shared/page-modules";
+import { buildBadgeSessionRoot, resolveSessionPath } from "@rngames/shared/page-modules";
 import {
   applyPageTheme,
   completeStep,
@@ -20,23 +19,22 @@ import {
 const els = {
   app: document.getElementById("page-app")!,
   headline: document.getElementById("page-headline")!,
-  wrap: document.getElementById("cert-wrap")!,
-  downloads: document.getElementById("cert-downloads")!,
-  downloadPng: document.getElementById("cert-download-png")!,
-  downloadPdf: document.getElementById("cert-download-pdf")!,
+  wrap: document.getElementById("badge-wrap")!,
+  downloads: document.getElementById("badge-downloads")!,
+  downloadPng: document.getElementById("badge-download-png")!,
   cta: document.getElementById("page-cta") as HTMLButtonElement,
   error: document.getElementById("page-error")!,
 };
 
-let certStageEl: HTMLElement | null = null;
-let certTitle = "certificate";
+let badgeStageEl: HTMLElement | null = null;
+let badgeTitle = "badge";
 
 function showError(msg: string) {
   els.error.hidden = false;
   els.error.textContent = msg;
 }
 
-function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, unknown>) {
+function renderBadge(cfg: BadgeRecord, sessionRoot: Record<string, unknown>) {
   els.wrap.replaceChildren();
   const stage = document.createElement("div");
   stage.className = "cert-capture-stage";
@@ -44,9 +42,9 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
   stage.style.width = "100%";
   stage.style.aspectRatio = `${cfg.canvasWidth} / ${cfg.canvasHeight}`;
 
-  if (cfg.certificateBackgroundUrl) {
+  if (cfg.badgeBackgroundUrl) {
     const img = document.createElement("img");
-    img.src = cfg.certificateBackgroundUrl;
+    img.src = cfg.badgeBackgroundUrl;
     img.alt = "";
     img.crossOrigin = "anonymous";
     img.style.width = "100%";
@@ -56,7 +54,7 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
   } else {
     stage.style.background = "#f5f5f5";
     stage.style.borderRadius = "8px";
-    stage.style.minHeight = "200px";
+    stage.style.minHeight = "160px";
   }
 
   const overlay = document.createElement("div");
@@ -74,12 +72,12 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
   }
   stage.appendChild(overlay);
   els.wrap.appendChild(stage);
-  certStageEl = stage;
+  badgeStageEl = stage;
 }
 
 async function captureCanvas(): Promise<HTMLCanvasElement> {
-  if (!certStageEl) throw new Error("Nothing to capture");
-  return html2canvas(certStageEl, {
+  if (!badgeStageEl) throw new Error("Nothing to capture");
+  return html2canvas(badgeStageEl, {
     useCORS: true,
     allowTaint: false,
     backgroundColor: null,
@@ -100,28 +98,16 @@ async function downloadPng() {
   const canvas = await captureCanvas();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
   if (!blob) throw new Error("Could not create image");
-  triggerDownload(blob, `${certTitle}.png`);
+  triggerDownload(blob, `${badgeTitle}.png`);
 }
 
-async function downloadPdf() {
-  const canvas = await captureCanvas();
-  const imgData = canvas.toDataURL("image/png");
-  const pdf = new jsPDF({
-    orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-    unit: "px",
-    format: [canvas.width, canvas.height],
-  });
-  pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-  pdf.save(`${certTitle}.pdf`);
-}
-
-async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<string, unknown>) {
+async function mountBadge(cfg: BadgeRecord, sessionRoot: Record<string, unknown>) {
   applyPageTheme(cfg, document.documentElement);
   wirePoweredBy(cfg);
   wirePageLogo(cfg);
-  certTitle = (cfg.title || "certificate").replace(/[^\w.-]+/g, "-").toLowerCase() || "certificate";
+  badgeTitle = (cfg.title || "badge").replace(/[^\w.-]+/g, "-").toLowerCase() || "badge";
   els.headline.textContent = cfg.headline;
-  renderCertificate(cfg, sessionRoot);
+  renderBadge(cfg, sessionRoot);
   els.app.hidden = false;
 
   const embedded = embeddedShellActive();
@@ -131,12 +117,11 @@ async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<stri
     els.cta.textContent = flowNextLabel();
     els.cta.onclick = () => completeStep({ gameId: cfg.id });
   } else {
-    els.cta.textContent = cfg.primaryCta?.label || "Continue";
+    els.cta.textContent = cfg.primaryCta?.label || cfg.downloadLabel || "Continue";
     els.cta.onclick = () => completeStep({ gameId: cfg.id });
   }
 
   els.downloadPng.onclick = () => void downloadPng().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
-  els.downloadPdf.onclick = () => void downloadPdf().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
 
   engageStep();
 }
@@ -144,26 +129,26 @@ async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<stri
 async function boot() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("preview") === "1") {
-    setupPagePreview("certificate", (cfg) => {
-      const c = cfg as CertificateRecord;
-      const sample = buildCertificateSessionRoot({
+    setupPagePreview("badge", (cfg) => {
+      const c = cfg as BadgeRecord;
+      const sample = buildBadgeSessionRoot({
         data: { formFields: { name: "Preview Name" } },
         outcomes: { "catch.score": 42, "runner.score": 1200, "quiz.score": 8 },
       });
-      void mountCertificate(c, sample);
+      void mountBadge(c, sample);
     });
     return;
   }
   initEmbeddedContexts();
-  const slug = getSlugFromPath("certificate");
+  const slug = getSlugFromPath("badge");
   if (!slug) {
-    showError("Missing certificate slug.");
+    showError("Missing badge slug.");
     return;
   }
   try {
-    const cfg = (await fetchPageModule(slug, "certificate")) as CertificateRecord;
+    const cfg = (await fetchPageModule(slug, "badge")) as BadgeRecord;
     const session = await loadModuleSessionRoot();
-    await mountCertificate(cfg, buildCertificateSessionRoot(session || undefined));
+    await mountBadge(cfg, buildBadgeSessionRoot(session || undefined));
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load");
   }

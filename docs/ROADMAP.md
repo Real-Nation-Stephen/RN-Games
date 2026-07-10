@@ -1,7 +1,7 @@
 # RN Game Studio — Platform roadmap (Waves 1–6)
 
 **Last updated:** July 2026  
-**Status:** Locked — Wave 1 shipped (Jul 2026); Wave 2 in progress (Jul 2026); Courses wave scheduled next
+**Status:** Pilot-first rollout — Wave 2/2.5 close-out shipped; Wave 3 canvas in progress; Wave 4 paused; Wave 6 analytics pulled forward for pilot gate
 
 Historical phases A–E: [PLANNING.md](./PLANNING.md).  
 Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/experience.ts`
@@ -36,13 +36,49 @@ Schema: [EXPERIENCE_SCHEMA.md](./EXPERIENCE_SCHEMA.md) · `packages/shared/src/e
 | **Console** | Parked (not cancelled) |
 | **Quiz redesign** | Complete before deep Experience integration |
 | **Multimedia flip cards** | Evolution of flip-cards, not new module type |
-| **Courses** | New top-level product layer scheduled as **Wave 2.5** between page modules and flow canvas |
-| **Course access** | No full account in v1 — email-linked resume / recovery |
+| **Courses** | **Wave 2.5 shipped** — learning link UX, mini quiz, badges, certificate download |
+| **Pilot gate** | Wave 6 ingest + Studio dashboards + legal sign-off (`docs/ANALYTICS_LEGAL_QUESTIONNAIRE.md`) |
+| **Wave 4** | **Paused** — branching, A/B, join nodes → subsequent phase |
+| **League module** | **Deferred** — not pilot-blocking |
+| **Educator view / course bio** | **Parked** — schema stubs on `CourseSettings` |
 | **Open** | All locked — soft limit ~150–250 nodes; A/B split in Wave 4 |
 
 ---
 
-## Strategic shift
+## Pilot-first rollout (Jul 2026)
+
+**Goal:** Ship a pilot with components, mini quiz, courses, basic experience canvas (linear + logic stub), and analytics dashboards — without Wave 4 branching or League.
+
+### Build order (locked)
+
+1. **Wave 2 close-out** — page-module polish, certificate PNG/PDF download
+2. **Wave 2.5** — learning link rename + GDPR acknowledgement; courses foundation
+3. **Mini Quiz module** — simple page-module-style quiz (`gameType: mini-quiz`)
+4. **Badge module** — certificate-like editor; course earned-badges grid
+5. **Wave 3** — React Flow canvas replaces linear list; Logic node stub only
+6. **Analytics legal MD** — leadership sign-off questionnaire
+7. **Wave 6 (trimmed)** — full track ingest, Studio dashboards, CSV export — **no League**
+8. **Wave 5 (simplified)** — experience overrides + reporting toggles without Wave 4 deps
+
+### Wave status
+
+| Wave | Status | Notes |
+|------|--------|-------|
+| **2** | Shipped + polish | Landing, form, certificate, redemption, consent, email signup |
+| **2.5** | Shipped | Courses, learning link, GDPR copy |
+| **Mini Quiz** | Shipped | `/mini-quiz/:slug` |
+| **Badge** | Shipped | `/badge/:slug`, course badge grid |
+| **3** | Shipped (MVP) | React Flow canvas; logic stub passthrough |
+| **4** | **Paused** | Conditional branching → subsequent phase |
+| **5** | Shipped (trimmed) | Node overrides UI; no branch-aware features |
+| **6** | Pilot-critical | Dashboards + export; League deferred |
+| **Educator / bio** | Parked | Optional post-pilot |
+
+### Pilot gate
+
+Wave 6 ingest + Studio dashboards + `ANALYTICS_LEGAL_QUESTIONNAIRE.md` signed off. Usable without branching.
+
+---
 
 | Before | After |
 |--------|-------|
@@ -236,6 +272,8 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 ## Wave 4 — Conditional branching
 
+**Status: PAUSED** — moved to subsequent phase after pilot. See pilot-first rollout above.
+
 **Goal:** Giveaways, learning paths, time-based routing, merge paths.
 
 ### Deliverables
@@ -298,7 +336,9 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 ## Wave 6 — Competition + reporting
 
-**Goal:** Dashboards, leagues, exports, webhooks.
+**Status: Pilot-critical (trimmed)** — dashboards and CSV export shipped; League module deferred.
+
+**Goal:** Dashboards, exports, webhooks.
 
 ### Deliverables
 
@@ -306,7 +346,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 2. **Studio dashboards** — Campaign / Experience / Component / User analytics; context-aware widgets; relabelling for clients
 3. **Public dashboards** — later (Studio first)
 4. **Google Sheets** — one-way export retained
-5. **League module** — single-experience; manual + automatic stage transitions
+5. **League module** — **deferred** (not pilot-blocking)
 6. **Export** — CSV / Excel / Sheets priority over PDF
 7. **Webhook** on session complete; pull API later
 8. **Business/legal sign-off** completed before production analytics at scale
@@ -328,7 +368,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 | **Forms & data** | Form, email signup, pin board |
 | **Digital experiences** | Wheel, scratcher, flip-cards |
 | **Games** | Catch, runner |
-| **Competition** | Leaderboard, leagues (Wave 6) |
+| **Competition** | Leaderboard (leagues deferred post-pilot) |
 | **Outcomes** | Certificate, redemption, results |
 | **Analytics** | Dashboards, exports |
 
@@ -351,7 +391,7 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 | **Flow templates** | After editor stable; not Wave 3 priority |
 | **Localization** | Separate experiences per language for now |
 | **Experience step progress bar** | Toggleable shell UI: connected circles + fill line per step; brandable colours/fonts (future; pair with shell HUD modes) |
-| **Courses** | Scheduled as Wave 2.5 before flow-canvas work |
+| **Courses** | Shipped as Wave 2.5 |
 
 ---
 
@@ -368,4 +408,4 @@ Prepare concise **business/legal doc** (GDPR, retention, PII) before production 
 
 ## Next step
 
-**Current focus:** Finish Wave 2 polish, then begin Wave 2.5 Courses foundation before Wave 3 flow-canvas work.
+**Current focus:** Pilot launch — legal sign-off on analytics, client content on canvas + courses.

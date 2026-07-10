@@ -1,5 +1,5 @@
 /**
- * Wave 2 page-module shared types — landing, form, certificate, consent, email-signup, redemption.
+ * Wave 2 page-module shared types — landing, form, certificate, badge, consent, email-signup, redemption.
  */
 
 export interface PageBreakpointBg {
@@ -369,6 +369,17 @@ export type CertificateRecord = PageModuleBase & {
   downloadLabel: string;
 };
 
+export type BadgeMergeField = CertificateMergeField;
+
+export type BadgeRecord = PageModuleBase & {
+  gameType: "badge";
+  canvasWidth: number;
+  canvasHeight: number;
+  badgeBackgroundUrl: string;
+  mergeFields: BadgeMergeField[];
+  downloadLabel: string;
+};
+
 export interface ConsentItem {
   id: string;
   label: string;
@@ -404,13 +415,36 @@ export type RedemptionRecord = PageModuleBase & {
   redemptionCode: string;
 };
 
+export interface MiniQuizChoice {
+  id: string;
+  label: string;
+}
+
+export interface MiniQuizQuestion {
+  id: string;
+  prompt: string;
+  choices: MiniQuizChoice[];
+  correctChoiceId: string;
+}
+
+export type MiniQuizRecord = PageModuleBase & {
+  gameType: "mini-quiz";
+  questions: MiniQuizQuestion[];
+  startLabel: string;
+  resultsHeadline: string;
+  resultsBody: string;
+  continueLabel: string;
+};
+
 export type PageModuleRecord =
   | LandingRecord
   | FormRecord
   | CertificateRecord
+  | BadgeRecord
   | ConsentRecord
   | EmailSignupRecord
-  | RedemptionRecord;
+  | RedemptionRecord
+  | MiniQuizRecord;
 
 export type PageModuleGameType = PageModuleRecord["gameType"];
 
@@ -418,9 +452,11 @@ const PAGE_MODULE_TYPES = new Set<PageModuleGameType>([
   "landing",
   "form",
   "certificate",
+  "badge",
   "consent",
   "email-signup",
   "redemption",
+  "mini-quiz",
 ]);
 
 export function isPageModuleGameType(t: string): t is PageModuleGameType {
@@ -520,6 +556,30 @@ export function emptyCertificate(partial: { id: string; slug: string }): Certifi
   };
 }
 
+export function emptyBadge(partial: { id: string; slug: string }): BadgeRecord {
+  return {
+    ...basePageModule(partial, "badge", "Untitled badge"),
+    gameType: "badge",
+    canvasWidth: 512,
+    canvasHeight: 512,
+    badgeBackgroundUrl: "",
+    downloadLabel: "Download",
+    mergeFields: [
+      {
+        id: "name",
+        label: "Name",
+        sourceKey: "form.fieldValues.name",
+        xPercent: 50,
+        yPercent: 55,
+        fontSizePx: 28,
+        colorHex: "#1a1a1a",
+        fontWeight: "bold",
+        textAlign: "center",
+      },
+    ],
+  };
+}
+
 export function emptyConsent(partial: { id: string; slug: string }): ConsentRecord {
   return {
     ...basePageModule(partial, "consent", "Untitled consent"),
@@ -555,6 +615,41 @@ export function emptyRedemption(partial: { id: string; slug: string }): Redempti
     instructions: "Show this code at the desk to redeem your reward.",
     codeLabel: "Your code",
     redemptionCode: "SAMPLE-CODE",
+  };
+}
+
+export function newMiniQuizId(): string {
+  return `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function defaultMiniQuizChoices(): MiniQuizChoice[] {
+  const a = newMiniQuizId();
+  const b = newMiniQuizId();
+  return [
+    { id: a, label: "Option A" },
+    { id: b, label: "Option B" },
+  ];
+}
+
+export function emptyMiniQuiz(partial: { id: string; slug: string }): MiniQuizRecord {
+  const choices = defaultMiniQuizChoices();
+  return {
+    ...basePageModule(partial, "mini-quiz", "Untitled mini quiz"),
+    gameType: "mini-quiz",
+    headline: "Quick quiz",
+    body: "Answer a few questions to test your knowledge.",
+    startLabel: "Start quiz",
+    resultsHeadline: "Your results",
+    resultsBody: "Thanks for playing!",
+    continueLabel: "Continue",
+    questions: [
+      {
+        id: newMiniQuizId(),
+        prompt: "Sample question?",
+        choices,
+        correctChoiceId: choices[0].id,
+      },
+    ],
   };
 }
 
@@ -787,22 +882,26 @@ export function normalizeForm(doc: Partial<FormRecord> & { id: string; slug: str
   };
 }
 
+function normalizeMergeFields(
+  raw: Partial<CertificateMergeField>[] | undefined,
+): CertificateMergeField[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((m, i) => ({
+    id: String(m.id || `mf-${i}`),
+    label: String(m.label || ""),
+    sourceKey: String(m.sourceKey || ""),
+    xPercent: Math.max(0, Math.min(100, Number(m.xPercent) || 50)),
+    yPercent: Math.max(0, Math.min(100, Number(m.yPercent) || 50)),
+    fontSizePx: Math.max(8, Number(m.fontSizePx) || 24),
+    colorHex: String(m.colorHex || "#111111"),
+    fontWeight: m.fontWeight === "bold" ? ("bold" as const) : ("normal" as const),
+    textAlign: (m.textAlign === "left" || m.textAlign === "right" ? m.textAlign : "center") as LandingTextAlign,
+  }));
+}
+
 export function normalizeCertificate(
   doc: Partial<CertificateRecord> & { id: string; slug: string },
 ): CertificateRecord {
-  const mergeFields = Array.isArray(doc.mergeFields)
-    ? doc.mergeFields.map((m, i) => ({
-        id: String(m.id || `mf-${i}`),
-        label: String(m.label || ""),
-        sourceKey: String(m.sourceKey || ""),
-        xPercent: Math.max(0, Math.min(100, Number(m.xPercent) || 50)),
-        yPercent: Math.max(0, Math.min(100, Number(m.yPercent) || 50)),
-        fontSizePx: Math.max(8, Number(m.fontSizePx) || 24),
-        colorHex: String(m.colorHex || "#111111"),
-        fontWeight: m.fontWeight === "bold" ? ("bold" as const) : ("normal" as const),
-        textAlign: (m.textAlign === "left" || m.textAlign === "right" ? m.textAlign : "center") as LandingTextAlign,
-      }))
-    : [];
   return {
     ...normalizeBase(doc),
     gameType: "certificate",
@@ -810,7 +909,19 @@ export function normalizeCertificate(
     canvasHeight: Math.max(240, Number(doc.canvasHeight) || 848),
     certificateBackgroundUrl: String(doc.certificateBackgroundUrl || ""),
     downloadLabel: String(doc.downloadLabel || "Download"),
-    mergeFields,
+    mergeFields: normalizeMergeFields(doc.mergeFields),
+  };
+}
+
+export function normalizeBadge(doc: Partial<BadgeRecord> & { id: string; slug: string }): BadgeRecord {
+  return {
+    ...normalizeBase(doc),
+    gameType: "badge",
+    canvasWidth: Math.max(160, Number(doc.canvasWidth) || 512),
+    canvasHeight: Math.max(160, Number(doc.canvasHeight) || 512),
+    badgeBackgroundUrl: String(doc.badgeBackgroundUrl || ""),
+    downloadLabel: String(doc.downloadLabel || "Download"),
+    mergeFields: normalizeMergeFields(doc.mergeFields),
   };
 }
 
@@ -863,6 +974,49 @@ export function normalizeRedemption(
   };
 }
 
+function normalizeMiniQuizChoices(raw: Partial<MiniQuizChoice>[], index: number): MiniQuizChoice[] {
+  const choices = Array.isArray(raw)
+    ? raw.slice(0, 4).map((c, i) => ({
+        id: String(c.id || `choice-${index}-${i}`),
+        label: String(c.label || `Option ${i + 1}`),
+      }))
+    : [];
+  while (choices.length < 2) {
+    const id = newMiniQuizId();
+    choices.push({ id, label: `Option ${choices.length + 1}` });
+  }
+  return choices;
+}
+
+export function normalizeMiniQuiz(
+  doc: Partial<MiniQuizRecord> & { id: string; slug: string },
+): MiniQuizRecord {
+  const defaults = emptyMiniQuiz({ id: doc.id, slug: doc.slug });
+  const questions = Array.isArray(doc.questions) && doc.questions.length
+    ? doc.questions.map((q, i) => {
+        const choices = normalizeMiniQuizChoices(q.choices || [], i);
+        const correctChoiceId = choices.some((c) => c.id === q.correctChoiceId)
+          ? String(q.correctChoiceId)
+          : choices[0].id;
+        return {
+          id: String(q.id || `question-${i}`),
+          prompt: String(q.prompt || `Question ${i + 1}`),
+          choices,
+          correctChoiceId,
+        };
+      })
+    : defaults.questions;
+  return {
+    ...normalizeBase(doc),
+    gameType: "mini-quiz",
+    startLabel: String(doc.startLabel || defaults.startLabel),
+    resultsHeadline: String(doc.resultsHeadline || defaults.resultsHeadline),
+    resultsBody: String(doc.resultsBody || defaults.resultsBody),
+    continueLabel: String(doc.continueLabel || defaults.continueLabel),
+    questions,
+  };
+}
+
 export function normalizePageModule(
   doc: Partial<PageModuleRecord> & { id: string; slug: string; gameType?: string },
 ): PageModuleRecord {
@@ -871,12 +1025,16 @@ export function normalizePageModule(
       return normalizeForm(doc as Partial<FormRecord> & { id: string; slug: string });
     case "certificate":
       return normalizeCertificate(doc as Partial<CertificateRecord> & { id: string; slug: string });
+    case "badge":
+      return normalizeBadge(doc as Partial<BadgeRecord> & { id: string; slug: string });
     case "consent":
       return normalizeConsent(doc as Partial<ConsentRecord> & { id: string; slug: string });
     case "email-signup":
       return normalizeEmailSignup(doc as Partial<EmailSignupRecord> & { id: string; slug: string });
     case "redemption":
       return normalizeRedemption(doc as Partial<RedemptionRecord> & { id: string; slug: string });
+    case "mini-quiz":
+      return normalizeMiniQuiz(doc as Partial<MiniQuizRecord> & { id: string; slug: string });
     case "landing":
     default:
       return normalizeLanding(doc as Partial<LandingRecord> & { id: string; slug: string });
@@ -885,6 +1043,13 @@ export function normalizePageModule(
 
 export function toPublicPageModule(doc: PageModuleRecord): PageModuleRecord {
   return doc;
+}
+
+export function buildBadgeSessionRoot(session?: {
+  data?: Record<string, unknown>;
+  outcomes?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return buildCertificateSessionRoot(session);
 }
 
 export function buildCertificateSessionRoot(session?: {

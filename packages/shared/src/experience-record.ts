@@ -5,7 +5,9 @@ import type {
   ExperienceFoundation,
   ExperienceGraph,
   ExperienceMetadata,
+  ExperienceNodeOverrides,
   ExperienceStatus,
+  ModuleRefNode,
 } from "./experience.js";
 
 export interface ExperienceLinearStep {
@@ -13,6 +15,7 @@ export interface ExperienceLinearStep {
   moduleInstanceId: string;
   moduleType: string;
   label?: string;
+  overrides?: ExperienceNodeOverrides;
 }
 
 export interface ExperienceRecord {
@@ -60,6 +63,7 @@ export function linearStepsToGraph(steps: ExperienceLinearStep[]): ExperienceGra
       moduleInstanceId: step.moduleInstanceId,
       moduleType: step.moduleType,
       label: step.label,
+      overrides: step.overrides,
     });
     edges.push({
       id: `e-${prevId}-${nodeId}`,
@@ -83,6 +87,37 @@ export function linearStepsToGraph(steps: ExperienceLinearStep[]): ExperienceGra
   });
 
   return { nodes, edges, entryNodeId: entryId };
+}
+
+/** Walk a linear entry→exit chain and rebuild ordered steps (Wave 3 canvas sync). */
+export function graphToLinearSteps(graph: ExperienceGraph): ExperienceLinearStep[] {
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const moduleById = new Map(nodes.filter((n) => n.kind === "module").map((n) => [n.id, n as ModuleRefNode]));
+  const out = new Map<string, string>();
+  for (const e of edges) {
+    if (!out.has(e.sourceNodeId)) out.set(e.sourceNodeId, e.targetNodeId);
+  }
+  const steps: ExperienceLinearStep[] = [];
+  let cursor = graph.entryNodeId || "entry";
+  const seen = new Set<string>();
+  while (cursor && !seen.has(cursor)) {
+    seen.add(cursor);
+    const next = out.get(cursor);
+    if (!next) break;
+    const mod = moduleById.get(next);
+    if (mod) {
+      steps.push({
+        id: mod.id,
+        moduleInstanceId: mod.moduleInstanceId,
+        moduleType: mod.moduleType,
+        label: mod.label,
+        overrides: mod.overrides,
+      });
+    }
+    cursor = next;
+  }
+  return steps;
 }
 
 export function defaultExperienceFoundation(): ExperienceFoundation {
@@ -127,6 +162,10 @@ export function normalizeExperience(
         moduleInstanceId: String(s.moduleInstanceId || ""),
         moduleType: String(s.moduleType || ""),
         label: s.label ? String(s.label) : undefined,
+        overrides:
+          s.overrides && typeof s.overrides === "object"
+            ? (s.overrides as ExperienceNodeOverrides)
+            : undefined,
       }))
     : [];
 

@@ -24,12 +24,19 @@ const els = {
   sections: document.getElementById("course-sections")!,
   empty: document.getElementById("course-empty")!,
   resume: document.getElementById("course-resume")!,
+  learningTitle: document.getElementById("course-learning-title")!,
+  learningIntro: document.getElementById("course-learning-intro")!,
   email: document.getElementById("course-email") as HTMLInputElement,
   saveEmail: document.getElementById("course-save-email")!,
+  ackWrap: document.getElementById("course-learning-ack-wrap")!,
+  ack: document.getElementById("course-learning-ack") as HTMLInputElement,
+  ackText: document.getElementById("course-learning-ack-text")!,
   resumeLink: document.getElementById("course-resume-link")!,
   resumeStatus: document.getElementById("course-resume-status")!,
   summary: document.getElementById("course-summary")!,
   certList: document.getElementById("course-cert-list")!,
+  badges: document.getElementById("course-badges")!,
+  badgeGrid: document.getElementById("course-badge-grid")!,
   complete: document.getElementById("course-complete")!,
   powered: document.getElementById("course-powered")!,
   back: document.getElementById("course-back")!,
@@ -66,6 +73,14 @@ function getPreviewToken(): string {
 
 function getResumeToken(): string {
   return new URLSearchParams(window.location.search).get("resumeToken")?.trim() || "";
+}
+
+function normalizeSession(s: CourseSession): CourseSession {
+  return {
+    ...s,
+    earnedCertificates: Array.isArray(s.earnedCertificates) ? s.earnedCertificates : [],
+    earnedBadges: Array.isArray(s.earnedBadges) ? s.earnedBadges : [],
+  };
 }
 
 function sessionStorageKey() {
@@ -223,7 +238,7 @@ async function createOrResumeSession(): Promise<CourseSession> {
     });
     if (res.ok) {
       const data = await res.json();
-      return data.session as CourseSession;
+      return normalizeSession(data.session as CourseSession);
     }
   }
 
@@ -240,7 +255,7 @@ async function createOrResumeSession(): Promise<CourseSession> {
   });
   if (!res.ok) throw new Error("Could not start course session");
   const data = await res.json();
-  return data.session as CourseSession;
+  return normalizeSession(data.session as CourseSession);
 }
 
 async function patchSession(body: Record<string, unknown>) {
@@ -252,7 +267,7 @@ async function patchSession(body: Record<string, unknown>) {
   });
   if (!res.ok) throw new Error("Could not update progress");
   const data = await res.json();
-  session = data.session as CourseSession;
+  session = normalizeSession(data.session as CourseSession);
   saveSessionLocal(session);
 }
 
@@ -353,16 +368,37 @@ function renderHome() {
   els.resume.hidden = false;
   if (session.email) els.email.value = session.email;
 
+  const settings = course.settings || {};
+  const linkLabel = settings.learningLinkLabel?.trim() || "Learning link";
+  els.learningTitle.textContent = `Save your ${linkLabel.toLowerCase()}`;
+  els.learningIntro.textContent =
+    settings.learningLinkIntro?.trim() ||
+    "Enter your email to receive your learning link so you can return and pick up where you left off.";
+  els.saveEmail.textContent = `Email ${linkLabel.toLowerCase()}`;
+
+  const requireAck = settings.learningLinkRequireAcknowledgement !== false;
+  els.ackWrap.hidden = !requireAck;
+  if (requireAck) {
+    els.ack.checked = false;
+    const ackCopy = settings.learningLinkAcknowledgementText?.trim() || "";
+    const privacyUrl = settings.learningLinkPrivacyUrl?.trim();
+    if (privacyUrl) {
+      els.ackText.innerHTML = `${escapeHtml(ackCopy)} <a href="${escapeAttr(privacyUrl)}" target="_blank" rel="noreferrer">Privacy policy</a>`;
+    } else {
+      els.ackText.textContent = ackCopy;
+    }
+  }
+
   const origin = window.location.origin;
   if (session.resumeToken) {
     els.resumeLink.hidden = false;
-    els.resumeLink.textContent = `Resume link: ${origin}/course/${course.slug}?resumeToken=${session.resumeToken}`;
+    els.resumeLink.textContent = `${linkLabel}: ${origin}/course/${course.slug}?resumeToken=${session.resumeToken}`;
   } else {
     els.resumeLink.hidden = true;
   }
 
   const enriched = enrichItems();
-  const certs = session.earnedCertificates
+  const certs = (session.earnedCertificates || [])
     .map((id) => enriched.find((i) => i.id === id))
     .filter(Boolean) as PublicCourseItem[];
   if (certs.length) {
@@ -370,6 +406,31 @@ function renderHome() {
     els.certList.innerHTML = certs.map((c) => `<li>${escapeHtml(c.displayTitle || c.label)}</li>`).join("");
   } else {
     els.summary.hidden = true;
+  }
+
+  const badgeItems = enriched.filter((i) => i.moduleType === "badge" && !i.missing && !i.archived);
+  const earnedBadgeIds = new Set(session.earnedBadges || []);
+  if (badgeItems.length) {
+    els.badges.hidden = false;
+    els.badgeGrid.innerHTML = badgeItems
+      .map((item) => {
+        const earned = earnedBadgeIds.has(item.id);
+        const art = item.badgeArtUrl || item.iconUrl;
+        const title = escapeHtml(item.displayTitle || item.label);
+        if (art) {
+          return `<figure class="course-badge ${earned ? "course-badge--earned" : "course-badge--locked"}" title="${title}">
+            <img src="${escapeAttr(art)}" alt="${title}" loading="lazy" />
+            <figcaption>${title}</figcaption>
+          </figure>`;
+        }
+        return `<figure class="course-badge course-badge--placeholder ${earned ? "course-badge--earned" : "course-badge--locked"}" title="${title}">
+          <span aria-hidden="true">🏅</span>
+          <figcaption>${title}</figcaption>
+        </figure>`;
+      })
+      .join("");
+  } else {
+    els.badges.hidden = true;
   }
 
   els.complete.hidden = !session.completedAt;
@@ -435,6 +496,14 @@ async function completeActiveItem(outcomes: Record<string, unknown> = {}) {
 async function saveEmail() {
   const email = els.email.value.trim();
   if (!email || !session || !course) return;
+
+  const settings = course.settings || {};
+  if (settings.learningLinkRequireAcknowledgement !== false && !els.ack.checked) {
+    els.resumeStatus.hidden = false;
+    els.resumeStatus.textContent = "Please confirm how we will use your email.";
+    return;
+  }
+
   els.resumeStatus.hidden = false;
   els.resumeStatus.textContent = "Saving…";
 
@@ -448,7 +517,7 @@ async function saveEmail() {
     return;
   }
   const patchData = await patchRes.json();
-  session = patchData.session as CourseSession;
+  session = normalizeSession(patchData.session as CourseSession);
   saveSessionLocal(session);
 
   const resumeUrl = session.resumeToken
@@ -467,7 +536,8 @@ async function saveEmail() {
   const mailData = await mailRes.json().catch(() => ({}));
 
   if (mailRes.ok && mailData.sent) {
-    els.resumeStatus.textContent = `Resume link emailed to ${email}.`;
+    const linkLabel = course.settings?.learningLinkLabel?.trim() || "Learning link";
+    els.resumeStatus.textContent = `Your ${linkLabel.toLowerCase()} was emailed to ${email}.`;
   } else if (mailData.reason === "email_not_configured") {
     els.resumeStatus.textContent = "Email delivery is not configured on this site — copy the link below.";
   } else {
@@ -511,7 +581,7 @@ async function boot() {
 
   try {
     course = await fetchCourse();
-    session = await createOrResumeSession();
+    session = normalizeSession(await createOrResumeSession());
     saveSessionLocal(session);
     renderHome();
   } catch (e) {

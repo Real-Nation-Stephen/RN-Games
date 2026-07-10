@@ -280,6 +280,20 @@ html.page-bg-scroll::before {
   cursor: not-allowed;
 }
 
+.cert-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.page-btn-secondary {
+  background: transparent;
+  border: 1px solid var(--page-btn-bg, #2d6cdf);
+  color: var(--page-headline, #fff);
+}
+
 .page-form {
   width: min(480px, 100%);
   text-align: left;
@@ -404,6 +418,32 @@ html.page-bg-scroll::before {
   font-weight: 700;
   margin: 16px 0;
   color: var(--page-headline, #fff);
+}
+
+.page-quiz-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+  width: min(480px, 100%);
+}
+
+.page-quiz-choice {
+  width: 100%;
+  text-align: left;
+}
+
+.page-quiz-progress {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.page-quiz-score {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--page-headline, #fff);
+  margin: 0 0 20px;
 }
 
 .powered-by-rn {

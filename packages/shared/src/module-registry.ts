@@ -150,6 +150,15 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     outputs: [{ id: "completed", label: "Viewed", outcomeKey: "completed", valueType: "boolean" }],
   },
   {
+    typeId: "badge",
+    category: "conversion",
+    label: "Badge",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [{ id: "completed", label: "Earned", outcomeKey: "completed", valueType: "boolean" }],
+  },
+  {
     typeId: "redemption",
     category: "conversion",
     label: "Redemption",
@@ -168,6 +177,20 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     outputs: [
       { id: "completed", label: "Signed up", outcomeKey: "completed", valueType: "boolean" },
       { id: "fieldValues", label: "Signup data", outcomeKey: "form.fieldValues", valueType: "object" },
+    ],
+  },
+  {
+    typeId: "mini-quiz",
+    category: "data-collection",
+    label: "Mini quiz",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [
+      { id: "completed", label: "Completed", outcomeKey: "completed", valueType: "boolean" },
+      { id: "score", label: "Score", outcomeKey: "quiz.score", valueType: "number" },
+      { id: "scorePercent", label: "Score %", outcomeKey: "quiz.scorePercent", valueType: "number" },
+      { id: "correctCount", label: "Correct count", outcomeKey: "quiz.correctCount", valueType: "number" },
     ],
   },
   // Control-flow — graph only (Logic node unified per ROADMAP Jul 2026)
