@@ -201,7 +201,7 @@ async function fetchExperience(): Promise<PublicExperience> {
 }
 
 async function createOrResumeSession(): Promise<Session> {
-  const saved = loadSessionLocal();
+  const saved = embeddedInCourse() ? null : loadSessionLocal();
   const body: Record<string, string | boolean> = { experienceSlug: slug };
   const auth = authQueryParams();
   auth.forEach((value, key) => {
@@ -327,13 +327,19 @@ function renderStep() {
   if (!experience || !session) return;
 
   if (session.completedAt || session.currentStepIndex >= experience.steps.length) {
-    els.stage.hidden = true;
-    els.loading.hidden = true;
-    els.complete.hidden = false;
     const inCourse = embeddedInCourse();
-    els.completeActions.hidden = inCourse || !previewToken;
-    els.courseReturnWrap.hidden = !inCourse;
-    if (inCourse) notifyCourseComplete();
+    els.loading.hidden = true;
+    if (inCourse) {
+      els.complete.hidden = true;
+      els.stage.hidden = false;
+      els.frame.src = "about:blank";
+      notifyCourseComplete();
+    } else {
+      els.stage.hidden = true;
+      els.complete.hidden = false;
+      els.completeActions.hidden = !previewToken;
+      els.courseReturnWrap.hidden = true;
+    }
     track({
       type: "experience.complete",
       gameId: experience.id,
@@ -463,11 +469,17 @@ function bindEvents() {
   });
 }
 
+function applyCourseEmbedChrome() {
+  if (!embeddedInCourse()) return;
+  document.getElementById("app")?.classList.add("course-embed");
+}
+
 async function boot() {
   slug = getExperienceSlug();
   previewToken = getPreviewToken();
   const courseCtx = courseContext();
   if (courseCtx) saveCourseContext(courseCtx);
+  applyCourseEmbedChrome();
   if (!slug) {
     showError("Missing experience slug.");
     return;

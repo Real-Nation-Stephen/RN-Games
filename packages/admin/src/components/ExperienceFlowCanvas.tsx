@@ -3,11 +3,14 @@ import {
   Background,
   Controls,
   Handle,
-  MiniMap,
   Position,
   ReactFlow,
+  addEdge,
+  applyEdgeChanges,
   applyNodeChanges,
+  type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
   type NodeProps,
@@ -323,6 +326,7 @@ export function ExperienceFlowCanvas({
 }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
+  const [tool, setTool] = useState<"select" | "pan">("select");
 
   const moduleById = useMemo(() => new Map(modules.map((m) => [m.id, m])), [modules]);
 
@@ -377,6 +381,30 @@ export function ExperienceFlowCanvas({
     [edges, emitGraph],
   );
 
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      setEdges((eds) => {
+        const next = applyEdgeChanges(changes, eds);
+        emitGraph(nodes, next);
+        return next;
+      });
+    },
+    [nodes, emitGraph],
+  );
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+      const nextEdges = addEdge(
+        { ...connection, id: `e-${connection.source}-${connection.target}` },
+        edges.filter((e) => e.source !== connection.source),
+      );
+      setEdges(nextEdges);
+      emitGraph(nodes, nextEdges);
+    },
+    [nodes, edges, emitGraph],
+  );
+
   const onNodeDragStop = useCallback(() => {
     emitGraph(nodes, edges);
   }, [nodes, edges, emitGraph]);
@@ -425,6 +453,23 @@ export function ExperienceFlowCanvas({
   return (
     <div className="experience-flow">
       <div className="experience-flow-toolbar">
+        <button
+          type="button"
+          className={`btn${tool === "select" ? " btn-primary" : ""}`}
+          onClick={() => setTool("select")}
+          title="Select and move nodes"
+        >
+          Select
+        </button>
+        <button
+          type="button"
+          className={`btn${tool === "pan" ? " btn-primary" : ""}`}
+          onClick={() => setTool("pan")}
+          title="Pan the canvas"
+        >
+          Pan
+        </button>
+        <span className="experience-flow-toolbar-sep" aria-hidden="true" />
         <button type="button" className="btn btn-primary" onClick={() => setShowPicker((v) => !v)}>
           {showPicker ? "Close palette" : "Add component"}
         </button>
@@ -477,14 +522,17 @@ export function ExperienceFlowCanvas({
           nodeTypes={nodeTypes}
           colorMode="dark"
           onNodesChange={onNodesChange}
-          onEdgesChange={() => {}}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
           onNodeClick={(_, n) => onSelectNode(n.id)}
           onPaneClick={() => onSelectNode(null)}
           onNodeDragStop={onNodeDragStop}
           fitView
-          nodesDraggable
-          nodesConnectable={false}
-          elementsSelectable
+          panOnDrag={tool === "pan"}
+          selectionOnDrag={tool === "select"}
+          nodesDraggable={tool === "select"}
+          nodesConnectable={tool === "select"}
+          elementsSelectable={tool === "select"}
           nodesFocusable
           elevateNodesOnSelect
           minZoom={0.4}
@@ -492,7 +540,6 @@ export function ExperienceFlowCanvas({
         >
           <Background gap={16} color="rgba(255,255,255,0.06)" />
           <Controls />
-          <MiniMap pannable zoomable />
         </ReactFlow>
       </div>
 

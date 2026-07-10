@@ -422,11 +422,16 @@ export default function PageModuleEditor({ gameType }: Props) {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ marginTop: 0 }}>Page blocks</h3>
           <p className="muted" style={{ fontSize: "0.85rem" }}>
-            Build your landing page with blocks — text, images, galleries, video, buttons, and more. Reorder with ↑ ↓.
+            Build your landing page with pages and blocks — text, images, galleries, video, buttons, and more. Use page
+            tabs to add screens; button blocks can link to another page.
           </p>
           <LandingBlocksEditor
             doc={doc as LandingRecord}
-            onChange={(blocks) => patch((d) => (d.gameType === "landing" ? { ...d, blocks } : d))}
+            onScreensChange={(screens) =>
+              patch((d) =>
+                d.gameType === "landing" ? { ...d, screens, blocks: screens[0]?.blocks || d.blocks } : d,
+              )
+            }
             onPageSettings={(p) =>
               patch((d) => (d.gameType === "landing" ? { ...d, pageSettings: { ...d.pageSettings, ...p } } : d))
             }

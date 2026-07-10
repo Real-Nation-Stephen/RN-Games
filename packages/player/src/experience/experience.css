@@ -17,6 +17,17 @@ body {
   flex-direction: column;
 }
 
+#app.course-embed #exp-header,
+#app.course-embed #exp-step-footer,
+#app.course-embed #exp-complete,
+#app.course-embed #exp-fallback {
+  display: none !important;
+}
+
+#app.course-embed #exp-stage {
+  min-height: 100%;
+}
+
 .exp-panel {
   margin: auto;
   padding: 24px;

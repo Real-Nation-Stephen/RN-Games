@@ -1,4 +1,5 @@
 import type { LandingRecord } from "@rngames/shared/page-modules";
+import { getLandingScreens } from "@rngames/shared";
 import {
   applyPageTheme,
   completeStep,
@@ -36,19 +37,37 @@ function mountLanding(cfg: LandingRecord) {
   wirePoweredBy(cfg);
   wirePageLogo(cfg);
 
-  const hasPrimary = renderLandingBlocks(els.blocks, cfg, {
-    flowMode: flowModeActive(),
-    flowNextLabel: flowNextLabel(),
-    onEngage: () => engageStep(),
-    onPrimaryAction: (label) => onContinue(cfg, label),
-  });
+  const screens = getLandingScreens(cfg);
+  let activeScreenId = screens[0]?.id || "";
 
-  els.app.hidden = false;
+  function renderScreen() {
+    const screen = screens.find((s) => s.id === activeScreenId) || screens[0];
+    if (!screen) return;
+    activeScreenId = screen.id;
 
-  if (flowModeActive() && cfg.experienceAutoContinue && hasPrimary) {
-    engageStep();
-    scheduleAutoContinue(cfg, () => onContinue(cfg, cfg.primaryCta.label));
+    const screenCfg: LandingRecord = { ...cfg, blocks: screen.blocks };
+    const hasPrimary = renderLandingBlocks(els.blocks, screenCfg, {
+      flowMode: flowModeActive(),
+      flowNextLabel: flowNextLabel(),
+      onEngage: () => engageStep(),
+      onPrimaryAction: (label) => onContinue(cfg, label),
+      onScreenNavigate: (screenId) => {
+        if (!screens.some((s) => s.id === screenId)) return;
+        activeScreenId = screenId;
+        engageStep();
+        renderScreen();
+      },
+    });
+
+    els.app.hidden = false;
+
+    if (!flowModeActive() && cfg.experienceAutoContinue && hasPrimary) {
+      engageStep();
+      scheduleAutoContinue(cfg, () => onContinue(cfg, cfg.primaryCta.label));
+    }
   }
+
+  renderScreen();
 }
 
 async function boot() {

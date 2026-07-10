@@ -9,6 +9,7 @@ export type LandingMountOptions = {
   flowNextLabel: string;
   onPrimaryAction: (label: string) => void;
   onEngage: () => void;
+  onScreenNavigate?: (screenId: string) => void;
 };
 
 function alignStyle(align: string): string {
@@ -188,11 +189,17 @@ function renderButtonBlock(
 
   btn.addEventListener("click", () => {
     opts.onEngage();
-    if (block.url && !opts.flowMode) {
+    const action =
+      block.action ?? (block.isPrimary ? "primary" : block.url ? "link" : "primary");
+    if (action === "screen" && block.targetScreenId && opts.onScreenNavigate) {
+      opts.onScreenNavigate(block.targetScreenId);
+      return;
+    }
+    if (action === "link" && block.url && !opts.flowMode) {
       window.open(block.url, "_blank", "noopener,noreferrer");
       return;
     }
-    if (block.isPrimary || opts.flowMode) opts.onPrimaryAction(block.label);
+    if (action === "primary" || block.isPrimary || opts.flowMode) opts.onPrimaryAction(block.label);
     else if (block.url) window.location.href = block.url;
   });
 

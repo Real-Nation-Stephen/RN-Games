@@ -8,6 +8,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+}
+
+.experience-flow-toolbar-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--rn-border);
+  margin: 0 4px;
 }
 
 .experience-flow-picker {

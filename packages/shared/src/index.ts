@@ -88,6 +88,11 @@ export {
   normalizeMiniQuiz,
   createDefaultLandingBlock,
   newLandingBlockId,
+  newLandingScreenId,
+  defaultLandingScreens,
+  getLandingScreens,
+  type LandingScreen,
+  type LandingButtonAction,
   resolveSessionPath,
 } from "./page-modules.js";
 export {

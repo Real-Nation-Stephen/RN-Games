@@ -134,7 +134,12 @@ export interface LandingButtonBlock extends LandingBlockBase {
   align: LandingBlockAlign;
   fullWidth: boolean;
   isPrimary: boolean;
+  /** Standalone: open URL. Flow: advance step. Multi-screen: go to another page. */
+  action?: LandingButtonAction;
+  targetScreenId?: string;
 }
+
+export type LandingButtonAction = "link" | "primary" | "screen";
 
 export interface LandingEmbedBlock extends LandingBlockBase {
   type: "embed";
@@ -163,6 +168,12 @@ export interface LandingPageSettings {
   entranceAnimation: boolean;
   /** When true, logo horizontal alignment follows page contentAlign. */
   logoMatchPageAlign: boolean;
+}
+
+export interface LandingScreen {
+  id: string;
+  title: string;
+  blocks: LandingBlock[];
 }
 
 export const CERTIFICATE_MERGE_HINTS = [
@@ -206,7 +217,9 @@ export interface PageModuleBase {
 
 export type LandingRecord = PageModuleBase & {
   gameType: "landing";
+  /** @deprecated Use screens[].blocks — kept in sync with the first screen for legacy readers. */
   blocks: LandingBlock[];
+  screens: LandingScreen[];
   pageSettings: LandingPageSettings;
 };
 
@@ -224,6 +237,10 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
 
 export function newLandingBlockId(): string {
   return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function newLandingScreenId(): string {
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export function defaultLandingPageSettings(): LandingPageSettings {
@@ -290,6 +307,7 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         align: "inherit",
         fullWidth: false,
         isPrimary: false,
+        action: "primary",
       };
     case "embed":
       return { id, type, url: "", heightPx: 480, title: "Embedded content" };
@@ -303,14 +321,14 @@ export function defaultLandingBlocks(): LandingBlock[] {
       type: "text",
       content: "Welcome",
       variant: "headline",
-      align: "center",
+      align: "inherit",
     },
     {
       id: newLandingBlockId(),
       type: "text",
-      content: "Tell your story here.",
+      content: "Add your message here.",
       variant: "body",
-      align: "center",
+      align: "inherit",
     },
     {
       id: newLandingBlockId(),
@@ -319,11 +337,29 @@ export function defaultLandingBlocks(): LandingBlock[] {
       url: "",
       backgroundHex: "#2d6cdf",
       textHex: "#ffffff",
-      align: "center",
+      align: "inherit",
       fullWidth: false,
       isPrimary: true,
+      action: "primary",
     },
   ];
+}
+
+export function defaultLandingScreens(): LandingScreen[] {
+  return [{ id: newLandingScreenId(), title: "Page 1", blocks: defaultLandingBlocks() }];
+}
+
+/** Resolve screens from a landing doc, migrating legacy single-page blocks when needed. */
+export function getLandingScreens(doc: Pick<LandingRecord, "screens" | "blocks">): LandingScreen[] {
+  if (Array.isArray(doc.screens) && doc.screens.length) {
+    return doc.screens.map((s, i) => ({
+      id: String(s.id || `screen-${i}`),
+      title: String(s.title || `Page ${i + 1}`),
+      blocks: Array.isArray(s.blocks) ? s.blocks : [],
+    }));
+  }
+  const blocks = Array.isArray(doc.blocks) && doc.blocks.length ? doc.blocks : defaultLandingBlocks();
+  return [{ id: newLandingScreenId(), title: "Page 1", blocks }];
 }
 
 export type FormFieldType =
@@ -513,13 +549,15 @@ function basePageModule(
 
 export function emptyLanding(partial: { id: string; slug: string }): LandingRecord {
   const b = basePageModule(partial, "landing", "Untitled landing page");
+  const screens = defaultLandingScreens();
   return {
     ...b,
     gameType: "landing",
     primaryCta: defaultCta("Get started"),
     experienceAutoContinue: true,
     experienceAutoContinueDelayMs: 2500,
-    blocks: defaultLandingBlocks(),
+    blocks: screens[0].blocks,
+    screens,
     pageSettings: defaultLandingPageSettings(),
   };
 }
@@ -766,18 +804,29 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
         thicknessPx: Math.max(1, Number((raw as LandingDividerBlock).thicknessPx) || 1),
         widthPercent: Math.max(10, Math.min(100, Number((raw as LandingDividerBlock).widthPercent) || 60)),
       };
-    case "button":
+    case "button": {
+      const rawBtn = raw as LandingButtonBlock;
+      const isPrimary = !!rawBtn.isPrimary;
+      let action = rawBtn.action as LandingButtonAction | undefined;
+      if (!action) {
+        if (isPrimary) action = "primary";
+        else if (rawBtn.url) action = "link";
+        else action = "primary";
+      }
       return {
         id,
         type,
-        label: String((raw as LandingButtonBlock).label || "Continue"),
-        url: String((raw as LandingButtonBlock).url || ""),
-        backgroundHex: String((raw as LandingButtonBlock).backgroundHex || "#2d6cdf"),
-        textHex: String((raw as LandingButtonBlock).textHex || "#ffffff"),
-        align: ((raw as LandingButtonBlock).align || "center") as LandingTextAlign,
-        fullWidth: !!(raw as LandingButtonBlock).fullWidth,
-        isPrimary: !!(raw as LandingButtonBlock).isPrimary,
+        label: String(rawBtn.label || "Continue"),
+        url: String(rawBtn.url || ""),
+        backgroundHex: String(rawBtn.backgroundHex || "#2d6cdf"),
+        textHex: String(rawBtn.textHex || "#ffffff"),
+        align: ((rawBtn.align || "center") as LandingTextAlign),
+        fullWidth: !!rawBtn.fullWidth,
+        isPrimary,
+        action,
+        targetScreenId: rawBtn.targetScreenId ? String(rawBtn.targetScreenId) : undefined,
       };
+    }
     case "embed":
       return {
         id,
@@ -852,13 +901,29 @@ function normalizeLandingPageSettings(raw?: Partial<LandingPageSettings>): Landi
 
 export function normalizeLanding(doc: Partial<LandingRecord> & { id: string; slug: string }): LandingRecord {
   const base = normalizeBase(doc);
-  const blocks = Array.isArray(doc.blocks) && doc.blocks.length
-    ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
-    : legacyLandingBlocks(doc);
+  const rawScreens = Array.isArray(doc.screens) && doc.screens.length ? doc.screens : null;
+  const screens: LandingScreen[] = rawScreens
+    ? rawScreens.map((s, si) => ({
+        id: String(s.id || `screen-${si}`),
+        title: String(s.title || `Page ${si + 1}`),
+        blocks: Array.isArray(s.blocks)
+          ? s.blocks.map((b, i) => normalizeLandingBlock(b, i))
+          : defaultLandingBlocks(),
+      }))
+    : [
+        {
+          id: newLandingScreenId(),
+          title: "Page 1",
+          blocks: Array.isArray(doc.blocks) && doc.blocks.length
+            ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
+            : legacyLandingBlocks(doc),
+        },
+      ];
   return {
     ...base,
     gameType: "landing",
-    blocks,
+    screens,
+    blocks: screens[0]?.blocks || defaultLandingBlocks(),
     pageSettings: normalizeLandingPageSettings(doc.pageSettings),
   };
 }

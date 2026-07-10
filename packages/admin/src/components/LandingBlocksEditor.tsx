@@ -1,12 +1,16 @@
+import { useState } from "react";
 import type {
   LandingBlock,
   LandingBlockType,
   LandingRecord,
+  LandingScreen,
 } from "@rngames/shared";
 import {
   LANDING_BLOCK_LABELS,
   createDefaultLandingBlock,
+  getLandingScreens,
   newLandingBlockId,
+  newLandingScreenId,
 } from "@rngames/shared";
 import { uploadFile } from "../api";
 import { CollapsibleSection } from "./CollapsibleSection";
@@ -14,7 +18,7 @@ import { HexField } from "./HexField";
 
 type Props = {
   doc: LandingRecord;
-  onChange: (blocks: LandingBlock[]) => void;
+  onScreensChange: (screens: LandingScreen[]) => void;
   onPageSettings: (patch: Partial<LandingRecord["pageSettings"]>) => void;
 };
 
@@ -84,6 +88,8 @@ function ImageUpload({
 
 function BlockEditor({
   block,
+  screens,
+  activeScreenId,
   onChange,
   onRemove,
   onMoveUp,
@@ -92,6 +98,8 @@ function BlockEditor({
   canMoveDown,
 }: {
   block: LandingBlock;
+  screens: LandingScreen[];
+  activeScreenId: string;
   onChange: (b: LandingBlock) => void;
   onRemove: () => void;
   onMoveUp: () => void;
@@ -339,15 +347,49 @@ function BlockEditor({
               </select>
             </label>
             <label className="field">
-              Link URL (standalone only)
-              <input value={block.url} onChange={(e) => onChange({ ...block, url: e.target.value })} />
+              Button action
+              <select
+                value={block.action || (block.isPrimary ? "primary" : block.url ? "link" : "primary")}
+                onChange={(e) => {
+                  const action = e.target.value as typeof block.action;
+                  onChange({
+                    ...block,
+                    action,
+                    isPrimary: action === "primary",
+                  });
+                }}
+              >
+                <option value="primary">Continue / complete step (flow)</option>
+                <option value="screen">Go to another page</option>
+                <option value="link">Open link (standalone)</option>
+              </select>
             </label>
+            {(block.action === "screen" || (!block.action && block.targetScreenId)) && screens.length > 1 ? (
+              <label className="field">
+                Target page
+                <select
+                  value={block.targetScreenId || ""}
+                  onChange={(e) => onChange({ ...block, action: "screen", targetScreenId: e.target.value })}
+                >
+                  <option value="">Select page…</option>
+                  {screens
+                    .filter((s) => s.id !== activeScreenId)
+                    .map((s, i) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title || `Page ${i + 1}`}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : null}
+            {(block.action === "link" || (!block.action && block.url && !block.isPrimary)) && (
+              <label className="field">
+                Link URL (standalone only)
+                <input value={block.url} onChange={(e) => onChange({ ...block, url: e.target.value })} />
+              </label>
+            )}
             <HexField label="Background" value={block.backgroundHex} onChange={(v) => onChange({ ...block, backgroundHex: v })} />
             <HexField label="Text colour" value={block.textHex} onChange={(v) => onChange({ ...block, textHex: v })} />
-            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-              <input type="checkbox" checked={block.isPrimary} onChange={(e) => onChange({ ...block, isPrimary: e.target.checked })} />
-              Primary action (continues experience / completes step)
-            </label>
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="checkbox" checked={block.fullWidth} onChange={(e) => onChange({ ...block, fullWidth: e.target.checked })} />
               Full width
@@ -387,13 +429,28 @@ function BlockEditor({
   );
 }
 
-export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
-  const blocks = doc.blocks;
+export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Props) {
+  const screens = getLandingScreens(doc);
+  const [activeScreenId, setActiveScreenId] = useState(screens[0]?.id || "");
+  const activeScreen = screens.find((s) => s.id === activeScreenId) || screens[0];
+  const blocks = activeScreen?.blocks || [];
+
+  function updateScreens(next: LandingScreen[]) {
+    onScreensChange(next);
+    if (!next.some((s) => s.id === activeScreenId)) {
+      setActiveScreenId(next[0]?.id || "");
+    }
+  }
+
+  function patchActiveScreen(patch: Partial<LandingScreen>) {
+    if (!activeScreen) return;
+    updateScreens(screens.map((s) => (s.id === activeScreen.id ? { ...s, ...patch } : s)));
+  }
 
   function updateBlock(index: number, next: LandingBlock) {
     const copy = [...blocks];
     copy[index] = next;
-    onChange(copy);
+    patchActiveScreen({ blocks: copy });
   }
 
   function moveBlock(index: number, dir: -1 | 1) {
@@ -401,11 +458,68 @@ export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
     if (j < 0 || j >= blocks.length) return;
     const copy = [...blocks];
     [copy[index], copy[j]] = [copy[j], copy[index]];
-    onChange(copy);
+    patchActiveScreen({ blocks: copy });
+  }
+
+  function addScreen() {
+    const n = screens.length + 1;
+    const screen: LandingScreen = {
+      id: newLandingScreenId(),
+      title: `Page ${n}`,
+      blocks: [createDefaultLandingBlock("text")],
+    };
+    updateScreens([...screens, screen]);
+    setActiveScreenId(screen.id);
+  }
+
+  function removeScreen(screenId: string) {
+    if (screens.length <= 1) return;
+    const next = screens.filter((s) => s.id !== screenId);
+    updateScreens(next);
+    if (activeScreenId === screenId) setActiveScreenId(next[0]?.id || "");
   }
 
   return (
     <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        {screens.map((screen, i) => (
+          <button
+            key={screen.id}
+            type="button"
+            className="btn"
+            style={{
+              fontWeight: activeScreen?.id === screen.id ? 700 : 400,
+              borderColor: activeScreen?.id === screen.id ? "var(--accent, #6cf)" : undefined,
+            }}
+            onClick={() => setActiveScreenId(screen.id)}
+          >
+            {screen.title || `Page ${i + 1}`} ({screen.blocks.length})
+          </button>
+        ))}
+        <button type="button" className="btn btn-primary" onClick={addScreen}>
+          Add page
+        </button>
+      </div>
+
+      {activeScreen ? (
+        <div className="grid2" style={{ marginBottom: 16 }}>
+          <label className="field">
+            Page title
+            <input
+              value={activeScreen.title}
+              onChange={(e) => patchActiveScreen({ title: e.target.value })}
+            />
+          </label>
+          {screens.length > 1 ? (
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button type="button" className="btn" onClick={() => removeScreen(activeScreen.id)}>
+                Remove this page
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid2" style={{ marginBottom: 16 }}>
         <label className="field">
           Page max width (px)
@@ -477,8 +591,10 @@ export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
         <BlockEditor
           key={block.id}
           block={block}
+          screens={screens}
+          activeScreenId={activeScreen?.id || ""}
           onChange={(b) => updateBlock(i, b)}
-          onRemove={() => onChange(blocks.filter((_, j) => j !== i))}
+          onRemove={() => patchActiveScreen({ blocks: blocks.filter((_, j) => j !== i) })}
           onMoveUp={() => moveBlock(i, -1)}
           onMoveDown={() => moveBlock(i, 1)}
           canMoveUp={i > 0}
@@ -493,7 +609,7 @@ export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
           onChange={(e) => {
             const t = e.target.value as LandingBlockType;
             if (!t) return;
-            onChange([...blocks, createDefaultLandingBlock(t)]);
+            patchActiveScreen({ blocks: [...blocks, createDefaultLandingBlock(t)] });
             e.target.value = "";
           }}
         >
