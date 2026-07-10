@@ -197,6 +197,45 @@ function rfToGraph(nodes: Node<FlowNodeData>[], edges: Edge[]): ExperienceGraph 
   };
 }
 
+function disconnectNode(graph: ExperienceGraph, nodeId: string): ExperienceGraph {
+  if (nodeId === "entry" || nodeId === "exit") return graph;
+  const edges = [...(graph.edges || [])];
+  const incoming = edges.find((e) => e.targetNodeId === nodeId);
+  const outgoing = edges.find((e) => e.sourceNodeId === nodeId);
+  if (!incoming && !outgoing) return graph;
+  const newEdges = edges.filter((e) => e.sourceNodeId !== nodeId && e.targetNodeId !== nodeId);
+  if (incoming && outgoing) {
+    newEdges.push({
+      id: `e-${incoming.sourceNodeId}-${outgoing.targetNodeId}`,
+      sourceNodeId: incoming.sourceNodeId,
+      targetNodeId: outgoing.targetNodeId,
+    });
+  }
+  const nodes = (graph.nodes || []).filter((n) => n.id !== nodeId);
+  return { ...graph, nodes, edges: newEdges };
+}
+
+function insertModuleAfter(graph: ExperienceGraph, afterNodeId: string, mod: PickerModule): ExperienceGraph {
+  const steps = graphToLinearSteps(graph);
+  const i = steps.findIndex((s) => s.id === afterNodeId);
+  const newStep = {
+    id: newStepId(),
+    moduleInstanceId: mod.id,
+    moduleType: mod.gameType || "spinning-wheel",
+    label: mod.title,
+  };
+  if (i < 0) return insertModuleInChain(graph, mod);
+  const next = [...steps];
+  next.splice(i + 1, 0, newStep);
+  let result = linearStepsToGraph(next);
+  const logicNodes = (graph.nodes || []).filter((n) => n.kind === "control" && n.controlType === "logic");
+  for (const ln of logicNodes) {
+    if (result.nodes.some((n) => n.id === ln.id)) continue;
+    result = insertLogicStub(result);
+  }
+  return result;
+}
+
 function insertModuleInChain(graph: ExperienceGraph, mod: PickerModule): ExperienceGraph {
   const steps = graphToLinearSteps(graph);
   const newStep = {
@@ -283,6 +322,7 @@ export function ExperienceFlowCanvas({
   onChange,
 }: Props) {
   const [showPicker, setShowPicker] = useState(false);
+  const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
 
   const moduleById = useMemo(() => new Map(modules.map((m) => [m.id, m])), [modules]);
 
@@ -342,9 +382,18 @@ export function ExperienceFlowCanvas({
   }, [nodes, edges, emitGraph]);
 
   function handleAddModule(mod: PickerModule) {
-    const next = insertModuleInChain(graph, mod);
+    const next = insertAfterNodeId
+      ? insertModuleAfter(graph, insertAfterNodeId, mod)
+      : insertModuleInChain(graph, mod);
     onChange(next);
     setShowPicker(false);
+    setInsertAfterNodeId(null);
+  }
+
+  function handleDisconnectSelected() {
+    if (!selectedNodeId) return;
+    onChange(disconnectNode(graph, selectedNodeId));
+    onSelectNode(null);
   }
 
   function handleAddLogic() {
@@ -390,6 +439,19 @@ export function ExperienceFlowCanvas({
             <button type="button" className="btn" onClick={() => handleMoveSelected(1)}>
               Move down
             </button>
+            <button type="button" className="btn" onClick={handleDisconnectSelected}>
+              Disconnect
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setInsertAfterNodeId(selectedNodeId);
+                setShowPicker(true);
+              }}
+            >
+              Insert after
+            </button>
             <button type="button" className="btn" onClick={handleRemoveSelected}>
               Remove node
             </button>
@@ -413,6 +475,7 @@ export function ExperienceFlowCanvas({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          colorMode="dark"
           onNodesChange={onNodesChange}
           onEdgesChange={() => {}}
           onNodeClick={(_, n) => onSelectNode(n.id)}
@@ -422,6 +485,8 @@ export function ExperienceFlowCanvas({
           nodesDraggable
           nodesConnectable={false}
           elementsSelectable
+          nodesFocusable
+          elevateNodesOnSelect
           minZoom={0.4}
           maxZoom={1.5}
         >

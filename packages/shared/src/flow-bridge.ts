@@ -18,6 +18,7 @@ export interface FlowContext {
 export const FLOW_CTX_STORAGE_KEY = "rngames:flow";
 export const FLOW_STEP_COMPLETE = "rngames:step_complete";
 export const FLOW_STEP_ENGAGED = "rngames:step_engaged";
+export const FLOW_EXPERIENCE_COMPLETE = "rngames:experience_complete";
 
 export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
   if (params.get("flow") !== "1") return null;
@@ -130,5 +131,20 @@ export function isStepEngagedMessage(data: unknown): data is StepEngagedMessage 
     !!data &&
     typeof data === "object" &&
     (data as StepEngagedMessage).type === FLOW_STEP_ENGAGED
+  );
+}
+
+export type ExperienceCompleteMessage = {
+  type: typeof FLOW_EXPERIENCE_COMPLETE;
+  courseSessionId?: string;
+  courseItemId?: string;
+  outcomes?: Record<string, unknown>;
+};
+
+export function isExperienceCompleteMessage(data: unknown): data is ExperienceCompleteMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as ExperienceCompleteMessage).type === FLOW_EXPERIENCE_COMPLETE
   );
 }

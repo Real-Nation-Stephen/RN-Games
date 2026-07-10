@@ -1,6 +1,7 @@
 import html2canvas from "html2canvas";
 import type { BadgeRecord } from "@rngames/shared/page-modules";
 import { buildBadgeSessionRoot, resolveSessionPath } from "@rngames/shared/page-modules";
+import { mountScaledMergeOverlay } from "../page-module/cert-scaling";
 import {
   applyPageTheme,
   completeStep,
@@ -59,17 +60,9 @@ function renderBadge(cfg: BadgeRecord, sessionRoot: Record<string, unknown>) {
 
   const overlay = document.createElement("div");
   overlay.className = "cert-overlay";
-  for (const mf of cfg.mergeFields) {
-    const el = document.createElement("div");
-    el.className = `cert-field cert-field--${mf.textAlign || "center"}`;
-    el.style.left = `${mf.xPercent}%`;
-    el.style.top = `${mf.yPercent}%`;
-    el.style.fontSize = `${mf.fontSizePx}px`;
-    el.style.color = mf.colorHex;
-    el.style.fontWeight = mf.fontWeight === "bold" ? "700" : "400";
-    el.textContent = resolveSessionPath(sessionRoot, mf.sourceKey) || mf.label;
-    overlay.appendChild(el);
-  }
+  mountScaledMergeOverlay(stage, overlay, cfg.canvasWidth, cfg.mergeFields, (mf) =>
+    resolveSessionPath(sessionRoot, mf.sourceKey) || mf.label,
+  );
   stage.appendChild(overlay);
   els.wrap.appendChild(stage);
   badgeStageEl = stage;

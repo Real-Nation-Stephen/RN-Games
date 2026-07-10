@@ -8,6 +8,7 @@ import {
   saveFlowContext,
   saveCourseContext,
   loadCourseContext,
+  loadFlowContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
@@ -181,7 +182,9 @@ export async function patchCourseSessionData(
 }
 
 export async function fetchCourseSession(sessionId: string) {
-  const res = await fetch(`/api/course-session?id=${encodeURIComponent(sessionId)}`);
+  const res = await fetch(`/api/course-session?id=${encodeURIComponent(sessionId)}`, {
+    cache: "no-store",
+  });
   if (!res.ok) return null;
   const json = await res.json();
   return json.session as {
@@ -190,23 +193,23 @@ export async function fetchCourseSession(sessionId: string) {
     itemOutcomes?: Record<string, Record<string, unknown>>;
   };
 }
-
-/** Load session data for merge fields — experience flow first, then course shell. */
 export async function loadModuleSessionRoot(): Promise<{
   data?: Record<string, unknown>;
   outcomes?: Record<string, unknown>;
 } | null> {
-  const flow = parseFlowContextFromSearch(new URLSearchParams(window.location.search));
+  const params = new URLSearchParams(window.location.search);
+  const flow = loadFlowContext() ?? parseFlowContextFromSearch(params);
   if (flow?.sessionId) {
     return (await fetchSession(flow.sessionId)) || null;
   }
-  const course = loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
   if (course?.sessionId) {
     const session = await fetchCourseSession(course.sessionId);
     if (!session) return null;
+    const itemOutcomes = session.itemOutcomes?.[course.itemId] || {};
     return {
       data: session.data,
-      outcomes: session.outcomes,
+      outcomes: { ...session.outcomes, ...itemOutcomes },
     };
   }
   return null;
@@ -240,7 +243,9 @@ export async function patchSessionData(
 }
 
 export async function fetchSession(sessionId: string) {
-  const res = await fetch(`/api/experience-session?id=${encodeURIComponent(sessionId)}`);
+  const res = await fetch(`/api/experience-session?id=${encodeURIComponent(sessionId)}`, {
+    cache: "no-store",
+  });
   if (!res.ok) return null;
   const json = await res.json();
   return json.session as {

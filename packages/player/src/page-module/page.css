@@ -45,9 +45,10 @@ html.page-bg-scroll::before {
 
 .page-logo {
   width: 100%;
-  max-width: min(560px, 100%);
+  max-width: min(var(--page-content-width, 560px), 100%);
   margin: 0 auto 16px;
   display: flex;
+  box-sizing: border-box;
 }
 
 .page-logo--left {
@@ -70,8 +71,9 @@ html.page-bg-scroll::before {
 }
 
 .page-card {
-  width: min(560px, 100%);
+  width: min(var(--page-content-width, 560px), 100%);
   text-align: center;
+  box-sizing: border-box;
 }
 
 .page-headline {

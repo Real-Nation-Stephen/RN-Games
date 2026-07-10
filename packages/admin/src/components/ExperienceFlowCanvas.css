@@ -17,6 +17,23 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
+.experience-flow-canvas .react-flow {
+  --xy-controls-button-background-color-default: #111f35;
+  --xy-controls-button-background-color-hover: rgba(255, 255, 255, 0.14);
+  --xy-controls-button-color-default: #f8f9fb;
+  --xy-controls-button-color-hover: #ffffff;
+  --xy-controls-button-border-color-default: rgba(255, 255, 255, 0.12);
+  --xy-minimap-background-color: #111f35;
+  --xy-minimap-mask-background-color: rgba(10, 22, 40, 0.6);
+  --xy-minimap-node-color: rgba(61, 111, 184, 0.9);
+  --xy-minimap-node-stroke-color: rgba(255, 255, 255, 0.2);
+}
+
+.experience-flow-canvas .react-flow__node.selected .flow-node {
+  outline: 2px solid rgba(61, 111, 184, 0.9);
+  outline-offset: 2px;
+}
+
 .experience-flow-canvas {
   height: 480px;
   border: 1px solid var(--rn-border);

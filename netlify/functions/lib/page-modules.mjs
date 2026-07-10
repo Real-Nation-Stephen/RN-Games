@@ -527,6 +527,7 @@ export function normalizePageModule(doc) {
       paddingPx: Math.max(0, Number(doc.pageSettings?.paddingPx) || 24),
       contentOffsetYPercent: Math.max(0, Math.min(100, Number(doc.pageSettings?.contentOffsetYPercent ?? 50))),
       entranceAnimation: doc.pageSettings?.entranceAnimation !== false,
+      logoMatchPageAlign: doc.pageSettings?.logoMatchPageAlign !== false,
     },
   };
 }

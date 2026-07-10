@@ -1,5 +1,18 @@
-import { appendFlowQuery, componentPublicPath, parseCourseContextFromSearch, track } from "@rngames/shared";
-import { FLOW_STEP_COMPLETE, isStepCompleteMessage, isStepEngagedMessage } from "@rngames/shared";
+import {
+  appendCourseQuery,
+  appendFlowQuery,
+  componentPublicPath,
+  loadCourseContext,
+  parseCourseContextFromSearch,
+  saveCourseContext,
+  track,
+} from "@rngames/shared";
+import {
+  FLOW_EXPERIENCE_COMPLETE,
+  FLOW_STEP_COMPLETE,
+  isStepCompleteMessage,
+  isStepEngagedMessage,
+} from "@rngames/shared";
 
 type PublicStep = {
   id: string;
@@ -59,12 +72,13 @@ function getCoursePreviewAuth(): { courseSlug: string; coursePreviewToken: strin
 }
 
 function courseContext() {
-  return parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  return (
+    loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search))
+  );
 }
 
 function embeddedInCourse(): boolean {
-  const ctx = courseContext();
-  return !!ctx && window.parent !== window;
+  return !!courseContext() && window.parent !== window;
 }
 
 const els = {
@@ -101,6 +115,7 @@ const NATIVE_FLOW_TYPES = new Set([
   "consent",
   "email-signup",
   "redemption",
+  "mini-quiz",
   ...AUTO_ADVANCE_TYPES,
 ]);
 
@@ -152,6 +167,10 @@ function loadSessionLocal(): { sessionId: string; participantId: string } | null
 }
 
 function updateShellContinue() {
+  if (embeddedInCourse()) {
+    els.stepFooter.hidden = true;
+    return;
+  }
   const needsBanner = !NATIVE_FLOW_TYPES.has(currentStep()?.moduleType || "");
   els.stepFooter.hidden = !needsBanner;
   if (needsBanner) {
@@ -253,14 +272,23 @@ function currentStep(): PublicStep | null {
 function stepFrameUrl(step: PublicStep): string {
   if (!session || !experience) return "";
   const base = componentPublicPath(step.moduleType, step.moduleSlug);
-  const originRelative = appendFlowQuery(base, {
+  let path = appendFlowQuery(base, {
     sessionId: session.sessionId,
     experienceId: experience.id,
     nodeId: step.id,
     nextStepLabel: nextStepButtonLabel(),
   });
-  if (originRelative.startsWith("http")) return originRelative;
-  return `${window.location.origin}${originRelative}`;
+  const courseCtx = courseContext();
+  if (courseCtx) {
+    path = appendCourseQuery(path, {
+      sessionId: courseCtx.sessionId,
+      courseId: courseCtx.courseId,
+      courseSlug: courseCtx.courseSlug,
+      itemId: courseCtx.itemId,
+    });
+  }
+  if (path.startsWith("http")) return path;
+  return `${window.location.origin}${path}`;
 }
 
 function notifyCourseComplete() {
@@ -268,7 +296,7 @@ function notifyCourseComplete() {
   if (!courseCtx || !session || window.parent === window) return;
   window.parent.postMessage(
     {
-      type: FLOW_STEP_COMPLETE,
+      type: FLOW_EXPERIENCE_COMPLETE,
       courseSessionId: courseCtx.sessionId,
       courseItemId: courseCtx.itemId,
       outcomes: session.outcomes || {},
@@ -305,6 +333,7 @@ function renderStep() {
     const inCourse = embeddedInCourse();
     els.completeActions.hidden = inCourse || !previewToken;
     els.courseReturnWrap.hidden = !inCourse;
+    if (inCourse) notifyCourseComplete();
     track({
       type: "experience.complete",
       gameId: experience.id,
@@ -329,6 +358,7 @@ function renderStep() {
   els.complete.hidden = true;
   els.courseReturnWrap.hidden = true;
   els.fallback.hidden = true;
+  els.stepFooter.hidden = embeddedInCourse();
   els.title.textContent = experience.title;
   els.progress.textContent = `Step ${session.currentStepIndex + 1} of ${experience.steps.length}`;
 
@@ -436,6 +466,8 @@ function bindEvents() {
 async function boot() {
   slug = getExperienceSlug();
   previewToken = getPreviewToken();
+  const courseCtx = courseContext();
+  if (courseCtx) saveCourseContext(courseCtx);
   if (!slug) {
     showError("Missing experience slug.");
     return;

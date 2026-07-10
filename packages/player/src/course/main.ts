@@ -1,6 +1,7 @@
 import {
   appendCourseQuery,
   courseCompletionPercent,
+  isExperienceCompleteMessage,
   isStepCompleteMessage,
   sectionUnlockState,
   isCourseItemAccessible,
@@ -48,6 +49,7 @@ const els = {
 let course: PublicCourse | null = null;
 let session: CourseSession | null = null;
 let activeItem: PublicCourseItem | null = null;
+let playerReady = false;
 let slug = "";
 let previewToken = "";
 let resumeToken = "";
@@ -473,11 +475,27 @@ function itemLaunchUrl(item: PublicCourseItem): string {
   return finalUrl.toString();
 }
 
+function updatePlayerFooter() {
+  if (!activeItem) {
+    els.markComplete.hidden = true;
+    return;
+  }
+  if (activeItem.kind === "experience") {
+    els.markComplete.hidden = !playerReady;
+    els.markComplete.textContent = "Continue";
+    return;
+  }
+  els.markComplete.hidden = !playerReady;
+  els.markComplete.textContent = "Continue";
+}
+
 async function openItem(itemId: string) {
   const enriched = enrichItems();
   const item = enriched.find((i) => i.id === itemId);
   if (!item || !item.launchPath || item.missing || item.locked) return;
   activeItem = item;
+  playerReady = item.kind !== "experience";
+  updatePlayerFooter();
   await patchSession({ itemId, action: "visit" });
 
   showView("player");
@@ -548,11 +566,21 @@ async function saveEmail() {
 }
 
 window.addEventListener("message", (ev) => {
+  if (isExperienceCompleteMessage(ev.data)) {
+    if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
+    if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
+    if (!activeItem || activeItem.kind !== "experience") return;
+    playerReady = true;
+    updatePlayerFooter();
+    return;
+  }
   if (!isStepCompleteMessage(ev.data)) return;
   if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
   if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
   if (!ev.data.courseItemId) return;
-  void completeActiveItem(ev.data.outcomes || {});
+  if (activeItem?.kind === "experience") return;
+  playerReady = true;
+  updatePlayerFooter();
 });
 
 window.addEventListener("resize", () => {
@@ -561,6 +589,7 @@ window.addEventListener("resize", () => {
 
 els.back.addEventListener("click", () => {
   activeItem = null;
+  playerReady = false;
   els.frame.src = "about:blank";
   renderHome();
 });

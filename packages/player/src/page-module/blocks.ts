@@ -22,6 +22,11 @@ function textAlign(align: string): string {
   return "center";
 }
 
+function resolveBlockAlign(blockAlign: string, pageAlign: string): string {
+  if (blockAlign === "inherit" || !blockAlign) return pageAlign;
+  return blockAlign;
+}
+
 function objectFit(fit: string): string {
   if (fit === "fill") return "fill";
   if (fit === "cover") return "cover";
@@ -57,20 +62,20 @@ function videoEmbedUrl(url: string, autoplay: boolean, muted: boolean): string |
   return null;
 }
 
-function renderTextBlock(block: Extract<LandingBlock, { type: "text" }>): HTMLElement {
+function renderTextBlock(block: Extract<LandingBlock, { type: "text" }>, pageAlign: string): HTMLElement {
   const el = document.createElement(block.variant === "headline" ? "h1" : block.variant === "subheadline" ? "h2" : "p");
   el.className = `landing-text landing-text--${block.variant}`;
   el.textContent = block.content;
-  el.style.textAlign = textAlign(block.align);
+  el.style.textAlign = textAlign(resolveBlockAlign(block.align, pageAlign));
   if (block.colorHex) el.style.color = block.colorHex;
   return el;
 }
 
-function renderImageBlock(block: Extract<LandingBlock, { type: "image" }>): HTMLElement {
+function renderImageBlock(block: Extract<LandingBlock, { type: "image" }>, pageAlign: string): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "landing-image-wrap";
   wrap.style.display = "flex";
-  wrap.style.justifyContent = alignStyle(block.align);
+  wrap.style.justifyContent = alignStyle(resolveBlockAlign(block.align, pageAlign));
   if (!block.url) return wrap;
   const img = document.createElement("img");
   img.src = block.url;
@@ -165,12 +170,13 @@ function renderVideoBlock(block: Extract<LandingBlock, { type: "video" }>): HTML
 
 function renderButtonBlock(
   block: Extract<LandingBlock, { type: "button" }>,
+  pageAlign: string,
   opts: LandingMountOptions,
 ): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "landing-button-wrap";
   wrap.style.display = "flex";
-  wrap.style.justifyContent = alignStyle(block.align);
+  wrap.style.justifyContent = alignStyle(resolveBlockAlign(block.align, pageAlign));
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -208,27 +214,62 @@ function renderEmbedBlock(block: Extract<LandingBlock, { type: "embed" }>): HTML
   return wrap;
 }
 
+/** Sync logo column width/alignment with landing page settings. */
+export function applyLandingPageLayout(cfg: LandingRecord) {
+  const settings = cfg.pageSettings;
+  const width = `${settings.maxWidthPx}px`;
+  const pad = `${settings.paddingPx}px`;
+  document.documentElement.style.setProperty("--page-content-width", width);
+
+  const app = document.getElementById("page-app");
+  if (app) {
+    const offset = Math.max(0, Math.min(100, settings.contentOffsetYPercent ?? 50));
+    const vertical = settings.verticalAlign === "center" ? "center" : "flex-start";
+    app.style.justifyContent = vertical;
+    app.style.paddingTop = vertical === "flex-start" ? `calc(${offset} * 0.55vh)` : "";
+    app.style.alignItems =
+      settings.contentAlign === "left" ? "flex-start" : settings.contentAlign === "right" ? "flex-end" : "center";
+  }
+
+  const logo = document.getElementById("page-logo");
+  if (logo) {
+    logo.style.width = "100%";
+    logo.style.maxWidth = width;
+    logo.style.paddingLeft = pad;
+    logo.style.paddingRight = pad;
+    logo.style.boxSizing = "border-box";
+    if (settings.logoMatchPageAlign !== false && cfg.logoUrl) {
+      logo.className = `page-logo page-logo--${settings.contentAlign}`;
+    }
+  }
+}
+
 export function renderLandingBlocks(
   container: HTMLElement,
   cfg: LandingRecord,
   opts: LandingMountOptions,
 ): boolean {
   const settings = cfg.pageSettings;
+  const pageAlign = settings.contentAlign;
   container.className = "page-card landing-blocks";
   container.style.maxWidth = `${settings.maxWidthPx}px`;
-  container.style.textAlign = textAlign(settings.contentAlign);
+  container.style.width = "100%";
+  container.style.textAlign = textAlign(pageAlign);
   container.style.padding = `${settings.paddingPx}px`;
+  container.style.boxSizing = "border-box";
   container.replaceChildren();
+
+  applyLandingPageLayout(cfg);
 
   let hasPrimary = false;
   for (const block of cfg.blocks) {
     let el: HTMLElement | null = null;
     switch (block.type) {
       case "text":
-        el = renderTextBlock(block);
+        el = renderTextBlock(block, pageAlign);
         break;
       case "image":
-        el = renderImageBlock(block);
+        el = renderImageBlock(block, pageAlign);
         break;
       case "image_text":
         el = renderImageTextBlock(block);
@@ -249,7 +290,7 @@ export function renderLandingBlocks(
         el = document.createElement("div");
         el.className = "landing-divider-wrap";
         el.style.display = "flex";
-        el.style.justifyContent = "center";
+        el.style.justifyContent = alignStyle(pageAlign);
         const line = document.createElement("hr");
         line.className = "landing-divider";
         line.style.width = `${block.widthPercent}%`;
@@ -261,7 +302,7 @@ export function renderLandingBlocks(
       }
       case "button":
         if (block.isPrimary) hasPrimary = true;
-        el = renderButtonBlock(block, opts);
+        el = renderButtonBlock(block, pageAlign, opts);
         break;
       case "embed":
         el = renderEmbedBlock(block);
@@ -271,15 +312,6 @@ export function renderLandingBlocks(
   }
 
   if (settings.entranceAnimation) container.classList.add("landing-animate-in");
-
-  const app = document.getElementById("page-app");
-  if (app) {
-    const offset = Math.max(0, Math.min(100, settings.contentOffsetYPercent ?? 50));
-    app.style.justifyContent = "flex-start";
-    app.style.paddingTop = `calc(${offset} * 0.55vh)`;
-    app.style.alignItems =
-      settings.contentAlign === "left" ? "flex-start" : settings.contentAlign === "right" ? "flex-end" : "center";
-  }
 
   return hasPrimary;
 }

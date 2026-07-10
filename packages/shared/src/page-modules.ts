@@ -41,6 +41,8 @@ export interface PagePostSubmit {
 }
 
 export type LandingTextAlign = "left" | "center" | "right";
+/** Block alignment — `inherit` uses the page `contentAlign`. */
+export type LandingBlockAlign = LandingTextAlign | "inherit";
 export type LandingImageFit = "cover" | "contain" | "fill" | "inset";
 export type LandingTextVariant = "headline" | "subheadline" | "body" | "caption";
 export type LandingBlockType =
@@ -63,7 +65,7 @@ export interface LandingTextBlock extends LandingBlockBase {
   type: "text";
   content: string;
   variant: LandingTextVariant;
-  align: LandingTextAlign;
+  align: LandingBlockAlign;
   colorHex?: string;
 }
 
@@ -74,7 +76,7 @@ export interface LandingImageBlock extends LandingBlockBase {
   fit: LandingImageFit;
   maxHeightPx: number;
   borderRadiusPx: number;
-  align: LandingTextAlign;
+  align: LandingBlockAlign;
   fullWidth: boolean;
 }
 
@@ -129,7 +131,7 @@ export interface LandingButtonBlock extends LandingBlockBase {
   url: string;
   backgroundHex: string;
   textHex: string;
-  align: LandingTextAlign;
+  align: LandingBlockAlign;
   fullWidth: boolean;
   isPrimary: boolean;
 }
@@ -159,6 +161,8 @@ export interface LandingPageSettings {
   paddingPx: number;
   contentOffsetYPercent: number;
   entranceAnimation: boolean;
+  /** When true, logo horizontal alignment follows page contentAlign. */
+  logoMatchPageAlign: boolean;
 }
 
 export const CERTIFICATE_MERGE_HINTS = [
@@ -230,6 +234,7 @@ export function defaultLandingPageSettings(): LandingPageSettings {
     paddingPx: 24,
     contentOffsetYPercent: 50,
     entranceAnimation: true,
+    logoMatchPageAlign: true,
   };
 }
 
@@ -241,7 +246,7 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
   const id = newLandingBlockId();
   switch (type) {
     case "text":
-      return { id, type, content: "New text block", variant: "body", align: "center" };
+      return { id, type, content: "New text block", variant: "body", align: "inherit" };
     case "image":
       return {
         id,
@@ -251,7 +256,7 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         fit: "contain",
         maxHeightPx: 320,
         borderRadiusPx: 8,
-        align: "center",
+        align: "inherit",
         fullWidth: false,
       };
     case "image_text":
@@ -282,7 +287,7 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         url: "",
         backgroundHex: "#2d6cdf",
         textHex: "#ffffff",
-        align: "center",
+        align: "inherit",
         fullWidth: false,
         isPrimary: false,
       };
@@ -841,6 +846,7 @@ function normalizeLandingPageSettings(raw?: Partial<LandingPageSettings>): Landi
     paddingPx: Math.max(0, Number(raw.paddingPx) || d.paddingPx),
     contentOffsetYPercent: Math.max(0, Math.min(100, Number(raw.contentOffsetYPercent) ?? d.contentOffsetYPercent)),
     entranceAnimation: raw.entranceAnimation !== false,
+    logoMatchPageAlign: raw.logoMatchPageAlign !== false,
   };
 }
 

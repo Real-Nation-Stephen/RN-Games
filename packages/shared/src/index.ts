@@ -133,6 +133,7 @@ export {
   FLOW_CTX_STORAGE_KEY,
   FLOW_STEP_COMPLETE,
   FLOW_STEP_ENGAGED,
+  FLOW_EXPERIENCE_COMPLETE,
   parseFlowContextFromSearch,
   saveFlowContext,
   loadFlowContext,
@@ -142,6 +143,7 @@ export {
   emitStepEngaged,
   isStepCompleteMessage,
   isStepEngagedMessage,
+  isExperienceCompleteMessage,
 } from "./flow-bridge.js";
 export {
   rankLeaderboardEntries,

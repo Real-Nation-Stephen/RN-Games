@@ -18,6 +18,15 @@ type Props = {
   onPageSettings: (patch: Partial<LandingRecord["pageSettings"]>) => void;
 };
 
+const ALIGN_OPTIONS = (
+  <>
+    <option value="inherit">Match page</option>
+    <option value="left">Left</option>
+    <option value="center">Centre</option>
+    <option value="right">Right</option>
+  </>
+);
+
 function blockSummary(block: LandingBlock): string {
   switch (block.type) {
     case "text":
@@ -126,9 +135,7 @@ function BlockEditor({
             <label className="field">
               Alignment
               <select value={block.align} onChange={(e) => onChange({ ...block, align: e.target.value as typeof block.align })}>
-                <option value="left">Left</option>
-                <option value="center">Centre</option>
-                <option value="right">Right</option>
+                {ALIGN_OPTIONS}
               </select>
             </label>
             <HexField label="Text colour (optional)" value={block.colorHex || ""} onChange={(v) => onChange({ ...block, colorHex: v })} />
@@ -145,6 +152,12 @@ function BlockEditor({
             <label className="field">
               Alt text
               <input value={block.alt} onChange={(e) => onChange({ ...block, alt: e.target.value })} />
+            </label>
+            <label className="field">
+              Alignment
+              <select value={block.align} onChange={(e) => onChange({ ...block, align: e.target.value as typeof block.align })}>
+                {ALIGN_OPTIONS}
+              </select>
             </label>
             <label className="field">
               Fit
@@ -320,6 +333,12 @@ function BlockEditor({
               <input value={block.label} onChange={(e) => onChange({ ...block, label: e.target.value })} />
             </label>
             <label className="field">
+              Alignment
+              <select value={block.align} onChange={(e) => onChange({ ...block, align: e.target.value as typeof block.align })}>
+                {ALIGN_OPTIONS}
+              </select>
+            </label>
+            <label className="field">
               Link URL (standalone only)
               <input value={block.url} onChange={(e) => onChange({ ...block, url: e.target.value })} />
             </label>
@@ -427,8 +446,15 @@ export function LandingBlocksEditor({ doc, onChange, onPageSettings }: Props) {
             <option value="top">Top</option>
           </select>
         </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+          <input
+            type="checkbox"
+            checked={doc.pageSettings.logoMatchPageAlign !== false}
+            onChange={(e) => onPageSettings({ logoMatchPageAlign: e.target.checked })}
+          />
+          Logo follows page alignment (recommended for left-aligned layouts)
+        </label>
         <label className="field" style={{ gridColumn: "1 / -1" }}>
-          Content Y offset ({doc.pageSettings.contentOffsetYPercent ?? 50}%)
           <input
             type="range"
             min={0}

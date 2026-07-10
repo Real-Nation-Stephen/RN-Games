@@ -16,6 +16,7 @@ import {
   wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
+import { mountScaledMergeOverlay } from "../page-module/cert-scaling";
 
 const els = {
   app: document.getElementById("page-app")!,
@@ -61,17 +62,9 @@ function renderCertificate(cfg: CertificateRecord, sessionRoot: Record<string, u
 
   const overlay = document.createElement("div");
   overlay.className = "cert-overlay";
-  for (const mf of cfg.mergeFields) {
-    const el = document.createElement("div");
-    el.className = `cert-field cert-field--${mf.textAlign || "center"}`;
-    el.style.left = `${mf.xPercent}%`;
-    el.style.top = `${mf.yPercent}%`;
-    el.style.fontSize = `${mf.fontSizePx}px`;
-    el.style.color = mf.colorHex;
-    el.style.fontWeight = mf.fontWeight === "bold" ? "700" : "400";
-    el.textContent = resolveSessionPath(sessionRoot, mf.sourceKey) || mf.label;
-    overlay.appendChild(el);
-  }
+  mountScaledMergeOverlay(stage, overlay, cfg.canvasWidth, cfg.mergeFields, (mf) =>
+    resolveSessionPath(sessionRoot, mf.sourceKey) || mf.label,
+  );
   stage.appendChild(overlay);
   els.wrap.appendChild(stage);
   certStageEl = stage;
