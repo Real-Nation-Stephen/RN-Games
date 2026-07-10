@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   Controls,
   Handle,
   Position,
   ReactFlow,
+  ReactFlowProvider,
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
@@ -14,6 +15,7 @@ import {
   type Node,
   type NodeChange,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { ExperienceGraph, ExperienceNodeOverrides, FlowNode } from "@rngames/shared";
@@ -35,7 +37,7 @@ function EntryNode({ data }: NodeProps<Node<FlowNodeData>>) {
   return (
     <div className="flow-node flow-node--entry">
       <strong>{data.label}</strong>
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} className="flow-handle" />
     </div>
   );
 }
@@ -43,7 +45,7 @@ function EntryNode({ data }: NodeProps<Node<FlowNodeData>>) {
 function ExitNode({ data }: NodeProps<Node<FlowNodeData>>) {
   return (
     <div className="flow-node flow-node--exit">
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Top} className="flow-handle" />
       <strong>{data.label}</strong>
     </div>
   );
@@ -52,10 +54,10 @@ function ExitNode({ data }: NodeProps<Node<FlowNodeData>>) {
 function ModuleNode({ data }: NodeProps<Node<FlowNodeData>>) {
   return (
     <div className={`flow-node flow-node--module${data.warnings?.length ? " flow-node--warn" : ""}`}>
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Top} className="flow-handle" />
       <strong>{data.label}</strong>
       {data.sublabel ? <span className="flow-node-sub">{data.sublabel}</span> : null}
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} className="flow-handle" />
     </div>
   );
 }
@@ -63,10 +65,10 @@ function ModuleNode({ data }: NodeProps<Node<FlowNodeData>>) {
 function LogicNode({ data }: NodeProps<Node<FlowNodeData>>) {
   return (
     <div className="flow-node flow-node--logic">
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Top} className="flow-handle" />
       <strong>{data.label}</strong>
       <span className="flow-node-sub">Passthrough only (rules in Wave 4)</span>
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} className="flow-handle" />
     </div>
   );
 }
@@ -324,9 +326,35 @@ export function ExperienceFlowCanvas({
   onSelectNode,
   onChange,
 }: Props) {
+  return (
+    <ReactFlowProvider>
+      <ExperienceFlowCanvasInner
+        graph={graph}
+        modules={modules}
+        warnings={warnings}
+        selectedNodeId={selectedNodeId}
+        onSelectNode={onSelectNode}
+        onChange={onChange}
+      />
+    </ReactFlowProvider>
+  );
+}
+
+function ExperienceFlowCanvasInner({
+  graph,
+  modules,
+  warnings,
+  selectedNodeId,
+  onSelectNode,
+  onChange,
+}: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
   const [tool, setTool] = useState<"select" | "pan">("select");
+  const skipGraphSyncRef = useRef(false);
+  const nodesRef = useRef<Node<FlowNodeData>[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
+  const fitOnceRef = useRef(false);
 
   const moduleById = useMemo(() => new Map(modules.map((m) => [m.id, m])), [modules]);
 
@@ -356,58 +384,67 @@ export function ExperienceFlowCanvas({
 
   const [nodes, setNodes] = useState(initial.nodes);
   const [edges, setEdges] = useState(initial.edges);
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
 
   useEffect(() => {
+    if (skipGraphSyncRef.current) {
+      skipGraphSyncRef.current = false;
+      return;
+    }
     const next = graphToRfNodes(graph, moduleLabel, warningsByStepId);
     setNodes(next.nodes);
     setEdges(next.edges);
   }, [graph, moduleLabel, warningsByStepId]);
 
-  const emitGraph = useCallback(
+  const persistGraph = useCallback(
     (nextNodes: Node<FlowNodeData>[], nextEdges: Edge[]) => {
+      skipGraphSyncRef.current = true;
       onChange(rfToGraph(nextNodes, nextEdges));
     },
     [onChange],
   );
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange<Node<FlowNodeData>>[]) => {
-      setNodes((nds) => {
-        const next = applyNodeChanges(changes, nds);
-        emitGraph(next, edges);
-        return next;
-      });
-    },
-    [edges, emitGraph],
-  );
+  const onNodesChange = useCallback((changes: NodeChange<Node<FlowNodeData>>[]) => {
+    setNodes((nds) => applyNodeChanges(changes, nds));
+  }, []);
 
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => {
-      setEdges((eds) => {
-        const next = applyEdgeChanges(changes, eds);
-        emitGraph(nodes, next);
-        return next;
-      });
-    },
-    [nodes, emitGraph],
-  );
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((eds) => applyEdgeChanges(changes, eds));
+  }, []);
 
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
       const nextEdges = addEdge(
         { ...connection, id: `e-${connection.source}-${connection.target}` },
-        edges.filter((e) => e.source !== connection.source),
+        edgesRef.current.filter((e) => e.source !== connection.source),
       );
       setEdges(nextEdges);
-      emitGraph(nodes, nextEdges);
+      persistGraph(nodesRef.current, nextEdges);
     },
-    [nodes, edges, emitGraph],
+    [persistGraph],
   );
 
   const onNodeDragStop = useCallback(() => {
-    emitGraph(nodes, edges);
-  }, [nodes, edges, emitGraph]);
+    persistGraph(nodesRef.current, edgesRef.current);
+  }, [persistGraph]);
+
+  const onInit = useCallback((instance: ReactFlowInstance<Node<FlowNodeData>, Edge>) => {
+    if (fitOnceRef.current) return;
+    fitOnceRef.current = true;
+    void instance.fitView({ padding: 0.2 });
+  }, []);
+
+  const isValidConnection = useCallback((connection: Edge | Connection) => {
+    if (!connection.source || !connection.target) return false;
+    if (connection.source === connection.target) return false;
+    const sourceNode = nodesRef.current.find((n) => n.id === connection.source);
+    const targetNode = nodesRef.current.find((n) => n.id === connection.target);
+    if (!sourceNode || !targetNode) return false;
+    if (sourceNode.type === "exit" || targetNode.type === "entry") return false;
+    return true;
+  }, []);
 
   function handleAddModule(mod: PickerModule) {
     const next = insertAfterNodeId
@@ -521,18 +558,22 @@ export function ExperienceFlowCanvas({
           edges={edges}
           nodeTypes={nodeTypes}
           colorMode="dark"
+          onInit={onInit}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          isValidConnection={isValidConnection}
           onNodeClick={(_, n) => onSelectNode(n.id)}
           onPaneClick={() => onSelectNode(null)}
           onNodeDragStop={onNodeDragStop}
-          fitView
           panOnDrag={tool === "pan"}
+          panOnScroll
           selectionOnDrag={tool === "select"}
           nodesDraggable={tool === "select"}
           nodesConnectable={tool === "select"}
           elementsSelectable={tool === "select"}
+          connectionRadius={28}
+          snapToGrid={false}
           nodesFocusable
           elevateNodesOnSelect
           minZoom={0.4}
