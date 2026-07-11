@@ -193,7 +193,8 @@ function renderButtonBlock(
   btn.addEventListener("click", () => {
     opts.onEngage();
     const action =
-      block.action ?? (block.isPrimary ? "primary" : block.url ? "link" : "primary");
+      block.action ??
+      (block.targetScreenId ? "screen" : block.isPrimary ? "primary" : block.url ? "link" : "primary");
     if (action === "screen" && block.targetScreenId && opts.onScreenNavigate) {
       opts.onScreenNavigate(block.targetScreenId);
       return;

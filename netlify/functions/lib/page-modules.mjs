@@ -163,6 +163,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
         primaryCta: defaultCta("Get started"),
         experienceAutoContinue: true,
         experienceAutoContinueDelayMs: 2500,
+        screens: defaultLandingScreens(),
         blocks: defaultLandingBlocks(),
         pageSettings: {
           maxWidthPx: 720,
@@ -171,6 +172,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
           paddingPx: 24,
           contentOffsetYPercent: 50,
           entranceAnimation: true,
+          logoMatchPageAlign: true,
         },
       };
   }
@@ -180,14 +182,18 @@ function newLandingBlockId() {
   return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function newLandingScreenId() {
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 function newMiniQuizId() {
   return `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function defaultLandingBlocks() {
   return [
-    { id: newLandingBlockId(), type: "text", content: "Welcome", variant: "headline", align: "center" },
-    { id: newLandingBlockId(), type: "text", content: "Tell your story here.", variant: "body", align: "center" },
+    { id: newLandingBlockId(), type: "text", content: "Welcome", variant: "headline", align: "inherit" },
+    { id: newLandingBlockId(), type: "text", content: "Tell your story here.", variant: "body", align: "inherit" },
     {
       id: newLandingBlockId(),
       type: "button",
@@ -195,11 +201,16 @@ function defaultLandingBlocks() {
       url: "",
       backgroundHex: "#2d6cdf",
       textHex: "#ffffff",
-      align: "center",
+      align: "inherit",
       fullWidth: false,
       isPrimary: true,
+      action: "primary",
     },
   ];
+}
+
+function defaultLandingScreens() {
+  return [{ id: newLandingScreenId(), title: "Page 1", blocks: defaultLandingBlocks() }];
 }
 
 function normalizeLandingBlock(raw, index) {
@@ -241,12 +252,14 @@ function normalizeLandingBlock(raw, index) {
         }))
       : [];
     const cols = Number(raw.columns) || 3;
+    const fit = raw.imageFit;
     return {
       id,
       type,
       images,
       columns: cols === 2 || cols === 4 ? cols : 3,
       gapPx: Math.max(0, Number(raw.gapPx) || 12),
+      imageFit: fit === "contain" || fit === "fill" ? fit : "cover",
     };
   }
   if (type === "video") {
@@ -272,6 +285,13 @@ function normalizeLandingBlock(raw, index) {
     };
   }
   if (type === "button") {
+    const isPrimary = !!raw.isPrimary;
+    let action = raw.action;
+    if (!action) {
+      if (isPrimary) action = "primary";
+      else if (raw.url) action = "link";
+      else action = "primary";
+    }
     return {
       id,
       type,
@@ -281,7 +301,9 @@ function normalizeLandingBlock(raw, index) {
       textHex: String(raw.textHex || "#ffffff"),
       align: raw.align || "center",
       fullWidth: !!raw.fullWidth,
-      isPrimary: !!raw.isPrimary,
+      isPrimary,
+      action,
+      targetScreenId: raw.targetScreenId ? String(raw.targetScreenId) : undefined,
     };
   }
   if (type === "embed") {
@@ -300,6 +322,7 @@ function normalizeLandingBlock(raw, index) {
     variant: raw.variant || "body",
     align: raw.align || "center",
     colorHex: String(raw.colorHex || ""),
+    fontSizePx: raw.fontSizePx ? Math.max(10, Number(raw.fontSizePx) || 0) : undefined,
   };
 }
 
@@ -517,9 +540,39 @@ export function normalizePageModule(doc) {
   return {
     ...base,
     gameType: "landing",
-    blocks: Array.isArray(doc.blocks) && doc.blocks.length
-      ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
-      : legacyLandingBlocks(doc),
+    screens: (() => {
+      if (Array.isArray(doc.screens) && doc.screens.length) {
+        return doc.screens.map((s, si) => ({
+          id: String(s.id || `screen-${si}`),
+          title: String(s.title || `Page ${si + 1}`),
+          blocks: Array.isArray(s.blocks)
+            ? s.blocks.map((b, i) => normalizeLandingBlock(b, i))
+            : defaultLandingBlocks(),
+          flowCompleteOverride: !!s.flowCompleteOverride,
+        }));
+      }
+      return [
+        {
+          id: newLandingScreenId(),
+          title: "Page 1",
+          blocks: Array.isArray(doc.blocks) && doc.blocks.length
+            ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
+            : legacyLandingBlocks(doc),
+        },
+      ];
+    })(),
+    blocks: (() => {
+      const screens = Array.isArray(doc.screens) && doc.screens.length ? doc.screens : null;
+      if (screens) {
+        const first = screens[0];
+        return Array.isArray(first?.blocks)
+          ? first.blocks.map((b, i) => normalizeLandingBlock(b, i))
+          : defaultLandingBlocks();
+      }
+      return Array.isArray(doc.blocks) && doc.blocks.length
+        ? doc.blocks.map((b, i) => normalizeLandingBlock(b, i))
+        : legacyLandingBlocks(doc);
+    })(),
     pageSettings: {
       maxWidthPx: Math.max(320, Number(doc.pageSettings?.maxWidthPx) || 720),
       contentAlign: ["left", "right"].includes(doc.pageSettings?.contentAlign) ? doc.pageSettings.contentAlign : "center",
