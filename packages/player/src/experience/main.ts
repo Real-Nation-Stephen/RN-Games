@@ -16,6 +16,7 @@ import {
   isStepEngagedMessage,
   isEndScreenReadyMessage,
   isStepContentReadyMessage,
+  isCourseItemCompleteMessage,
 } from "@rngames/shared";
 
 type PublicStep = {
@@ -482,10 +483,18 @@ function bindEvents() {
       forwardToCourseParent(ev.data as Record<string, unknown>);
       return;
     }
+    if (isCourseItemCompleteMessage(ev.data)) {
+      forwardToCourseParent(ev.data as Record<string, unknown>);
+      return;
+    }
     if (isStepEngagedMessage(ev.data)) {
       if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
       stepEngaged = true;
       updateShellContinue();
+      forwardToCourseParent({
+        ...ev.data,
+        moduleType: currentStep()?.moduleType,
+      });
       return;
     }
     if (!isStepCompleteMessage(ev.data)) return;

@@ -5,6 +5,8 @@ import {
   isExperienceContentReadyMessage,
   isEndScreenReadyMessage,
   isStepCompleteMessage,
+  isStepEngagedMessage,
+  isCourseItemCompleteMessage,
   FLOW_CONTENT_REVEAL,
   sectionUnlockState,
   isCourseItemAccessible,
@@ -66,6 +68,29 @@ const KIND_ICON: Record<PublicCourseItem["kind"], string> = {
   experience: "✨",
   video: "▶️",
 };
+
+const INTERACTIVE_FOOTER_MODULE_TYPES = new Set([
+  "flip-cards",
+  "spinning-wheel",
+  "scratcher",
+  "catch",
+  "runner",
+]);
+
+function courseMessageMatchesActiveItem(data: {
+  courseSessionId?: string;
+  courseItemId?: string;
+}): boolean {
+  if (!activeItem) return false;
+  if (data.courseSessionId && session && data.courseSessionId !== session.sessionId) return false;
+  if (data.courseItemId && data.courseItemId !== activeItem.id) return false;
+  return true;
+}
+
+function showCourseFooter() {
+  playerReady = true;
+  updatePlayerFooter();
+}
 
 function getCourseSlug(): string {
   const q = new URLSearchParams(window.location.search).get("slug");
@@ -331,7 +356,7 @@ function renderSection(section: PublicCourseSection, items: PublicCourseItem[]):
           <div class="course-item-main">
             <div class="course-item-icon">${iconHtml(item.iconUrl, item.iconEmoji, KIND_ICON[item.kind])}</div>
             <div class="course-item-label">
-              <p class="course-item-title">${escapeHtml(title)}${done ? " ✓" : ""}</p>
+              <p class="course-item-title">${escapeHtml(title)}${done ? '<span class="course-item-check" aria-hidden="true">✓</span>' : ""}</p>
               <div class="course-item-meta">${escapeHtml(meta)}</div>
             </div>
           </div>
@@ -627,28 +652,33 @@ window.addEventListener("message", (ev) => {
     return;
   }
   if (isEndScreenReadyMessage(ev.data)) {
-    if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
-    if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
-    if (!activeItem || activeItem.kind !== "experience") return;
-    playerReady = true;
-    updatePlayerFooter();
+    if (!courseMessageMatchesActiveItem(ev.data)) return;
+    showCourseFooter();
+    return;
+  }
+  if (isCourseItemCompleteMessage(ev.data)) {
+    if (!courseMessageMatchesActiveItem(ev.data)) return;
+    void completeActiveItem(ev.data.outcomes || {});
+    return;
+  }
+  if (isStepEngagedMessage(ev.data)) {
+    if (!courseMessageMatchesActiveItem(ev.data)) return;
+    const moduleType = ev.data.moduleType || "";
+    if (INTERACTIVE_FOOTER_MODULE_TYPES.has(moduleType)) {
+      showCourseFooter();
+    }
     return;
   }
   if (isExperienceCompleteMessage(ev.data)) {
-    if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
-    if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
-    if (!activeItem || activeItem.kind !== "experience") return;
-    playerReady = true;
-    updatePlayerFooter();
+    if (!courseMessageMatchesActiveItem(ev.data)) return;
+    showCourseFooter();
     return;
   }
   if (!isStepCompleteMessage(ev.data)) return;
-  if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
-  if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
+  if (!courseMessageMatchesActiveItem(ev.data)) return;
   if (!ev.data.courseItemId) return;
   if (activeItem?.kind === "experience") return;
-  playerReady = true;
-  updatePlayerFooter();
+  showCourseFooter();
 });
 
 window.addEventListener("resize", () => {

@@ -477,3 +477,36 @@ html.page-bg-scroll::before {
   height: 28px;
   width: auto;
 }
+
+@media (min-width: 1280px) {
+  .page-headline {
+    font-size: clamp(2.25rem, 2.5vw, 3rem);
+  }
+
+  .page-body,
+  .page-intro {
+    font-size: 1.2rem;
+  }
+
+  .landing-text--headline {
+    font-size: clamp(2.25rem, 2.8vw, 3.25rem);
+  }
+
+  .landing-text--subheadline {
+    font-size: clamp(1.5rem, 2vw, 2.25rem);
+  }
+
+  .landing-text--body {
+    font-size: 1.2rem;
+  }
+
+  .page-btn,
+  .landing-btn {
+    font-size: 1.1rem;
+    padding: 14px 32px;
+  }
+
+  .landing-blocks {
+    max-width: min(100%, 880px);
+  }
+}

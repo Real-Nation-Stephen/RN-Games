@@ -11,7 +11,10 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
+  isInCourseEmbed,
   loadModuleSessionRoot,
+  notifyEndScreenReady,
+  notifyStepContentReady,
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
@@ -130,6 +133,11 @@ async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<stri
 
   els.downloadPng.onclick = () => void downloadPng().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
   els.downloadPdf.onclick = () => void downloadPdf().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
+
+  if (isInCourseEmbed()) {
+    notifyEndScreenReady();
+    notifyStepContentReady();
+  }
 
   engageStep();
 }

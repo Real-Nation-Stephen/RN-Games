@@ -4,6 +4,8 @@
 import { burstConfetti } from "../js/fanfare.js";
 import { FORMATS, getFormatOrThrow } from "./formats.js";
 import { track } from "@rngames/shared/track";
+import { emitStepEngaged, isFlowMode } from "@rngames/shared";
+import { notifyEndScreenReady } from "../page-module/shared";
 
 const isEmbed = document.body.classList.contains("scratcher-embed");
 const API_BASE = "/api";
@@ -23,6 +25,7 @@ let isWin = true;
 let clearThreshold = 0.97;
 /** @type {import('./formats.js').ScratcherFormat | null} */
 let fmtOverride = null;
+let scratchEngaged = false;
 
 /** Live / preview public payload */
 let liveConfig = null;
@@ -280,6 +283,10 @@ let lastPoint = null;
 function onPointerDown(evt) {
   if (completed) return;
   evt.preventDefault();
+  if (!scratchEngaged && isFlowMode()) {
+    scratchEngaged = true;
+    emitStepEngaged();
+  }
   lastPoint = canvasPos(evt);
   els.canvas?.setPointerCapture(evt.pointerId);
 }
@@ -373,6 +380,7 @@ function completeReveal() {
   }
   els.buttonSlot?.classList.add("is-visible");
   els.buttonSlot?.setAttribute("aria-hidden", "false");
+  notifyEndScreenReady();
 }
 
 function wireScratch() {

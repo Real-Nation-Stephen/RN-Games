@@ -1,11 +1,7 @@
 import type { LandingBlock, LandingRecord, LandingScreen } from "@rngames/shared/page-modules";
 import {
   FLOW_CONTENT_REVEAL,
-  FLOW_END_SCREEN_READY,
   getVisibleLandingScreens,
-  isCourseMode,
-  loadCourseContext,
-  parseCourseContextFromSearch,
 } from "@rngames/shared";
 import {
   applyPageTheme,
@@ -16,6 +12,9 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
+  isInCourseEmbed,
+  notifyCourseItemComplete,
+  notifyEndScreenReady,
   notifyStepContentReady,
   scheduleAutoContinue,
   setupPagePreview,
@@ -104,18 +103,13 @@ function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock
   return blocks.length ? blocks : screen.blocks;
 }
 
-function notifyEndScreenReady() {
-  const courseCtx =
-    loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
-  if (!courseCtx || window.parent === window) return;
-  window.parent.postMessage(
-    {
-      type: FLOW_END_SCREEN_READY,
-      courseSessionId: courseCtx.sessionId,
-      courseItemId: courseCtx.itemId,
-    },
-    "*",
-  );
+function onContinue(cfg: LandingRecord, label: string) {
+  completeStep({ gameId: cfg.id, "landing.cta": label });
+}
+
+function finishCourseOverride(cfg: LandingRecord, label: string) {
+  onContinue(cfg, label);
+  notifyCourseItemComplete({ gameId: cfg.id, "landing.cta": label });
 }
 
 function revealContent() {
@@ -125,10 +119,6 @@ function revealContent() {
   if (els.blocks.classList.contains("landing-blocks")) {
     els.blocks.classList.add("landing-animate-in");
   }
-}
-
-function onContinue(cfg: LandingRecord, label: string) {
-  completeStep({ gameId: cfg.id, "landing.cta": label });
 }
 
 function mountLanding(cfg: LandingRecord) {
@@ -164,6 +154,10 @@ function mountLanding(cfg: LandingRecord) {
       deferEntranceAnimation: cfg.pageSettings.entranceAnimation !== false && !contentRevealed,
       onEngage: () => engageStep(),
       onPrimaryAction: (label) => {
+        if (onOverrideScreen && isInCourseEmbed()) {
+          finishCourseOverride(cfg, label);
+          return;
+        }
         if (onOverrideScreen) {
           onContinue(cfg, label);
           return;
@@ -193,10 +187,10 @@ function mountLanding(cfg: LandingRecord) {
       els.blocks.classList.add("landing-await-reveal");
     }
 
-    if (onOverrideScreen && isCourseMode()) notifyEndScreenReady();
+    if (onOverrideScreen && isInCourseEmbed()) notifyEndScreenReady();
 
     els.app.hidden = false;
-    if (flowMode || isCourseMode()) notifyStepContentReady();
+    if (flowMode || isInCourseEmbed()) notifyStepContentReady();
 
     if (!flowMode && cfg.experienceAutoContinue && hasPrimary) {
       engageStep();

@@ -9,7 +9,10 @@ import {
   saveCourseContext,
   loadCourseContext,
   loadFlowContext,
+  FLOW_END_SCREEN_READY,
+  FLOW_COURSE_ITEM_COMPLETE,
   FLOW_STEP_CONTENT_READY,
+  type CourseContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
@@ -172,6 +175,41 @@ export function engageStep() {
 export function notifyStepContentReady() {
   if (window.parent === window) return;
   window.parent.postMessage({ type: FLOW_STEP_CONTENT_READY }, "*");
+}
+
+export function courseContextFromPage(): CourseContext | null {
+  return loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+}
+
+export function isInCourseEmbed(): boolean {
+  return !!courseContextFromPage() && window.parent !== window;
+}
+
+export function notifyEndScreenReady() {
+  const ctx = courseContextFromPage();
+  if (!ctx || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: FLOW_END_SCREEN_READY,
+      courseSessionId: ctx.sessionId,
+      courseItemId: ctx.itemId,
+    },
+    "*",
+  );
+}
+
+export function notifyCourseItemComplete(outcomes: Record<string, unknown> = {}) {
+  const ctx = courseContextFromPage();
+  if (!ctx || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: FLOW_COURSE_ITEM_COMPLETE,
+      courseSessionId: ctx.sessionId,
+      courseItemId: ctx.itemId,
+      outcomes,
+    },
+    "*",
+  );
 }
 
 export async function patchCourseSessionData(

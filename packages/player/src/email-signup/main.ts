@@ -9,6 +9,8 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
+  isInCourseEmbed,
+  notifyEndScreenReady,
   notifyStepContentReady,
   patchSessionData,
   setupPagePreview,
@@ -43,6 +45,7 @@ function showThankYou(cfg: EmailSignupRecord, onContinue: () => void) {
   els.thankYouBody.textContent = cfg.thankYouMessage;
   els.thankYouBtn.textContent = flowModeActive() ? flowNextLabel() : "Continue";
   els.thankYouBtn.onclick = onContinue;
+  if (isInCourseEmbed()) notifyEndScreenReady();
   notifyStepContentReady();
 }
 

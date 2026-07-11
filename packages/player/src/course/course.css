@@ -323,6 +323,15 @@ body {
   font-size: 1rem;
 }
 
+.course-item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  color: var(--course-accent);
+  font-weight: 800;
+}
+
 .course-item-meta {
   font-size: 0.78rem;
   color: var(--course-muted);
@@ -503,6 +512,12 @@ body {
   display: flex;
   justify-content: flex-end;
   background: color-mix(in srgb, var(--course-card) 85%, transparent);
+  flex-shrink: 0;
+  z-index: 4;
+}
+
+#course-mark-complete[hidden] {
+  display: none !important;
 }
 
 #course-cert-list {

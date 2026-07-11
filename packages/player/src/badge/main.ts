@@ -11,7 +11,10 @@ import {
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
+  isInCourseEmbed,
   loadModuleSessionRoot,
+  notifyEndScreenReady,
+  notifyStepContentReady,
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
@@ -115,6 +118,11 @@ async function mountBadge(cfg: BadgeRecord, sessionRoot: Record<string, unknown>
   }
 
   els.downloadPng.onclick = () => void downloadPng().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
+
+  if (isInCourseEmbed()) {
+    notifyEndScreenReady();
+    notifyStepContentReady();
+  }
 
   engageStep();
 }

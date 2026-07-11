@@ -14,6 +14,7 @@ import {
   parseFlowContextFromSearch,
   saveFlowContext,
 } from "@rngames/shared";
+import { notifyEndScreenReady } from "../page-module/shared";
 import { submitLinkedScore } from "../leaderboard/api";
 import {
   fetchPublicConfig,
@@ -901,6 +902,7 @@ async function showEndUi() {
     gameId: cfg.id || cfg.slug,
     payload: { slug: cfg.slug, score: metricValue },
   });
+  notifyEndScreenReady();
   updateRotateOverlay();
 }
 
