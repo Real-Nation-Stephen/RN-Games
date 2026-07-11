@@ -77,6 +77,7 @@ export interface CourseItem {
 export interface CourseSection {
   id: string;
   title: string;
+  description?: string;
   iconUrl?: string;
   iconEmoji?: string;
   /** ISO date — section hidden until this calendar date */
@@ -144,6 +145,7 @@ export interface PublicCourseItem {
 export interface PublicCourseSection {
   id: string;
   title: string;
+  description?: string;
   iconUrl?: string;
   iconEmoji?: string;
   unlockDate?: string | null;
@@ -296,6 +298,7 @@ export function normalizeCourseSection(raw: Partial<CourseSection>, index: numbe
   return {
     id: String(raw.id || `section-${index}`),
     title: String(raw.title || `Section ${index + 1}`),
+    description: raw.description ? String(raw.description) : undefined,
     iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
     iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
     unlockDate: raw.unlockDate ? String(raw.unlockDate) : null,

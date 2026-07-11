@@ -466,6 +466,22 @@ export default function CourseEditor() {
                       }
                     />
                   </label>
+                  <label className="field" style={{ gridColumn: "1 / -1" }}>
+                    Section description
+                    <textarea
+                      rows={3}
+                      placeholder="A few sentences about what this section covers…"
+                      value={activeSection.description || ""}
+                      onChange={(e) =>
+                        patch((c) => ({
+                          ...c,
+                          sections: c.sections.map((s) =>
+                            s.id === activeSection.id ? { ...s, description: e.target.value || undefined } : s,
+                          ),
+                        }))
+                      }
+                    />
+                  </label>
                   <label className="field">
                     Section icon (emoji)
                     <input

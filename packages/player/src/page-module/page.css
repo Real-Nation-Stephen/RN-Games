@@ -41,11 +41,11 @@ html.page-bg-scroll::before {
   padding: 24px 16px 48px;
   position: relative;
   z-index: 0;
+  width: 100%;
 }
 
 .page-logo {
-  width: 100%;
-  max-width: min(var(--page-content-width, 560px), 100%);
+  width: min(var(--page-content-width, 560px), 100%);
   margin: 0 auto 16px;
   display: flex;
   box-sizing: border-box;
@@ -72,6 +72,8 @@ html.page-bg-scroll::before {
 
 .page-card {
   width: min(var(--page-content-width, 560px), 100%);
+  margin-left: auto;
+  margin-right: auto;
   text-align: center;
   box-sizing: border-box;
 }
@@ -217,6 +219,15 @@ html.page-bg-scroll::before {
   object-fit: cover;
   border-radius: 6px;
   display: block;
+}
+
+.landing-gallery__cell--contain img {
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.landing-gallery__cell--fill img {
+  object-fit: fill;
 }
 
 .landing-gallery__cell figcaption {

@@ -91,6 +91,7 @@ export {
   newLandingScreenId,
   defaultLandingScreens,
   getLandingScreens,
+  getVisibleLandingScreens,
   type LandingScreen,
   type LandingButtonAction,
   resolveSessionPath,

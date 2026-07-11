@@ -344,7 +344,10 @@ function renderSection(section: PublicCourseSection, items: PublicCourseItem[]):
     <section class="course-section">
       <div class="course-section-head">
         <div class="course-section-icon">${sectionIcon}</div>
-        <h3>${escapeHtml(section.title)}</h3>
+        <div class="course-section-titles">
+          <h3>${escapeHtml(section.title)}</h3>
+          ${section.description ? `<p class="course-section-desc">${escapeHtml(section.description)}</p>` : ""}
+        </div>
       </div>
       ${sectionLock.locked ? `<p class="course-section-lock">🔒 ${escapeHtml(sectionLock.reason || "Section locked")}</p>` : ""}
       <div class="course-items">${itemsHtml || '<p class="course-muted">No items in this section</p>'}</div>
@@ -359,6 +362,7 @@ function renderHome() {
 
   els.title.textContent = course.title;
   els.description.textContent = course.description || "";
+  els.description.style.whiteSpace = "pre-wrap";
 
   const pct = courseCompletionPercent(session, course.itemCount);
   els.progressFill.style.width = `${pct}%`;
@@ -482,11 +486,11 @@ function updatePlayerFooter() {
   }
   if (activeItem.kind === "experience") {
     els.markComplete.hidden = !playerReady;
-    els.markComplete.textContent = "Continue";
+    els.markComplete.textContent = "Mark complete & continue";
     return;
   }
   els.markComplete.hidden = !playerReady;
-  els.markComplete.textContent = "Continue";
+  els.markComplete.textContent = "Mark complete & continue";
 }
 
 async function openItem(itemId: string) {
@@ -494,7 +498,7 @@ async function openItem(itemId: string) {
   const item = enriched.find((i) => i.id === itemId);
   if (!item || !item.launchPath || item.missing || item.locked) return;
   activeItem = item;
-  playerReady = item.kind !== "experience";
+  playerReady = false;
   updatePlayerFooter();
   await patchSession({ itemId, action: "visit" });
 

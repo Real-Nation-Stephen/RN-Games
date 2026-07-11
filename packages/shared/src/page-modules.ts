@@ -67,6 +67,7 @@ export interface LandingTextBlock extends LandingBlockBase {
   variant: LandingTextVariant;
   align: LandingBlockAlign;
   colorHex?: string;
+  fontSizePx?: number;
 }
 
 export interface LandingImageBlock extends LandingBlockBase {
@@ -103,6 +104,7 @@ export interface LandingGalleryBlock extends LandingBlockBase {
   images: LandingGalleryImage[];
   columns: 2 | 3 | 4;
   gapPx: number;
+  imageFit?: LandingImageFit;
 }
 
 export interface LandingVideoBlock extends LandingBlockBase {
@@ -174,6 +176,8 @@ export interface LandingScreen {
   id: string;
   title: string;
   blocks: LandingBlock[];
+  /** Flow-only end screen — hidden when landing is opened standalone; shows experience override copy. */
+  flowCompleteOverride?: boolean;
 }
 
 export const CERTIFICATE_MERGE_HINTS = [
@@ -289,7 +293,7 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         gapPx: 20,
       };
     case "gallery":
-      return { id, type, images: [], columns: 3, gapPx: 12 };
+      return { id, type, images: [], columns: 3, gapPx: 12, imageFit: "cover" };
     case "video":
       return { id, type, url: "", aspectRatio: "16:9", autoplay: false, muted: true };
     case "spacer":
@@ -356,10 +360,18 @@ export function getLandingScreens(doc: Pick<LandingRecord, "screens" | "blocks">
       id: String(s.id || `screen-${i}`),
       title: String(s.title || `Page ${i + 1}`),
       blocks: Array.isArray(s.blocks) ? s.blocks : [],
+      flowCompleteOverride: !!s.flowCompleteOverride,
     }));
   }
   const blocks = Array.isArray(doc.blocks) && doc.blocks.length ? doc.blocks : defaultLandingBlocks();
   return [{ id: newLandingScreenId(), title: "Page 1", blocks }];
+}
+
+/** Screens visible in the current context (flow-only override pages hidden standalone). */
+export function getVisibleLandingScreens(doc: Pick<LandingRecord, "screens" | "blocks">, flowMode: boolean): LandingScreen[] {
+  const screens = getLandingScreens(doc);
+  if (flowMode) return screens;
+  return screens.filter((s) => !s.flowCompleteOverride);
 }
 
 export type FormFieldType =
@@ -777,12 +789,14 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
           }))
         : [];
       const cols = Number((raw as LandingGalleryBlock).columns) || 3;
+      const fit = (raw as LandingGalleryBlock).imageFit;
       return {
         id,
         type,
         images,
         columns: (cols === 2 || cols === 4 ? cols : 3) as 2 | 3 | 4,
         gapPx: Math.max(0, Number((raw as LandingGalleryBlock).gapPx) || 12),
+        imageFit: fit === "contain" || fit === "fill" ? fit : "cover",
       };
     }
     case "video":
@@ -844,6 +858,9 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
         variant: ((raw as LandingTextBlock).variant || "body") as LandingTextVariant,
         align: ((raw as LandingTextBlock).align || "center") as LandingTextAlign,
         colorHex: (raw as LandingTextBlock).colorHex ? String((raw as LandingTextBlock).colorHex) : "",
+        fontSizePx: (raw as LandingTextBlock).fontSizePx
+          ? Math.max(10, Number((raw as LandingTextBlock).fontSizePx) || 0)
+          : undefined,
       };
   }
 }
@@ -909,6 +926,7 @@ export function normalizeLanding(doc: Partial<LandingRecord> & { id: string; slu
         blocks: Array.isArray(s.blocks)
           ? s.blocks.map((b, i) => normalizeLandingBlock(b, i))
           : defaultLandingBlocks(),
+        flowCompleteOverride: !!s.flowCompleteOverride,
       }))
     : [
         {

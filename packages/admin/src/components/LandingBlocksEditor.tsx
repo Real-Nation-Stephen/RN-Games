@@ -148,6 +148,22 @@ function BlockEditor({
             </label>
             <HexField label="Text colour (optional)" value={block.colorHex || ""} onChange={(v) => onChange({ ...block, colorHex: v })} />
             <label className="field">
+              Font size (px, optional)
+              <input
+                type="number"
+                min={10}
+                max={120}
+                value={block.fontSizePx ?? ""}
+                placeholder="Default"
+                onChange={(e) =>
+                  onChange({
+                    ...block,
+                    fontSizePx: e.target.value ? Number(e.target.value) || undefined : undefined,
+                  })
+                }
+              />
+            </label>
+            <label className="field">
               Content
               <textarea rows={4} value={block.content} onChange={(e) => onChange({ ...block, content: e.target.value })} />
             </label>
@@ -233,6 +249,17 @@ function BlockEditor({
                 <option value={2}>2</option>
                 <option value={3}>3</option>
                 <option value={4}>4</option>
+              </select>
+            </label>
+            <label className="field">
+              Image fit
+              <select
+                value={block.imageFit || "cover"}
+                onChange={(e) => onChange({ ...block, imageFit: e.target.value as typeof block.imageFit })}
+              >
+                <option value="cover">Cover (crop to square)</option>
+                <option value="contain">Contain (fit inside)</option>
+                <option value="fill">Fill (stretch)</option>
               </select>
             </label>
             {block.images.map((img, i) => (
@@ -479,6 +506,22 @@ export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Pr
     if (activeScreenId === screenId) setActiveScreenId(next[0]?.id || "");
   }
 
+  function duplicateScreen(screenId: string) {
+    const source = screens.find((s) => s.id === screenId);
+    if (!source) return;
+    const copy: LandingScreen = {
+      id: newLandingScreenId(),
+      title: `${source.title || "Page"} copy`,
+      flowCompleteOverride: source.flowCompleteOverride,
+      blocks: source.blocks.map((b) => ({ ...b, id: newLandingBlockId() })),
+    };
+    const idx = screens.findIndex((s) => s.id === screenId);
+    const next = [...screens];
+    next.splice(idx + 1, 0, copy);
+    updateScreens(next);
+    setActiveScreenId(copy.id);
+  }
+
   return (
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
@@ -493,7 +536,8 @@ export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Pr
             }}
             onClick={() => setActiveScreenId(screen.id)}
           >
-            {screen.title || `Page ${i + 1}`} ({screen.blocks.length})
+            {screen.title || `Page ${i + 1}`}
+            {screen.flowCompleteOverride ? " ★" : ""} ({screen.blocks.length})
           </button>
         ))}
         <button type="button" className="btn btn-primary" onClick={addScreen}>
@@ -510,13 +554,24 @@ export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Pr
               onChange={(e) => patchActiveScreen({ title: e.target.value })}
             />
           </label>
-          {screens.length > 1 ? (
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className="btn" onClick={() => duplicateScreen(activeScreen.id)}>
+              Duplicate page
+            </button>
+            {screens.length > 1 ? (
               <button type="button" className="btn" onClick={() => removeScreen(activeScreen.id)}>
                 Remove this page
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+            <input
+              type="checkbox"
+              checked={!!activeScreen.flowCompleteOverride}
+              onChange={(e) => patchActiveScreen({ flowCompleteOverride: e.target.checked })}
+            />
+            Flow complete override — placeholder page for experience end-screen copy (hidden when opened standalone)
+          </label>
         </div>
       ) : null}
 

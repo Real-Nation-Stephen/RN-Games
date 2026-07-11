@@ -69,6 +69,7 @@ function renderTextBlock(block: Extract<LandingBlock, { type: "text" }>, pageAli
   el.textContent = block.content;
   el.style.textAlign = textAlign(resolveBlockAlign(block.align, pageAlign));
   if (block.colorHex) el.style.color = block.colorHex;
+  if (block.fontSizePx) el.style.fontSize = `${block.fontSizePx}px`;
   return el;
 }
 
@@ -126,13 +127,15 @@ function renderGalleryBlock(block: Extract<LandingBlock, { type: "gallery" }>): 
   grid.className = "landing-gallery";
   grid.style.gridTemplateColumns = `repeat(${block.columns}, minmax(0, 1fr))`;
   grid.style.gap = `${block.gapPx}px`;
+  const fit = block.imageFit || "cover";
   for (const img of block.images) {
     const cell = document.createElement("figure");
-    cell.className = "landing-gallery__cell";
+    cell.className = `landing-gallery__cell landing-gallery__cell--${fit}`;
     if (img.url) {
       const el = document.createElement("img");
       el.src = img.url;
       el.alt = img.alt;
+      el.style.objectFit = fit === "fill" ? "fill" : fit;
       cell.appendChild(el);
     }
     if (img.caption) {
@@ -234,14 +237,15 @@ export function applyLandingPageLayout(cfg: LandingRecord) {
     const vertical = settings.verticalAlign === "center" ? "center" : "flex-start";
     app.style.justifyContent = vertical;
     app.style.paddingTop = vertical === "flex-start" ? `calc(${offset} * 0.55vh)` : "";
-    app.style.alignItems =
-      settings.contentAlign === "left" ? "flex-start" : settings.contentAlign === "right" ? "flex-end" : "center";
+    app.style.alignItems = "center";
   }
 
   const logo = document.getElementById("page-logo");
   if (logo) {
     logo.style.width = "100%";
     logo.style.maxWidth = width;
+    logo.style.marginLeft = "auto";
+    logo.style.marginRight = "auto";
     logo.style.paddingLeft = pad;
     logo.style.paddingRight = pad;
     logo.style.boxSizing = "border-box";

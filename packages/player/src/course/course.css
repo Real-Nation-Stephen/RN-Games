@@ -161,9 +161,22 @@ body {
 
 .course-section-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.course-section-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.course-section-desc {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--course-muted);
+  white-space: pre-wrap;
 }
 
 .course-section-icon {
@@ -183,6 +196,10 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.course-hero .course-muted {
+  white-space: pre-wrap;
 }
 
 .course-section-head h3 {

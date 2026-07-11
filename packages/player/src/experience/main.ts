@@ -23,6 +23,13 @@ type PublicStep = {
   moduleTitle: string;
   missing?: boolean;
   archived?: boolean;
+  overrides?: {
+    endScreen?: {
+      headline?: string;
+      body?: string;
+      primaryCtaLabel?: string;
+    };
+  };
 };
 
 type PublicExperience = {
@@ -272,11 +279,13 @@ function currentStep(): PublicStep | null {
 function stepFrameUrl(step: PublicStep): string {
   if (!session || !experience) return "";
   const base = componentPublicPath(step.moduleType, step.moduleSlug);
+  const isLastStep = session.currentStepIndex >= experience.steps.length - 1;
   let path = appendFlowQuery(base, {
     sessionId: session.sessionId,
     experienceId: experience.id,
     nodeId: step.id,
     nextStepLabel: nextStepButtonLabel(),
+    endScreen: isLastStep ? step.overrides?.endScreen : undefined,
   });
   const courseCtx = courseContext();
   if (courseCtx) {
@@ -306,21 +315,8 @@ function notifyCourseComplete() {
 }
 
 function preloadNextStep() {
-  if (!experience || !session) return;
-  const nextIdx = session.currentStepIndex + 1;
-  if (nextIdx >= experience.steps.length) {
-    els.preload.removeAttribute("src");
-    return;
-  }
-  const step = experience.steps[nextIdx];
-  if (!step || step.missing || !step.moduleSlug) {
-    els.preload.removeAttribute("src");
-    return;
-  }
-  const url = stepFrameUrl(step);
-  if (els.preload.getAttribute("src") !== url) {
-    els.preload.src = url;
-  }
+  // Preloading the next step iframe can fire stray step-complete messages (same session, wrong node).
+  return;
 }
 
 function renderStep() {
@@ -332,7 +328,6 @@ function renderStep() {
     if (inCourse) {
       els.complete.hidden = true;
       els.stage.hidden = false;
-      els.frame.src = "about:blank";
       notifyCourseComplete();
     } else {
       els.stage.hidden = true;
@@ -394,11 +389,12 @@ function renderStep() {
 async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell = false) {
   if (!session || !experience || advancing) return;
   if (fromShell && !stepEngaged) return;
+  if (session.completedAt) return;
 
+  const step = currentStep();
   advancing = true;
   updateShellContinue();
 
-  const step = currentStep();
   track({
     type: "experience.step_complete",
     gameId: step?.moduleInstanceId || experience.id,
@@ -429,6 +425,8 @@ function bindEvents() {
     }
     if (!isStepCompleteMessage(ev.data)) return;
     if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
+    const step = currentStep();
+    if (ev.data.nodeId && step?.id && ev.data.nodeId !== step.id) return;
     void onStepComplete(ev.data.outcomes || {});
   });
 

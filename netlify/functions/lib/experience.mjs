@@ -171,6 +171,7 @@ export function resolvePublishedSteps(experience, moduleById) {
         moduleTitle: mod?.title || "",
         missing: !mod,
         archived: !!mod?.archived,
+        overrides: step.overrides || undefined,
       };
     });
 }

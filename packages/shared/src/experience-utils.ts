@@ -57,6 +57,11 @@ export function appendFlowQuery(
     experienceId: string;
     nodeId: string;
     nextStepLabel?: string;
+    endScreen?: {
+      headline?: string;
+      body?: string;
+      primaryCtaLabel?: string;
+    };
   },
 ): string {
   const sep = path.includes("?") ? "&" : "?";
@@ -69,5 +74,9 @@ export function appendFlowQuery(
   if (params.nextStepLabel?.trim()) {
     q.set("nextStepLabel", params.nextStepLabel.trim());
   }
+  const end = params.endScreen;
+  if (end?.headline?.trim()) q.set("endHeadline", end.headline.trim());
+  if (end?.body?.trim()) q.set("endBody", end.body.trim());
+  if (end?.primaryCtaLabel?.trim()) q.set("endCta", end.primaryCtaLabel.trim());
   return `${path}${sep}${q.toString()}`;
 }

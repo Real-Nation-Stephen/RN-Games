@@ -304,6 +304,7 @@ export function toPublicCourse(course, items) {
   const sections = (course.sections || []).map((section) => ({
     id: section.id,
     title: section.title,
+    description: section.description || "",
     iconUrl: section.iconUrl,
     iconEmoji: section.iconEmoji,
     unlockDate: section.unlockDate ?? null,
