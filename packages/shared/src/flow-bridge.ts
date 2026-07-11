@@ -19,6 +19,9 @@ export const FLOW_CTX_STORAGE_KEY = "rngames:flow";
 export const FLOW_STEP_COMPLETE = "rngames:step_complete";
 export const FLOW_STEP_ENGAGED = "rngames:step_engaged";
 export const FLOW_EXPERIENCE_COMPLETE = "rngames:experience_complete";
+export const FLOW_END_SCREEN_READY = "rngames:end_screen_ready";
+export const FLOW_EXPERIENCE_CONTENT_READY = "rngames:experience_content_ready";
+export const FLOW_CONTENT_REVEAL = "rngames:content_reveal";
 
 export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
   if (params.get("flow") !== "1") return null;
@@ -146,5 +149,31 @@ export function isExperienceCompleteMessage(data: unknown): data is ExperienceCo
     !!data &&
     typeof data === "object" &&
     (data as ExperienceCompleteMessage).type === FLOW_EXPERIENCE_COMPLETE
+  );
+}
+
+export type EndScreenReadyMessage = {
+  type: typeof FLOW_END_SCREEN_READY;
+  courseSessionId?: string;
+  courseItemId?: string;
+};
+
+export function isEndScreenReadyMessage(data: unknown): data is EndScreenReadyMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as EndScreenReadyMessage).type === FLOW_END_SCREEN_READY
+  );
+}
+
+export type ExperienceContentReadyMessage = {
+  type: typeof FLOW_EXPERIENCE_CONTENT_READY;
+};
+
+export function isExperienceContentReadyMessage(data: unknown): data is ExperienceContentReadyMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as ExperienceContentReadyMessage).type === FLOW_EXPERIENCE_CONTENT_READY
   );
 }

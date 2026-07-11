@@ -10,6 +10,7 @@ export type LandingMountOptions = {
   onPrimaryAction: (label: string) => void;
   onEngage: () => void;
   onScreenNavigate?: (screenId: string) => void;
+  deferEntranceAnimation?: boolean;
 };
 
 function alignStyle(align: string): string {
@@ -185,7 +186,7 @@ function renderButtonBlock(
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "page-btn landing-btn";
-  btn.textContent = opts.flowMode && block.isPrimary ? opts.flowNextLabel : block.label;
+  btn.textContent = block.label;
   btn.style.background = block.backgroundHex;
   btn.style.color = block.textHex;
   if (block.fullWidth) btn.style.width = "100%";
@@ -323,7 +324,9 @@ export function renderLandingBlocks(
     if (el) container.appendChild(el);
   }
 
-  if (settings.entranceAnimation) container.classList.add("landing-animate-in");
+  if (settings.entranceAnimation && !opts.deferEntranceAnimation) {
+    container.classList.add("landing-animate-in");
+  }
 
   return hasPrimary;
 }

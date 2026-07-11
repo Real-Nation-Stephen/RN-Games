@@ -417,6 +417,20 @@ export default function CourseEditor() {
             />
             Show “Powered by Real Nation” on the course page
           </label>
+          <label className="field" style={{ marginTop: 12 }}>
+            Loading text (course &amp; flow player)
+            <input
+              value={p.loadingText || "Course content loading"}
+              onChange={(e) =>
+                patch((c) => ({ ...c, presentation: { ...c.presentation, loadingText: e.target.value } }))
+              }
+            />
+          </label>
+          <HexField
+            label="Loading text colour"
+            value={p.loadingTextHex || p.bodyHex || "#e8eef5"}
+            onChange={(v) => patch((c) => ({ ...c, presentation: { ...c.presentation, loadingTextHex: v } }))}
+          />
         </div>
       </div>
 

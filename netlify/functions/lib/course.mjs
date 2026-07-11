@@ -34,6 +34,8 @@ export function defaultCoursePresentation() {
     cardHex: "#122038",
     faviconUrl: "",
     showPoweredBy: true,
+    loadingText: "Course content loading",
+    loadingTextHex: "#e8eef5",
   };
 }
 
@@ -127,6 +129,8 @@ function normalizePresentation(raw) {
     cardHex: String(raw.cardHex || d.cardHex),
     faviconUrl: String(raw.faviconUrl || ""),
     showPoweredBy: raw.showPoweredBy !== false,
+    loadingText: String(raw.loadingText || d.loadingText),
+    loadingTextHex: String(raw.loadingTextHex || raw.bodyHex || d.loadingTextHex),
   };
 }
 

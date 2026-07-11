@@ -1,5 +1,12 @@
 import type { LandingBlock, LandingRecord, LandingScreen } from "@rngames/shared/page-modules";
-import { getVisibleLandingScreens } from "@rngames/shared";
+import {
+  FLOW_CONTENT_REVEAL,
+  FLOW_END_SCREEN_READY,
+  getVisibleLandingScreens,
+  isCourseMode,
+  loadCourseContext,
+  parseCourseContextFromSearch,
+} from "@rngames/shared";
 import {
   applyPageTheme,
   completeStep,
@@ -22,6 +29,8 @@ const els = {
   error: document.getElementById("page-error")!,
 };
 
+let contentRevealed = false;
+
 function showError(msg: string) {
   els.error.hidden = false;
   els.error.textContent = msg;
@@ -39,10 +48,10 @@ function flowEndCopyFromQuery(): { headline: string; body: string; cta: string }
 
 function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock[] {
   if (!flowMode || !screen.flowCompleteOverride) return screen.blocks;
-  const end = flowEndCopyFromQuery();
-  if (!end.headline && !end.body && screen.blocks.length) return screen.blocks;
 
+  const end = flowEndCopyFromQuery();
   const blocks: LandingBlock[] = [];
+
   if (end.headline) {
     blocks.push({
       id: "flow-end-headline",
@@ -61,14 +70,20 @@ function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock
       align: "inherit",
     });
   }
+
   const buttonBlocks = screen.blocks.filter((b) => b.type === "button");
   if (buttonBlocks.length) {
     blocks.push(
-      ...buttonBlocks.map((b) =>
-        b.type === "button" && end.cta
-          ? { ...b, label: end.cta, action: "primary" as const, isPrimary: true }
-          : b,
-      ),
+      ...buttonBlocks.map((b) => {
+        if (b.type !== "button") return b;
+        return {
+          ...b,
+          label: end.cta || b.label || flowNextLabel(),
+          action: "primary" as const,
+          isPrimary: true,
+          targetScreenId: undefined,
+        };
+      }),
     );
   } else {
     blocks.push({
@@ -84,21 +99,31 @@ function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock
       action: "primary",
     });
   }
+
   return blocks.length ? blocks : screen.blocks;
 }
 
-function pendingFlowOverrideScreen(
-  screens: LandingScreen[],
-  activeScreenId: string,
-  flowMode: boolean,
-): LandingScreen | null {
-  if (!flowMode) return null;
-  const override = screens.find((s) => s.flowCompleteOverride);
-  if (!override || override.id === activeScreenId) return null;
-  const activeIdx = screens.findIndex((s) => s.id === activeScreenId);
-  const overrideIdx = screens.findIndex((s) => s.id === override.id);
-  if (activeIdx < 0 || overrideIdx < 0 || activeIdx >= overrideIdx) return null;
-  return override;
+function notifyEndScreenReady() {
+  const courseCtx =
+    loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  if (!courseCtx || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: FLOW_END_SCREEN_READY,
+      courseSessionId: courseCtx.sessionId,
+      courseItemId: courseCtx.itemId,
+    },
+    "*",
+  );
+}
+
+function revealContent() {
+  if (contentRevealed) return;
+  contentRevealed = true;
+  els.blocks.classList.remove("landing-await-reveal");
+  if (els.blocks.classList.contains("landing-blocks")) {
+    els.blocks.classList.add("landing-animate-in");
+  }
 }
 
 function onContinue(cfg: LandingRecord, label: string) {
@@ -114,26 +139,44 @@ function mountLanding(cfg: LandingRecord) {
   const screens = getVisibleLandingScreens(cfg, flowMode);
   let activeScreenId = screens[0]?.id || "";
 
+  window.addEventListener("message", (ev) => {
+    if (ev.data?.type === FLOW_CONTENT_REVEAL) revealContent();
+  });
+
+  if (window.parent === window) revealContent();
+
   function renderScreen() {
     const screen = screens.find((s) => s.id === activeScreenId) || screens[0];
     if (!screen) return;
     activeScreenId = screen.id;
 
+    const onOverrideScreen = flowMode && !!screen.flowCompleteOverride;
+
     const screenCfg: LandingRecord = {
       ...cfg,
       blocks: blocksForScreen(screen, flowMode),
     };
+
     const hasPrimary = renderLandingBlocks(els.blocks, screenCfg, {
       flowMode,
       flowNextLabel: flowNextLabel(),
+      deferEntranceAnimation: cfg.pageSettings.entranceAnimation !== false && !contentRevealed,
       onEngage: () => engageStep(),
       onPrimaryAction: (label) => {
-        const defer = pendingFlowOverrideScreen(screens, activeScreenId, flowMode);
-        if (defer) {
-          activeScreenId = defer.id;
-          engageStep();
-          renderScreen();
+        if (onOverrideScreen) {
+          onContinue(cfg, label);
           return;
+        }
+        const override = screens.find((s) => s.flowCompleteOverride);
+        if (flowMode && override && override.id !== activeScreenId) {
+          const activeIdx = screens.findIndex((s) => s.id === activeScreenId);
+          const overrideIdx = screens.findIndex((s) => s.id === override.id);
+          if (activeIdx >= 0 && overrideIdx >= 0 && activeIdx < overrideIdx) {
+            activeScreenId = override.id;
+            engageStep();
+            renderScreen();
+            return;
+          }
         }
         onContinue(cfg, label);
       },
@@ -144,6 +187,12 @@ function mountLanding(cfg: LandingRecord) {
         renderScreen();
       },
     });
+
+    if (cfg.pageSettings.entranceAnimation !== false && !contentRevealed) {
+      els.blocks.classList.add("landing-await-reveal");
+    }
+
+    if (onOverrideScreen && isCourseMode()) notifyEndScreenReady();
 
     els.app.hidden = false;
 

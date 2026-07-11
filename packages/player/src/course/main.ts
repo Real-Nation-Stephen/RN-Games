@@ -2,7 +2,10 @@ import {
   appendCourseQuery,
   courseCompletionPercent,
   isExperienceCompleteMessage,
+  isExperienceContentReadyMessage,
+  isEndScreenReadyMessage,
   isStepCompleteMessage,
+  FLOW_CONTENT_REVEAL,
   sectionUnlockState,
   isCourseItemAccessible,
   type PublicCourse,
@@ -43,6 +46,9 @@ const els = {
   back: document.getElementById("course-back")!,
   playerTitle: document.getElementById("course-player-title")!,
   frame: document.getElementById("course-frame") as HTMLIFrameElement,
+  itemLoading: document.getElementById("course-item-loading")!,
+  itemLoadingLogo: document.getElementById("course-item-loading-logo") as HTMLImageElement,
+  itemLoadingText: document.getElementById("course-item-loading-text")!,
   markComplete: document.getElementById("course-mark-complete")!,
 };
 
@@ -453,6 +459,35 @@ function renderHome() {
   });
 }
 
+function applyItemLoadingPresentation() {
+  if (!course) return;
+  const p = course.presentation;
+  els.itemLoading.style.setProperty("--course-loading-bg", p.backgroundHex || "#0a1628");
+  els.itemLoadingText.textContent = p.loadingText?.trim() || "Course content loading";
+  els.itemLoadingText.style.color = p.loadingTextHex || p.bodyHex || "#e8eef5";
+  if (p.logoUrl) {
+    els.itemLoadingLogo.src = p.logoUrl;
+    els.itemLoadingLogo.hidden = false;
+  } else {
+    els.itemLoadingLogo.hidden = true;
+    els.itemLoadingLogo.removeAttribute("src");
+  }
+}
+
+function showItemLoading() {
+  applyItemLoadingPresentation();
+  els.itemLoading.hidden = false;
+}
+
+function hideItemLoading() {
+  els.itemLoading.hidden = true;
+  try {
+    els.frame.contentWindow?.postMessage({ type: FLOW_CONTENT_REVEAL }, "*");
+  } catch {
+    /* ignore */
+  }
+}
+
 function itemLaunchUrl(item: PublicCourseItem): string {
   if (!session || !course) return item.launchPath;
   let path = item.launchPath;
@@ -475,6 +510,13 @@ function itemLaunchUrl(item: PublicCourseItem): string {
   if (previewToken) {
     finalUrl.searchParams.set("coursePreviewToken", previewToken);
     finalUrl.searchParams.set("courseSlug", course.slug);
+  }
+  if (item.kind === "experience" && course.presentation) {
+    const p = course.presentation;
+    finalUrl.searchParams.set("courseLoadingBg", p.backgroundHex || "#0a1628");
+    finalUrl.searchParams.set("courseLoadingText", p.loadingText?.trim() || "Course content loading");
+    finalUrl.searchParams.set("courseLoadingTextHex", p.loadingTextHex || p.bodyHex || "#e8eef5");
+    if (p.logoUrl) finalUrl.searchParams.set("courseLoadingLogo", p.logoUrl);
   }
   return finalUrl.toString();
 }
@@ -504,6 +546,7 @@ async function openItem(itemId: string) {
 
   showView("player");
   els.playerTitle.textContent = item.displayTitle || item.label;
+  showItemLoading();
   els.frame.src = itemLaunchUrl(item);
 }
 
@@ -570,6 +613,18 @@ async function saveEmail() {
 }
 
 window.addEventListener("message", (ev) => {
+  if (isExperienceContentReadyMessage(ev.data)) {
+    hideItemLoading();
+    return;
+  }
+  if (isEndScreenReadyMessage(ev.data)) {
+    if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
+    if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
+    if (!activeItem || activeItem.kind !== "experience") return;
+    playerReady = true;
+    updatePlayerFooter();
+    return;
+  }
   if (isExperienceCompleteMessage(ev.data)) {
     if (ev.data.courseSessionId && session && ev.data.courseSessionId !== session.sessionId) return;
     if (ev.data.courseItemId && activeItem && ev.data.courseItemId !== activeItem.id) return;
@@ -600,6 +655,11 @@ els.back.addEventListener("click", () => {
 
 els.markComplete.addEventListener("click", () => void completeActiveItem());
 els.saveEmail.addEventListener("click", () => void saveEmail());
+
+els.frame.addEventListener("load", () => {
+  if (activeItem?.kind === "experience") return;
+  hideItemLoading();
+});
 
 async function boot() {
   slug = getCourseSlug();

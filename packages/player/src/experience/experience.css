@@ -49,6 +49,44 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  position: relative;
+}
+
+.exp-step-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--exp-loading-bg, #0a1628);
+  text-align: center;
+  padding: 24px;
+}
+
+.exp-step-loading-logo {
+  max-height: 72px;
+  max-width: min(240px, 70vw);
+  object-fit: contain;
+}
+
+.exp-step-loading-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--exp-loading-text, rgba(255, 255, 255, 0.75));
+  animation: expLoadingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes expLoadingPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 #exp-header {

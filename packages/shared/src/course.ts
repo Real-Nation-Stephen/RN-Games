@@ -29,6 +29,9 @@ export interface CoursePresentation {
   cardHex: string;
   faviconUrl?: string;
   showPoweredBy?: boolean;
+  /** Shown while course/flow content loads in the player iframe area */
+  loadingText?: string;
+  loadingTextHex?: string;
 }
 
 export interface CourseSettings {
@@ -205,6 +208,8 @@ export function defaultCoursePresentation(): CoursePresentation {
     cardHex: "#122038",
     faviconUrl: "",
     showPoweredBy: true,
+    loadingText: "Course content loading",
+    loadingTextHex: "#e8eef5",
   };
 }
 
@@ -326,6 +331,8 @@ function normalizePresentation(raw: Partial<CoursePresentation> | undefined): Co
     cardHex: String(raw.cardHex || d.cardHex),
     faviconUrl: String(raw.faviconUrl || ""),
     showPoweredBy: raw.showPoweredBy !== false,
+    loadingText: String(raw.loadingText || "Course content loading"),
+    loadingTextHex: String(raw.loadingTextHex || raw.bodyHex || d.bodyHex),
   };
 }
 

@@ -114,6 +114,12 @@ html.page-bg-scroll::before {
   gap: 16px;
 }
 
+.landing-blocks.landing-await-reveal > * {
+  animation: none !important;
+  opacity: 1;
+  transform: none;
+}
+
 .landing-blocks.landing-animate-in > * {
   animation: landingFadeUp 0.55s ease both;
 }

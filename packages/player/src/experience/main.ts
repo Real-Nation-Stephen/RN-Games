@@ -9,9 +9,12 @@ import {
 } from "@rngames/shared";
 import {
   FLOW_EXPERIENCE_COMPLETE,
+  FLOW_EXPERIENCE_CONTENT_READY,
+  FLOW_CONTENT_REVEAL,
   FLOW_STEP_COMPLETE,
   isStepCompleteMessage,
   isStepEngagedMessage,
+  isEndScreenReadyMessage,
 } from "@rngames/shared";
 
 type PublicStep = {
@@ -107,6 +110,9 @@ const els = {
   fallbackMsg: document.getElementById("exp-fallback-msg")!,
   retry: document.getElementById("exp-retry")!,
   continue: document.getElementById("exp-continue")!,
+  stepLoading: document.getElementById("exp-step-loading")!,
+  stepLoadingLogo: document.getElementById("exp-step-loading-logo") as HTMLImageElement | null,
+  stepLoadingText: document.getElementById("exp-step-loading-text")!,
 };
 
 /** End-of-game Continue is wired inside the iframe. */
@@ -133,6 +139,33 @@ let slug = "";
 let previewToken = "";
 let advancing = false;
 let stepEngaged = false;
+
+function showStepLoading() {
+  if (!embeddedInCourse()) return;
+  els.stepLoading.hidden = false;
+}
+
+function hideStepLoading() {
+  els.stepLoading.hidden = true;
+}
+
+function revealStepFrame() {
+  try {
+    els.frame.contentWindow?.postMessage({ type: FLOW_CONTENT_REVEAL }, "*");
+  } catch {
+    /* cross-origin */
+  }
+}
+
+function notifyExperienceContentReady() {
+  if (!embeddedInCourse() || window.parent === window) return;
+  window.parent.postMessage({ type: FLOW_EXPERIENCE_CONTENT_READY }, "*");
+}
+
+function forwardToCourseParent(data: Record<string, unknown>) {
+  if (!embeddedInCourse() || window.parent === window) return;
+  window.parent.postMessage(data, "*");
+}
 
 function sessionStorageKey() {
   const ctx = courseContext();
@@ -372,9 +405,17 @@ function renderStep() {
   }
 
   loadAttempts = 0;
-  els.frame.src = stepFrameUrl(step);
+  const url = stepFrameUrl(step);
+  const currentSrc = els.frame.getAttribute("src") || "";
+  if (embeddedInCourse()) showStepLoading();
+  if (!currentSrc || currentSrc !== url) {
+    els.frame.src = url;
+  } else if (embeddedInCourse()) {
+    hideStepLoading();
+    revealStepFrame();
+    notifyExperienceContentReady();
+  }
   updateShellContinue();
-  preloadNextStep();
 
   track({
     type: "experience.step_start",
@@ -417,6 +458,10 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
 
 function bindEvents() {
   window.addEventListener("message", (ev) => {
+    if (isEndScreenReadyMessage(ev.data)) {
+      forwardToCourseParent(ev.data as Record<string, unknown>);
+      return;
+    }
     if (isStepEngagedMessage(ev.data)) {
       if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
       stepEngaged = true;
@@ -428,6 +473,12 @@ function bindEvents() {
     const step = currentStep();
     if (ev.data.nodeId && step?.id && ev.data.nodeId !== step.id) return;
     void onStepComplete(ev.data.outcomes || {});
+  });
+
+  els.frame.addEventListener("load", () => {
+    hideStepLoading();
+    revealStepFrame();
+    notifyExperienceContentReady();
   });
 
   els.frame.addEventListener("error", () => {
@@ -470,6 +521,18 @@ function bindEvents() {
 function applyCourseEmbedChrome() {
   if (!embeddedInCourse()) return;
   document.getElementById("app")?.classList.add("course-embed");
+  const params = new URLSearchParams(window.location.search);
+  const bg = params.get("courseLoadingBg");
+  const text = params.get("courseLoadingText");
+  const textHex = params.get("courseLoadingTextHex");
+  const logo = params.get("courseLoadingLogo");
+  if (bg) els.stepLoading.style.setProperty("--exp-loading-bg", bg);
+  if (textHex) els.stepLoading.style.setProperty("--exp-loading-text", textHex);
+  if (text) els.stepLoadingText.textContent = text;
+  if (logo && els.stepLoadingLogo) {
+    els.stepLoadingLogo.src = logo;
+    els.stepLoadingLogo.hidden = false;
+  }
 }
 
 async function boot() {
