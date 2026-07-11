@@ -54,7 +54,8 @@ export type LandingBlockType =
   | "spacer"
   | "divider"
   | "button"
-  | "embed";
+  | "embed"
+  | "poll";
 
 export interface LandingBlockBase {
   id: string;
@@ -150,6 +151,17 @@ export interface LandingEmbedBlock extends LandingBlockBase {
   title: string;
 }
 
+export interface LandingPollOption {
+  id: string;
+  label: string;
+}
+
+export interface LandingPollBlock extends LandingBlockBase {
+  type: "poll";
+  question: string;
+  options: LandingPollOption[];
+}
+
 export type LandingBlock =
   | LandingTextBlock
   | LandingImageBlock
@@ -159,7 +171,8 @@ export type LandingBlock =
   | LandingSpacerBlock
   | LandingDividerBlock
   | LandingButtonBlock
-  | LandingEmbedBlock;
+  | LandingEmbedBlock
+  | LandingPollBlock;
 
 export interface LandingPageSettings {
   maxWidthPx: number;
@@ -237,6 +250,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   divider: "Divider",
   button: "Button",
   embed: "Embed / iframe",
+  poll: "Mini poll",
 };
 
 export function newLandingBlockId(): string {
@@ -315,6 +329,16 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
       };
     case "embed":
       return { id, type, url: "", heightPx: 480, title: "Embedded content" };
+    case "poll":
+      return {
+        id,
+        type,
+        question: "Which option do you prefer?",
+        options: [
+          { id: newLandingBlockId(), label: "Option A" },
+          { id: newLandingBlockId(), label: "Option B" },
+        ],
+      };
   }
 }
 
@@ -849,6 +873,25 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
         heightPx: Math.max(120, Number((raw as LandingEmbedBlock).heightPx) || 480),
         title: String((raw as LandingEmbedBlock).title || "Embedded content"),
       };
+    case "poll": {
+      const options = Array.isArray((raw as LandingPollBlock).options)
+        ? (raw as LandingPollBlock).options.map((opt, i) => ({
+            id: String(opt.id || `opt-${i}`),
+            label: String(opt.label || `Option ${i + 1}`),
+          }))
+        : [];
+      return {
+        id,
+        type: "poll",
+        question: String((raw as LandingPollBlock).question || "Poll question"),
+        options: options.length
+          ? options
+          : [
+              { id: newLandingBlockId(), label: "Option A" },
+              { id: newLandingBlockId(), label: "Option B" },
+            ],
+      };
+    }
     case "text":
     default:
       return {

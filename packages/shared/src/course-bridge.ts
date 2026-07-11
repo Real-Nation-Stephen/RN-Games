@@ -75,3 +75,15 @@ export function appendCourseQuery(
   });
   return `${path}${sep}${q.toString()}`;
 }
+
+/** True when the course shell marked this embed as the last step in a flow. */
+export function isLastCourseStepFromSearch(params?: URLSearchParams): boolean {
+  const p =
+    params ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
+  return p?.get("courseLastStep") === "1";
+}
+
+export function appendCourseLastStepQuery(path: string): string {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}courseLastStep=1`;
+}

@@ -14,6 +14,7 @@ import { CertificateEditorFields } from "../components/CertificateEditorFields";
 import { CollapsibleSection } from "../components/CollapsibleSection";
 import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
 import { FormFieldsEditor } from "../components/FormFieldsEditor";
+import { FormResultsPanel } from "../components/FormResultsPanel";
 import { HexField } from "../components/HexField";
 import { LandingBlocksEditor } from "../components/LandingBlocksEditor";
 
@@ -535,6 +536,7 @@ export default function PageModuleEditor({ gameType }: Props) {
                   />
                 </label>
               </CollapsibleSection>
+              <FormResultsPanel doc={doc} />
             </>
           ) : null}
 

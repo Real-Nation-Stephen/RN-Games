@@ -12,7 +12,7 @@ import {
   newLandingBlockId,
   newLandingScreenId,
 } from "@rngames/shared";
-import { uploadFile } from "../api";
+import { uploadFile, apiGet, apiSend } from "../api";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { HexField } from "./HexField";
 
@@ -51,6 +51,8 @@ function blockSummary(block: LandingBlock): string {
       return block.label;
     case "embed":
       return block.url ? "Embed set" : "No embed URL";
+    case "poll":
+      return block.question.slice(0, 40) || "Poll";
   }
 }
 
@@ -86,10 +88,79 @@ function ImageUpload({
   );
 }
 
+function PollResultsTools({ landingSlug, blockId }: { landingSlug: string; blockId: string }) {
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function loadState() {
+    const data = (await apiGet(
+      `/api/poll-state?slug=${encodeURIComponent(landingSlug)}&blockId=${encodeURIComponent(blockId)}&admin=1`,
+    )) as { state?: { tallies?: Record<string, number>; ballots?: { optionId: string; votedAt: string; voterId: string }[] } };
+    return data.state || { tallies: {}, ballots: [] };
+  }
+
+  async function exportResults() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const state = await loadState();
+      const rows = [["Voted at", "Option ID", "Voter ID"]];
+      for (const b of state.ballots || []) {
+        rows.push([b.votedAt, b.optionId, b.voterId]);
+      }
+      rows.push([]);
+      rows.push(["Option ID", "Votes"]);
+      for (const [optId, count] of Object.entries(state.tallies || {})) {
+        rows.push([optId, String(count)]);
+      }
+      const body = rows.map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(",")).join("\n");
+      const blob = new Blob([body], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${landingSlug}-poll-${blockId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus("Exported.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearPoll() {
+    if (!window.confirm("Clear all votes for this poll? This cannot be undone.")) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await apiSend("/api/poll-state", "PUT", { slug: landingSlug, blockId, action: "clear" });
+      setStatus("Poll cleared.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <button type="button" className="btn" disabled={busy} onClick={() => void exportResults()}>
+        Export results
+      </button>
+      <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void clearPoll()}>
+        Clear poll
+      </button>
+      {status ? <span className="muted">{status}</span> : null}
+    </div>
+  );
+}
+
 function BlockEditor({
   block,
   screens,
   activeScreenId,
+  landingSlug,
   onChange,
   onRemove,
   onMoveUp,
@@ -100,6 +171,7 @@ function BlockEditor({
   block: LandingBlock;
   screens: LandingScreen[];
   activeScreenId: string;
+  landingSlug: string;
   onChange: (b: LandingBlock) => void;
   onRemove: () => void;
   onMoveUp: () => void;
@@ -445,6 +517,56 @@ function BlockEditor({
             </label>
           </>
         );
+      case "poll":
+        return (
+          <>
+            <label className="field">
+              Question
+              <input
+                value={block.question}
+                onChange={(e) => onChange({ ...block, question: e.target.value })}
+              />
+            </label>
+            <p className="muted" style={{ fontSize: "0.85rem" }}>
+              Options (visitors pick one; results show after voting)
+            </p>
+            {block.options.map((opt, i) => (
+              <div key={opt.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input
+                  value={opt.label}
+                  onChange={(e) => {
+                    const options = block.options.map((o, j) => (j === i ? { ...o, label: e.target.value } : o));
+                    onChange({ ...block, options });
+                  }}
+                  placeholder={`Option ${i + 1}`}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={block.options.length <= 2}
+                  onClick={() => onChange({ ...block, options: block.options.filter((o) => o.id !== opt.id) })}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn"
+              disabled={block.options.length >= 8}
+              onClick={() =>
+                onChange({
+                  ...block,
+                  options: [...block.options, { id: newLandingBlockId(), label: `Option ${block.options.length + 1}` }],
+                })
+              }
+            >
+              Add option
+            </button>
+            <PollResultsTools landingSlug={landingSlug} blockId={block.id} />
+          </>
+        );
     }
   })();
 
@@ -648,6 +770,7 @@ export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Pr
           block={block}
           screens={screens}
           activeScreenId={activeScreen?.id || ""}
+          landingSlug={doc.slug}
           onChange={(b) => updateBlock(i, b)}
           onRemove={() => patchActiveScreen({ blocks: blocks.filter((_, j) => j !== i) })}
           onMoveUp={() => moveBlock(i, -1)}

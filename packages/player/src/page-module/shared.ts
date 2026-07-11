@@ -12,6 +12,7 @@ import {
   FLOW_END_SCREEN_READY,
   FLOW_COURSE_ITEM_COMPLETE,
   FLOW_STEP_CONTENT_READY,
+  isLastCourseStepFromSearch,
   type CourseContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
@@ -185,31 +186,68 @@ export function isInCourseEmbed(): boolean {
   return !!courseContextFromPage() && window.parent !== window;
 }
 
+function postToCourseShell(data: Record<string, unknown>) {
+  const ctx = courseContextFromPage();
+  if (!ctx) return;
+  const payload = {
+    ...data,
+    courseSessionId: data.courseSessionId ?? ctx.sessionId,
+    courseItemId: data.courseItemId ?? ctx.itemId,
+  };
+  const targets = new Set<Window>();
+  try {
+    if (window.parent && window.parent !== window) targets.add(window.parent);
+    if (window.top && window.top !== window) targets.add(window.top);
+  } catch {
+    /* cross-origin */
+  }
+  for (const target of targets) {
+    try {
+      target.postMessage(payload, "*");
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export function notifyEndScreenReady() {
   const ctx = courseContextFromPage();
-  if (!ctx || window.parent === window) return;
-  window.parent.postMessage(
-    {
-      type: FLOW_END_SCREEN_READY,
-      courseSessionId: ctx.sessionId,
-      courseItemId: ctx.itemId,
-    },
-    "*",
-  );
+  if (!ctx) return;
+  const payload = {
+    type: FLOW_END_SCREEN_READY,
+    isLastFlowStep: isLastCourseStepFromSearch(),
+  };
+  postToCourseShell(payload);
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      {
+        ...payload,
+        courseSessionId: ctx.sessionId,
+        courseItemId: ctx.itemId,
+      },
+      "*",
+    );
+  }
 }
 
 export function notifyCourseItemComplete(outcomes: Record<string, unknown> = {}) {
   const ctx = courseContextFromPage();
-  if (!ctx || window.parent === window) return;
-  window.parent.postMessage(
-    {
-      type: FLOW_COURSE_ITEM_COMPLETE,
-      courseSessionId: ctx.sessionId,
-      courseItemId: ctx.itemId,
-      outcomes,
-    },
-    "*",
-  );
+  if (!ctx) return;
+  postToCourseShell({
+    type: FLOW_COURSE_ITEM_COMPLETE,
+    outcomes,
+  });
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      {
+        type: FLOW_COURSE_ITEM_COMPLETE,
+        courseSessionId: ctx.sessionId,
+        courseItemId: ctx.itemId,
+        outcomes,
+      },
+      "*",
+    );
+  }
 }
 
 export async function patchCourseSessionData(

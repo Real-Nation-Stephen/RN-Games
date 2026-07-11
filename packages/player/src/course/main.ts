@@ -33,12 +33,8 @@ const els = {
   resume: document.getElementById("course-resume")!,
   learningTitle: document.getElementById("course-learning-title")!,
   learningIntro: document.getElementById("course-learning-intro")!,
-  email: document.getElementById("course-email") as HTMLInputElement,
-  saveEmail: document.getElementById("course-save-email")!,
-  ackWrap: document.getElementById("course-learning-ack-wrap")!,
-  ack: document.getElementById("course-learning-ack") as HTMLInputElement,
-  ackText: document.getElementById("course-learning-ack-text")!,
-  resumeLink: document.getElementById("course-resume-link")!,
+  resumeUrl: document.getElementById("course-resume-url") as HTMLInputElement,
+  copyLink: document.getElementById("course-copy-link")!,
   resumeStatus: document.getElementById("course-resume-status")!,
   summary: document.getElementById("course-summary")!,
   certList: document.getElementById("course-cert-list")!,
@@ -415,36 +411,19 @@ function renderHome() {
       : "No curriculum items yet";
 
   els.resume.hidden = false;
-  if (session.email) els.email.value = session.email;
 
   const settings = course.settings || {};
   const linkLabel = settings.learningLinkLabel?.trim() || "Learning link";
   els.learningTitle.textContent = `Save your ${linkLabel.toLowerCase()}`;
   els.learningIntro.textContent =
     settings.learningLinkIntro?.trim() ||
-    "Enter your email to receive your learning link so you can return and pick up where you left off.";
-  els.saveEmail.textContent = `Email ${linkLabel.toLowerCase()}`;
+    "Copy your personal link below to return and pick up where you left off.";
 
-  const requireAck = settings.learningLinkRequireAcknowledgement !== false;
-  els.ackWrap.hidden = !requireAck;
-  if (requireAck) {
-    els.ack.checked = false;
-    const ackCopy = settings.learningLinkAcknowledgementText?.trim() || "";
-    const privacyUrl = settings.learningLinkPrivacyUrl?.trim();
-    if (privacyUrl) {
-      els.ackText.innerHTML = `${escapeHtml(ackCopy)} <a href="${escapeAttr(privacyUrl)}" target="_blank" rel="noreferrer">Privacy policy</a>`;
-    } else {
-      els.ackText.textContent = ackCopy;
-    }
-  }
-
-  const origin = window.location.origin;
-  if (session.resumeToken) {
-    els.resumeLink.hidden = false;
-    els.resumeLink.textContent = `${linkLabel}: ${origin}/course/${course.slug}?resumeToken=${session.resumeToken}`;
-  } else {
-    els.resumeLink.hidden = true;
-  }
+  const resumeUrl = session.resumeToken
+    ? `${window.location.origin}/course/${course.slug}?resumeToken=${session.resumeToken}`
+    : `${window.location.origin}/course/${course.slug}`;
+  els.resumeUrl.value = resumeUrl;
+  els.resumeStatus.hidden = true;
 
   const enriched = enrichItems();
   const certs = (session.earnedCertificates || [])
@@ -556,6 +535,9 @@ function itemLaunchUrl(item: PublicCourseItem): string {
     finalUrl.searchParams.set("coursePreviewToken", previewToken);
     finalUrl.searchParams.set("courseSlug", course.slug);
   }
+  if (item.kind !== "experience") {
+    finalUrl.searchParams.set("courseLastStep", "1");
+  }
   if (item.kind === "experience" && course.presentation) {
     const p = course.presentation;
     finalUrl.searchParams.set("courseLoadingBg", p.backgroundHex || "#0a1628");
@@ -603,58 +585,18 @@ async function completeActiveItem(outcomes: Record<string, unknown> = {}) {
   renderHome();
 }
 
-async function saveEmail() {
-  const email = els.email.value.trim();
-  if (!email || !session || !course) return;
-
-  const settings = course.settings || {};
-  if (settings.learningLinkRequireAcknowledgement !== false && !els.ack.checked) {
-    els.resumeStatus.hidden = false;
-    els.resumeStatus.textContent = "Please confirm how we will use your email.";
-    return;
-  }
-
+async function copyResumeLink() {
+  const url = els.resumeUrl.value.trim();
+  if (!url) return;
   els.resumeStatus.hidden = false;
-  els.resumeStatus.textContent = "Saving…";
-
-  const patchRes = await fetch("/api/course-session", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId: session.sessionId, email }),
-  });
-  if (!patchRes.ok) {
-    els.resumeStatus.textContent = "Could not save email.";
-    return;
+  try {
+    await navigator.clipboard.writeText(url);
+    els.resumeStatus.textContent = "Link copied to clipboard.";
+  } catch {
+    els.resumeUrl.focus();
+    els.resumeUrl.select();
+    els.resumeStatus.textContent = "Select the link above and copy it manually.";
   }
-  const patchData = await patchRes.json();
-  session = normalizeSession(patchData.session as CourseSession);
-  saveSessionLocal(session);
-
-  const resumeUrl = session.resumeToken
-    ? `${window.location.origin}/course/${course.slug}?resumeToken=${session.resumeToken}`
-    : `${window.location.origin}/course/${course.slug}`;
-
-  const mailRes = await fetch("/api/course-resume-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      sessionId: session.sessionId,
-      resumeUrl,
-    }),
-  });
-  const mailData = await mailRes.json().catch(() => ({}));
-
-  if (mailRes.ok && mailData.sent) {
-    const linkLabel = course.settings?.learningLinkLabel?.trim() || "Learning link";
-    els.resumeStatus.textContent = `Your ${linkLabel.toLowerCase()} was emailed to ${email}.`;
-  } else if (mailData.reason === "email_not_configured") {
-    els.resumeStatus.textContent = "Email delivery is not configured on this site — copy the link below.";
-  } else {
-    els.resumeStatus.textContent = mailData.error || "Could not send email — copy the link below.";
-  }
-
-  renderHome();
 }
 
 window.addEventListener("message", (ev) => {
@@ -710,7 +652,7 @@ els.back.addEventListener("click", () => {
 });
 
 els.markComplete.addEventListener("click", () => void completeActiveItem());
-els.saveEmail.addEventListener("click", () => void saveEmail());
+els.copyLink.addEventListener("click", () => void copyResumeLink());
 
 els.frame.addEventListener("load", () => {
   if (activeItem?.kind === "experience") return;

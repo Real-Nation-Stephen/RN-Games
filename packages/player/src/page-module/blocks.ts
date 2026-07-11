@@ -226,6 +226,132 @@ function renderEmbedBlock(block: Extract<LandingBlock, { type: "embed" }>): HTML
   return wrap;
 }
 
+function pollVoterId(landingSlug: string, blockId: string): string {
+  const key = `rngames:poll-vote:${landingSlug}:${blockId}`;
+  try {
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const id = `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return `anon-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function renderPollResults(
+  block: Extract<LandingBlock, { type: "poll" }>,
+  tallies: Record<string, number>,
+  total: number,
+): HTMLElement {
+  const results = document.createElement("div");
+  results.className = "landing-poll-results";
+  for (const opt of block.options) {
+    const count = Number(tallies[opt.id] || 0);
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    const row = document.createElement("div");
+    row.className = "landing-poll-result-row";
+    const label = document.createElement("div");
+    label.className = "landing-poll-result-label";
+    label.textContent = `${opt.label} — ${count} vote${count === 1 ? "" : "s"} (${pct}%)`;
+    const barWrap = document.createElement("div");
+    barWrap.className = "landing-poll-result-bar-wrap";
+    const bar = document.createElement("div");
+    bar.className = "landing-poll-result-bar";
+    bar.style.width = `${pct}%`;
+    barWrap.appendChild(bar);
+    row.append(label, barWrap);
+    results.appendChild(row);
+  }
+  const meta = document.createElement("p");
+  meta.className = "landing-poll-total";
+  meta.textContent = `${total} total vote${total === 1 ? "" : "s"}`;
+  results.appendChild(meta);
+  return results;
+}
+
+function mountPollBlock(
+  wrap: HTMLElement,
+  block: Extract<LandingBlock, { type: "poll" }>,
+  landingSlug: string,
+  onEngage: () => void,
+) {
+  const voterId = pollVoterId(landingSlug, block.id);
+  const question = document.createElement("p");
+  question.className = "landing-poll-question";
+  question.textContent = block.question;
+  wrap.appendChild(question);
+
+  const body = document.createElement("div");
+  body.className = "landing-poll-body";
+  wrap.appendChild(body);
+
+  void (async () => {
+    try {
+      const res = await fetch(
+        `/api/poll-state?slug=${encodeURIComponent(landingSlug)}&blockId=${encodeURIComponent(block.id)}&voterId=${encodeURIComponent(voterId)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) throw new Error("Could not load poll");
+      const data = (await res.json()) as { tallies: Record<string, number>; total: number; voted: boolean };
+      body.replaceChildren();
+      if (data.voted) {
+        body.appendChild(renderPollResults(block, data.tallies, data.total));
+        return;
+      }
+      const options = document.createElement("div");
+      options.className = "landing-poll-options";
+      for (const opt of block.options) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "page-btn landing-poll-option";
+        btn.textContent = opt.label;
+        btn.addEventListener("click", () => {
+          btn.disabled = true;
+          onEngage();
+          void (async () => {
+            try {
+              const voteRes = await fetch("/api/poll-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  slug: landingSlug,
+                  blockId: block.id,
+                  optionId: opt.id,
+                  voterId,
+                }),
+              });
+              const voteData = await voteRes.json();
+              if (!voteRes.ok) throw new Error(voteData.error || "Vote failed");
+              body.replaceChildren(
+                renderPollResults(block, voteData.tallies, voteData.total),
+              );
+            } catch {
+              btn.disabled = false;
+              body.textContent = "Could not record your vote. Please try again.";
+            }
+          })();
+        });
+        options.appendChild(btn);
+      }
+      body.appendChild(options);
+    } catch {
+      body.textContent = "Poll unavailable right now.";
+    }
+  })();
+}
+
+function renderPollBlock(
+  block: Extract<LandingBlock, { type: "poll" }>,
+  landingSlug: string,
+  onEngage: () => void,
+): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "landing-poll";
+  mountPollBlock(wrap, block, landingSlug, onEngage);
+  return wrap;
+}
+
 /** Sync logo column width/alignment with landing page settings. */
 export function applyLandingPageLayout(cfg: LandingRecord) {
   const settings = cfg.pageSettings;
@@ -319,6 +445,9 @@ export function renderLandingBlocks(
         break;
       case "embed":
         el = renderEmbedBlock(block);
+        break;
+      case "poll":
+        el = renderPollBlock(block, cfg.slug, opts.onEngage);
         break;
     }
     if (el) container.appendChild(el);

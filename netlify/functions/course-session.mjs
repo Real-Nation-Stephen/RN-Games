@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { connectLambda } from "@netlify/blobs";
 import {
   readCoursesIndex,
@@ -59,10 +59,14 @@ async function resolveCourse(slug, previewToken) {
   return doc;
 }
 
+function shortResumeToken() {
+  return randomBytes(9).toString("base64url");
+}
+
 function emptySession(course, participantId, email) {
   const items = flattenCourseItems(course.sections);
   const first = items[0];
-  const resumeToken = randomUUID();
+  const resumeToken = shortResumeToken();
   return {
     sessionId: randomUUID(),
     courseId: course.id,
@@ -263,7 +267,7 @@ export const handler = async (event) => {
         const email = normalizeEmail(body.email);
         if (email) {
           session.email = email;
-          if (!session.resumeToken) session.resumeToken = randomUUID();
+          if (!session.resumeToken) session.resumeToken = shortResumeToken();
           await indexSession(session);
         }
       }

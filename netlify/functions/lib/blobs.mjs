@@ -182,3 +182,40 @@ export async function setCourseEmailIndex(courseSlug, email, data) {
   const st = await blobStore();
   await st.setJSON(`course-email:${courseSlug}:${email}`, data);
 }
+
+export async function getFormSubmissionsJson(formId) {
+  const st = await blobStore();
+  const raw = await st.get(`form-submissions:${formId}`, { type: "json" });
+  if (!raw) return { version: 1, formId, submissions: [] };
+  return {
+    version: 1,
+    formId,
+    submissions: Array.isArray(raw.submissions) ? raw.submissions : [],
+  };
+}
+
+export async function setFormSubmissionsJson(formId, data) {
+  const st = await blobStore();
+  await st.setJSON(`form-submissions:${formId}`, data);
+}
+
+export async function getPollStateJson(landingId, blockId) {
+  const st = await blobStore();
+  const raw = await st.get(`poll-state:${landingId}:${blockId}`, { type: "json" });
+  if (!raw) {
+    return { version: 1, landingId, blockId, tallies: {}, ballots: [], clearedAt: null };
+  }
+  return {
+    version: 1,
+    landingId,
+    blockId,
+    tallies: raw.tallies && typeof raw.tallies === "object" ? raw.tallies : {},
+    ballots: Array.isArray(raw.ballots) ? raw.ballots : [],
+    clearedAt: raw.clearedAt ?? null,
+  };
+}
+
+export async function setPollStateJson(landingId, blockId, data) {
+  const st = await blobStore();
+  await st.setJSON(`poll-state:${landingId}:${blockId}`, data);
+}

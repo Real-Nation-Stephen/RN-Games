@@ -129,6 +129,15 @@ function showPostSubmit(cfg: FormRecord, onContinue: () => void) {
 async function finishForm(cfg: FormRecord, values: Record<string, string>) {
   const outcomes = { "form.fieldValues": values, completed: true };
   await syncModuleSession({ formFields: values }, outcomes);
+  try {
+    await fetch("/api/form-submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: cfg.slug, values }),
+    });
+  } catch {
+    /* non-blocking */
+  }
   completeStep({ gameId: cfg.id, ...outcomes });
 }
 

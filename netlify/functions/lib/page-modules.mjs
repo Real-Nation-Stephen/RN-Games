@@ -315,6 +315,25 @@ function normalizeLandingBlock(raw, index) {
       title: String(raw.title || "Embedded content"),
     };
   }
+  if (type === "poll") {
+    const options = Array.isArray(raw.options)
+      ? raw.options.map((opt, i) => ({
+          id: String(opt.id || `opt-${i}`),
+          label: String(opt.label || `Option ${i + 1}`),
+        }))
+      : [];
+    return {
+      id,
+      type: "poll",
+      question: String(raw.question || "Poll question"),
+      options: options.length
+        ? options
+        : [
+            { id: `opt-${index}-a`, label: "Option A" },
+            { id: `opt-${index}-b`, label: "Option B" },
+          ],
+    };
+  }
   return {
     id,
     type: "text",

@@ -1,5 +1,6 @@
 import {
   appendCourseQuery,
+  appendCourseLastStepQuery,
   appendFlowQuery,
   componentPublicPath,
   loadCourseContext,
@@ -19,6 +20,7 @@ import {
   isCourseItemCompleteMessage,
   isExperienceStepChangedMessage,
   FLOW_EXPERIENCE_STEP_CHANGED,
+  FLOW_END_SCREEN_READY,
 } from "@rngames/shared";
 
 type PublicStep = {
@@ -182,7 +184,15 @@ function isBlankStepFrame(src: string): boolean {
 
 function forwardToCourseParent(data: Record<string, unknown>) {
   if (!embeddedInCourse() || window.parent === window) return;
-  window.parent.postMessage(data, "*");
+  const courseCtx = courseContext();
+  window.parent.postMessage(
+    {
+      ...data,
+      courseSessionId: data.courseSessionId ?? courseCtx?.sessionId,
+      courseItemId: data.courseItemId ?? courseCtx?.itemId,
+    },
+    "*",
+  );
 }
 
 function isLastExperienceStep(): boolean {
@@ -369,6 +379,7 @@ function stepFrameUrl(step: PublicStep): string {
       courseSlug: courseCtx.courseSlug,
       itemId: courseCtx.itemId,
     });
+    if (isLastStep) path = appendCourseLastStepQuery(path);
   }
   if (path.startsWith("http")) return path;
   return `${window.location.origin}${path}`;
@@ -377,15 +388,15 @@ function stepFrameUrl(step: PublicStep): string {
 function notifyCourseComplete() {
   const courseCtx = courseContext();
   if (!courseCtx || !session || window.parent === window) return;
-  window.parent.postMessage(
-    {
-      type: FLOW_EXPERIENCE_COMPLETE,
-      courseSessionId: courseCtx.sessionId,
-      courseItemId: courseCtx.itemId,
-      outcomes: session.outcomes || {},
-    },
-    "*",
-  );
+  forwardToCourseParent({
+    type: FLOW_EXPERIENCE_COMPLETE,
+    outcomes: session.outcomes || {},
+  });
+  forwardCourseFooterSignal({
+    type: FLOW_END_SCREEN_READY,
+    courseSessionId: courseCtx.sessionId,
+    courseItemId: courseCtx.itemId,
+  });
 }
 
 function preloadNextStep() {

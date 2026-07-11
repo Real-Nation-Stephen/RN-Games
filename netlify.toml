@@ -122,6 +122,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/form-submissions"
+  to = "/.netlify/functions/form-submissions"
+  status = 200
+
+[[redirects]]
+  from = "/api/poll-state"
+  to = "/.netlify/functions/poll-state"
+  status = 200
+
+[[redirects]]
   from = "/api/track-stats"
   to = "/.netlify/functions/track-stats"
   status = 200

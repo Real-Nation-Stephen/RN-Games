@@ -132,6 +132,8 @@ export {
   loadCourseContext,
   isCourseMode,
   appendCourseQuery,
+  appendCourseLastStepQuery,
+  isLastCourseStepFromSearch,
 } from "./course-bridge.js";
 export {
   type FlowContext,
