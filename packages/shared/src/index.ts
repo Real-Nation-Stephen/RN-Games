@@ -144,6 +144,7 @@ export {
   FLOW_EXPERIENCE_CONTENT_READY,
   FLOW_STEP_CONTENT_READY,
   FLOW_COURSE_ITEM_COMPLETE,
+  FLOW_EXPERIENCE_STEP_CHANGED,
   FLOW_CONTENT_REVEAL,
   parseFlowContextFromSearch,
   saveFlowContext,
@@ -159,6 +160,7 @@ export {
   isExperienceContentReadyMessage,
   isStepContentReadyMessage,
   isCourseItemCompleteMessage,
+  isExperienceStepChangedMessage,
 } from "./flow-bridge.js";
 export {
   rankLeaderboardEntries,

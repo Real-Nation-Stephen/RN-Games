@@ -7,6 +7,7 @@ import {
   isStepCompleteMessage,
   isStepEngagedMessage,
   isCourseItemCompleteMessage,
+  isExperienceStepChangedMessage,
   FLOW_CONTENT_REVEAL,
   sectionUnlockState,
   isCourseItemAccessible,
@@ -90,6 +91,16 @@ function courseMessageMatchesActiveItem(data: {
 function showCourseFooter() {
   playerReady = true;
   updatePlayerFooter();
+}
+
+function hideCourseFooter() {
+  playerReady = false;
+  updatePlayerFooter();
+}
+
+function showCourseFooterIfLastStep(data: { isLastFlowStep?: boolean }) {
+  if (data.isLastFlowStep !== true) return;
+  showCourseFooter();
 }
 
 function getCourseSlug(): string {
@@ -651,9 +662,15 @@ window.addEventListener("message", (ev) => {
     hideItemLoading();
     return;
   }
+  if (isExperienceStepChangedMessage(ev.data)) {
+    if (!courseMessageMatchesActiveItem(ev.data)) return;
+    if (ev.data.isLastFlowStep === true) return;
+    hideCourseFooter();
+    return;
+  }
   if (isEndScreenReadyMessage(ev.data)) {
     if (!courseMessageMatchesActiveItem(ev.data)) return;
-    showCourseFooter();
+    showCourseFooterIfLastStep(ev.data);
     return;
   }
   if (isCourseItemCompleteMessage(ev.data)) {
@@ -665,7 +682,7 @@ window.addEventListener("message", (ev) => {
     if (!courseMessageMatchesActiveItem(ev.data)) return;
     const moduleType = ev.data.moduleType || "";
     if (INTERACTIVE_FOOTER_MODULE_TYPES.has(moduleType)) {
-      showCourseFooter();
+      showCourseFooterIfLastStep(ev.data);
     }
     return;
   }

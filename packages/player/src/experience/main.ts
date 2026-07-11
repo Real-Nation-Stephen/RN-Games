@@ -17,6 +17,8 @@ import {
   isEndScreenReadyMessage,
   isStepContentReadyMessage,
   isCourseItemCompleteMessage,
+  isExperienceStepChangedMessage,
+  FLOW_EXPERIENCE_STEP_CHANGED,
 } from "@rngames/shared";
 
 type PublicStep = {
@@ -181,6 +183,28 @@ function isBlankStepFrame(src: string): boolean {
 function forwardToCourseParent(data: Record<string, unknown>) {
   if (!embeddedInCourse() || window.parent === window) return;
   window.parent.postMessage(data, "*");
+}
+
+function isLastExperienceStep(): boolean {
+  if (!experience || !session) return false;
+  if (session.completedAt) return true;
+  return session.currentStepIndex >= experience.steps.length - 1;
+}
+
+function forwardCourseFooterSignal(data: Record<string, unknown>) {
+  if (!isLastExperienceStep()) return;
+  forwardToCourseParent({ ...data, isLastFlowStep: true });
+}
+
+function notifyCourseStepPhase() {
+  const courseCtx = courseContext();
+  if (!embeddedInCourse() || !courseCtx) return;
+  forwardToCourseParent({
+    type: FLOW_EXPERIENCE_STEP_CHANGED,
+    courseSessionId: courseCtx.sessionId,
+    courseItemId: courseCtx.itemId,
+    isLastFlowStep: isLastExperienceStep(),
+  });
 }
 
 function sessionStorageKey() {
@@ -442,6 +466,8 @@ function renderStep() {
     sessionId: session.sessionId,
     payload: { stepId: step.id, moduleType: step.moduleType },
   });
+
+  notifyCourseStepPhase();
 }
 
 async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell = false) {
@@ -480,7 +506,7 @@ function bindEvents() {
       return;
     }
     if (isEndScreenReadyMessage(ev.data)) {
-      forwardToCourseParent(ev.data as Record<string, unknown>);
+      forwardCourseFooterSignal(ev.data as Record<string, unknown>);
       return;
     }
     if (isCourseItemCompleteMessage(ev.data)) {
@@ -491,7 +517,7 @@ function bindEvents() {
       if (ev.data.sessionId && session && ev.data.sessionId !== session.sessionId) return;
       stepEngaged = true;
       updateShellContinue();
-      forwardToCourseParent({
+      forwardCourseFooterSignal({
         ...ev.data,
         moduleType: currentStep()?.moduleType,
       });

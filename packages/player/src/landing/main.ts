@@ -112,6 +112,12 @@ function finishCourseOverride(cfg: LandingRecord, label: string) {
   notifyCourseItemComplete({ gameId: cfg.id, "landing.cta": label });
 }
 
+function resetLandingScroll() {
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+
 function revealContent() {
   if (contentRevealed) return;
   contentRevealed = true;
@@ -137,6 +143,8 @@ function mountLanding(cfg: LandingRecord) {
   if (window.parent === window) revealContent();
 
   function renderScreen() {
+    resetLandingScroll();
+
     const screen = screens.find((s) => s.id === activeScreenId) || screens[0];
     if (!screen) return;
     activeScreenId = screen.id;

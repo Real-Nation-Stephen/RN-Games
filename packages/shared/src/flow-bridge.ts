@@ -23,6 +23,7 @@ export const FLOW_END_SCREEN_READY = "rngames:end_screen_ready";
 export const FLOW_EXPERIENCE_CONTENT_READY = "rngames:experience_content_ready";
 export const FLOW_STEP_CONTENT_READY = "rngames:step_content_ready";
 export const FLOW_COURSE_ITEM_COMPLETE = "rngames:course_item_complete";
+export const FLOW_EXPERIENCE_STEP_CHANGED = "rngames:experience_step_changed";
 export const FLOW_CONTENT_REVEAL = "rngames:content_reveal";
 
 export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
@@ -130,6 +131,7 @@ export type StepEngagedMessage = {
   experienceId?: string;
   nodeId?: string;
   moduleType?: string;
+  isLastFlowStep?: boolean;
 };
 
 export function isStepEngagedMessage(data: unknown): data is StepEngagedMessage {
@@ -159,6 +161,7 @@ export type EndScreenReadyMessage = {
   type: typeof FLOW_END_SCREEN_READY;
   courseSessionId?: string;
   courseItemId?: string;
+  isLastFlowStep?: boolean;
 };
 
 export function isEndScreenReadyMessage(data: unknown): data is EndScreenReadyMessage {
@@ -205,5 +208,20 @@ export function isCourseItemCompleteMessage(data: unknown): data is CourseItemCo
     !!data &&
     typeof data === "object" &&
     (data as CourseItemCompleteMessage).type === FLOW_COURSE_ITEM_COMPLETE
+  );
+}
+
+export type ExperienceStepChangedMessage = {
+  type: typeof FLOW_EXPERIENCE_STEP_CHANGED;
+  courseSessionId?: string;
+  courseItemId?: string;
+  isLastFlowStep?: boolean;
+};
+
+export function isExperienceStepChangedMessage(data: unknown): data is ExperienceStepChangedMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as ExperienceStepChangedMessage).type === FLOW_EXPERIENCE_STEP_CHANGED
   );
 }
