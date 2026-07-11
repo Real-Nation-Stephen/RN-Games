@@ -102,6 +102,7 @@ function normalizeCourseSection(raw, index) {
   return {
     id: String(raw.id || `section-${index}`),
     title: String(raw.title || `Section ${index + 1}`),
+    description: raw.description ? String(raw.description) : undefined,
     iconUrl: raw.iconUrl ? String(raw.iconUrl) : undefined,
     iconEmoji: raw.iconEmoji ? String(raw.iconEmoji) : undefined,
     unlockDate: raw.unlockDate ? String(raw.unlockDate) : null,

@@ -83,7 +83,12 @@ export default async (request, context) => {
       const seg = path.split("/").filter(Boolean);
       if (seg.length >= 2 && seg[0] === segment) {
         const slug = seg[1];
-        return fetch(new URL(`/play/${html}?slug=${encodeURIComponent(slug)}`, url));
+        const target = new URL(`/play/${html}`, url);
+        target.searchParams.set("slug", slug);
+        for (const [key, value] of url.searchParams) {
+          if (key !== "slug") target.searchParams.set(key, value);
+        }
+        return fetch(target);
       }
     }
   }

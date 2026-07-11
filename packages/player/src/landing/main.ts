@@ -15,7 +15,8 @@ import {
   flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
+  initEmbeddedContexts,
+  notifyStepContentReady,
   scheduleAutoContinue,
   setupPagePreview,
   wirePageLogo,
@@ -195,6 +196,7 @@ function mountLanding(cfg: LandingRecord) {
     if (onOverrideScreen && isCourseMode()) notifyEndScreenReady();
 
     els.app.hidden = false;
+    if (flowMode || isCourseMode()) notifyStepContentReady();
 
     if (!flowMode && cfg.experienceAutoContinue && hasPrimary) {
       engageStep();
@@ -211,7 +213,7 @@ async function boot() {
     setupPagePreview("landing", (cfg) => mountLanding(cfg as LandingRecord));
     return;
   }
-  initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("landing");
   if (!slug) {
     showError("Missing page slug.");

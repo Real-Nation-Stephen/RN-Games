@@ -8,7 +8,8 @@ import {
   flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
+  initEmbeddedContexts,
+  notifyStepContentReady,
   patchSessionData,
   setupPagePreview,
   wirePageLogo,
@@ -42,6 +43,7 @@ function showThankYou(cfg: EmailSignupRecord, onContinue: () => void) {
   els.thankYouBody.textContent = cfg.thankYouMessage;
   els.thankYouBtn.textContent = flowModeActive() ? flowNextLabel() : "Continue";
   els.thankYouBtn.onclick = onContinue;
+  notifyStepContentReady();
 }
 
 function mountEmailSignup(cfg: EmailSignupRecord) {
@@ -71,6 +73,7 @@ function mountEmailSignup(cfg: EmailSignupRecord) {
   }
 
   els.app.hidden = false;
+  notifyStepContentReady();
   els.form.oninput = () => engageStep();
   els.form.onsubmit = (e) => {
     e.preventDefault();
@@ -105,7 +108,7 @@ async function boot() {
     setupPagePreview("email-signup", (cfg) => mountEmailSignup(cfg as EmailSignupRecord));
     return;
   }
-  initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("email-signup");
   if (!slug) {
     els.error.textContent = "Missing slug.";

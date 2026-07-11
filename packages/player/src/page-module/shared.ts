@@ -9,6 +9,7 @@ import {
   saveCourseContext,
   loadCourseContext,
   loadFlowContext,
+  FLOW_STEP_CONTENT_READY,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
@@ -166,6 +167,11 @@ export function completeStep(outcomes: Record<string, unknown> = {}) {
 
 export function engageStep() {
   emitStepEngaged();
+}
+
+export function notifyStepContentReady() {
+  if (window.parent === window) return;
+  window.parent.postMessage({ type: FLOW_STEP_CONTENT_READY }, "*");
 }
 
 export async function patchCourseSessionData(

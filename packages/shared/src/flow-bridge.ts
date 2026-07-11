@@ -21,6 +21,7 @@ export const FLOW_STEP_ENGAGED = "rngames:step_engaged";
 export const FLOW_EXPERIENCE_COMPLETE = "rngames:experience_complete";
 export const FLOW_END_SCREEN_READY = "rngames:end_screen_ready";
 export const FLOW_EXPERIENCE_CONTENT_READY = "rngames:experience_content_ready";
+export const FLOW_STEP_CONTENT_READY = "rngames:step_content_ready";
 export const FLOW_CONTENT_REVEAL = "rngames:content_reveal";
 
 export function parseFlowContextFromSearch(params: URLSearchParams): FlowContext | null {
@@ -175,5 +176,17 @@ export function isExperienceContentReadyMessage(data: unknown): data is Experien
     !!data &&
     typeof data === "object" &&
     (data as ExperienceContentReadyMessage).type === FLOW_EXPERIENCE_CONTENT_READY
+  );
+}
+
+export type StepContentReadyMessage = {
+  type: typeof FLOW_STEP_CONTENT_READY;
+};
+
+export function isStepContentReadyMessage(data: unknown): data is StepContentReadyMessage {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as StepContentReadyMessage).type === FLOW_STEP_CONTENT_READY
   );
 }

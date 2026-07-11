@@ -15,6 +15,7 @@ import {
   isStepCompleteMessage,
   isStepEngagedMessage,
   isEndScreenReadyMessage,
+  isStepContentReadyMessage,
 } from "@rngames/shared";
 
 type PublicStep = {
@@ -162,6 +163,20 @@ function notifyExperienceContentReady() {
   window.parent.postMessage({ type: FLOW_EXPERIENCE_CONTENT_READY }, "*");
 }
 
+function markStepContentReady() {
+  hideStepLoading();
+  revealStepFrame();
+  notifyExperienceContentReady();
+}
+
+function stepFrameSrc(): string {
+  return els.frame.getAttribute("src") || "";
+}
+
+function isBlankStepFrame(src: string): boolean {
+  return !src || src === "about:blank";
+}
+
 function forwardToCourseParent(data: Record<string, unknown>) {
   if (!embeddedInCourse() || window.parent === window) return;
   window.parent.postMessage(data, "*");
@@ -183,6 +198,7 @@ function showError(msg: string) {
   els.complete.hidden = true;
   els.error.hidden = false;
   els.error.textContent = msg;
+  markStepContentReady();
 }
 
 function saveSessionLocal(s: Session) {
@@ -361,6 +377,7 @@ function renderStep() {
     if (inCourse) {
       els.complete.hidden = true;
       els.stage.hidden = false;
+      markStepContentReady();
       notifyCourseComplete();
     } else {
       els.stage.hidden = true;
@@ -401,19 +418,18 @@ function renderStep() {
     els.stepFooter.hidden = true;
     els.fallbackMsg.textContent = `Component unavailable (${step.label}).`;
     els.frame.src = "about:blank";
+    markStepContentReady();
     return;
   }
 
   loadAttempts = 0;
   const url = stepFrameUrl(step);
-  const currentSrc = els.frame.getAttribute("src") || "";
+  const currentSrc = stepFrameSrc();
   if (embeddedInCourse()) showStepLoading();
   if (!currentSrc || currentSrc !== url) {
     els.frame.src = url;
   } else if (embeddedInCourse()) {
-    hideStepLoading();
-    revealStepFrame();
-    notifyExperienceContentReady();
+    markStepContentReady();
   }
   updateShellContinue();
 
@@ -458,6 +474,10 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
 
 function bindEvents() {
   window.addEventListener("message", (ev) => {
+    if (isStepContentReadyMessage(ev.data)) {
+      markStepContentReady();
+      return;
+    }
     if (isEndScreenReadyMessage(ev.data)) {
       forwardToCourseParent(ev.data as Record<string, unknown>);
       return;
@@ -476,9 +496,8 @@ function bindEvents() {
   });
 
   els.frame.addEventListener("load", () => {
-    hideStepLoading();
-    revealStepFrame();
-    notifyExperienceContentReady();
+    if (isBlankStepFrame(stepFrameSrc())) return;
+    markStepContentReady();
   });
 
   els.frame.addEventListener("error", () => {

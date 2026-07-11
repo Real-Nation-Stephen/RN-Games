@@ -52,6 +52,10 @@ body {
   position: relative;
 }
 
+.exp-step-loading[hidden] {
+  display: none !important;
+}
+
 .exp-step-loading {
   position: absolute;
   inset: 0;

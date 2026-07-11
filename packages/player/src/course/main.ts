@@ -56,6 +56,7 @@ let course: PublicCourse | null = null;
 let session: CourseSession | null = null;
 let activeItem: PublicCourseItem | null = null;
 let playerReady = false;
+let itemLoadingFallbackTimer = 0;
 let slug = "";
 let previewToken = "";
 let resumeToken = "";
@@ -477,9 +478,17 @@ function applyItemLoadingPresentation() {
 function showItemLoading() {
   applyItemLoadingPresentation();
   els.itemLoading.hidden = false;
+  if (itemLoadingFallbackTimer) window.clearTimeout(itemLoadingFallbackTimer);
+  itemLoadingFallbackTimer = window.setTimeout(() => {
+    hideItemLoading();
+  }, 15000);
 }
 
 function hideItemLoading() {
+  if (itemLoadingFallbackTimer) {
+    window.clearTimeout(itemLoadingFallbackTimer);
+    itemLoadingFallbackTimer = 0;
+  }
   els.itemLoading.hidden = true;
   try {
     els.frame.contentWindow?.postMessage({ type: FLOW_CONTENT_REVEAL }, "*");

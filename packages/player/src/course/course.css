@@ -446,6 +446,10 @@ body {
   background: #000;
 }
 
+.course-item-loading[hidden] {
+  display: none !important;
+}
+
 .course-item-loading {
   position: absolute;
   left: 0;
