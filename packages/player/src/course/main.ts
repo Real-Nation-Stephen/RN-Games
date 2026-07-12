@@ -73,6 +73,7 @@ let itemLoadingFallbackTimer = 0;
 let slug = "";
 let previewToken = "";
 let resumeToken = "";
+let patchChain: Promise<void> = Promise.resolve();
 
 const KIND_ICON: Record<PublicCourseItem["kind"], string> = {
   module: "🎮",
@@ -163,8 +164,12 @@ function getResumeToken(): string {
 function normalizeSession(s: CourseSession): CourseSession {
   return {
     ...s,
+    completedItemIds: Array.isArray(s.completedItemIds) ? s.completedItemIds : [],
     earnedCertificates: Array.isArray(s.earnedCertificates) ? s.earnedCertificates : [],
     earnedBadges: Array.isArray(s.earnedBadges) ? s.earnedBadges : [],
+    itemOutcomes: s.itemOutcomes && typeof s.itemOutcomes === "object" ? s.itemOutcomes : {},
+    outcomes: s.outcomes && typeof s.outcomes === "object" ? s.outcomes : {},
+    data: s.data && typeof s.data === "object" ? s.data : {},
   };
 }
 
@@ -385,18 +390,42 @@ async function joinWithClassCode(code: string): Promise<CourseSession> {
   });
 }
 
+async function refreshSessionFromServer() {
+  if (!session?.sessionId) return;
+  try {
+    const res = await fetch(`/api/course-session?id=${encodeURIComponent(session.sessionId)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    session = normalizeSession(data.session as CourseSession);
+    saveSessionLocal(session);
+    syncResumeUrl();
+  } catch {
+    /* keep local session */
+  }
+}
+
 async function patchSession(body: Record<string, unknown>) {
   if (!session) return;
-  const res = await fetch("/api/course-session", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId: session.sessionId, ...body }),
-  });
-  if (!res.ok) throw new Error("Could not update progress");
-  const data = await res.json();
-  session = normalizeSession(data.session as CourseSession);
-  saveSessionLocal(session);
-  syncResumeUrl();
+  const run = async () => {
+    const res = await fetch("/api/course-session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: session!.sessionId, ...body }),
+    });
+    if (!res.ok) throw new Error("Could not update progress");
+    const data = await res.json();
+    session = normalizeSession(data.session as CourseSession);
+    saveSessionLocal(session);
+    syncResumeUrl();
+  };
+  const next = patchChain.then(run, run);
+  patchChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
 }
 
 function itemById(id: string | null | undefined): PublicCourseItem | undefined {
@@ -528,7 +557,9 @@ function renderStartScreen(message = "") {
   }
 }
 
-function renderHome() {
+async function renderHome() {
+  if (!course || !session) return;
+  await refreshSessionFromServer();
   if (!course || !session) return;
   applyPresentation(course);
   showView("home");
@@ -713,7 +744,7 @@ async function completeActiveItem(outcomes: Record<string, unknown> = {}) {
   await patchSession({ itemId: activeItem.id, action: "complete", outcomes });
   activeItem = null;
   els.frame.src = "about:blank";
-  renderHome();
+  await renderHome();
 }
 
 async function copyResumeLink() {
@@ -736,7 +767,7 @@ async function handleStartNew() {
   els.startStatus.hidden = true;
   try {
     establishSession(await startNewSession());
-    renderHome();
+    await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Could not start course");
   } finally {
@@ -754,7 +785,7 @@ async function handleResumeSubmit() {
   els.resumeSubmit.setAttribute("disabled", "true");
   try {
     establishSession(await resumeWithToken(token));
-    renderHome();
+    await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Learning link not found");
   } finally {
@@ -772,7 +803,7 @@ async function handleClassSubmit() {
   els.classSubmit.setAttribute("disabled", "true");
   try {
     establishSession(await joinWithClassCode(code));
-    renderHome();
+    await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Invalid class code");
   } finally {
@@ -840,7 +871,7 @@ els.back.addEventListener("click", () => {
   activeItem = null;
   playerReady = false;
   els.frame.src = "about:blank";
-  renderHome();
+  void renderHome();
 });
 
 els.markComplete.addEventListener("click", () => void completeActiveItem());
@@ -880,7 +911,7 @@ async function boot() {
     if (resumeToken) {
       try {
         establishSession(await resumeWithToken(resumeToken));
-        renderHome();
+        await renderHome();
         return;
       } catch {
         renderStartScreen("That learning link could not be found. Start fresh or paste another link.");
@@ -890,7 +921,7 @@ async function boot() {
 
     if (previewToken) {
       establishSession(await startNewSession());
-      renderHome();
+      await renderHome();
       return;
     }
 

@@ -89,9 +89,44 @@ function emptySession(course, participantId, email) {
 }
 
 function normalizeSession(session) {
+  if (!Array.isArray(session.completedItemIds)) session.completedItemIds = [];
   if (!Array.isArray(session.earnedCertificates)) session.earnedCertificates = [];
   if (!Array.isArray(session.earnedBadges)) session.earnedBadges = [];
+  if (!session.itemOutcomes || typeof session.itemOutcomes !== "object") session.itemOutcomes = {};
+  if (!session.outcomes || typeof session.outcomes !== "object") session.outcomes = {};
+  if (!session.data || typeof session.data !== "object") session.data = {};
   return session;
+}
+
+function mergeItemOutcomesMaps(base, patch) {
+  const out = { ...(base || {}) };
+  for (const [itemId, outcomes] of Object.entries(patch || {})) {
+    if (!outcomes || typeof outcomes !== "object") continue;
+    out[itemId] = { ...(out[itemId] || {}), ...outcomes };
+  }
+  return out;
+}
+
+/** Union cumulative session fields from latest storage before write (avoids PATCH races). */
+async function saveCourseSessionMerged(sessionId, draft) {
+  const latest = await getCourseSessionJson(sessionId);
+  if (!latest) return null;
+
+  draft.completedItemIds = [
+    ...new Set([...(latest.completedItemIds || []), ...(draft.completedItemIds || [])]),
+  ];
+  draft.earnedCertificates = [
+    ...new Set([...(latest.earnedCertificates || []), ...(draft.earnedCertificates || [])]),
+  ];
+  draft.earnedBadges = [...new Set([...(latest.earnedBadges || []), ...(draft.earnedBadges || [])])];
+  draft.outcomes = { ...(latest.outcomes || {}), ...(draft.outcomes || {}) };
+  draft.itemOutcomes = mergeItemOutcomesMaps(latest.itemOutcomes, draft.itemOutcomes);
+  draft.data = { ...(latest.data || {}), ...(draft.data || {}) };
+  if (latest.completedAt && !draft.completedAt) draft.completedAt = latest.completedAt;
+
+  draft.updatedAt = new Date().toISOString();
+  await setCourseSessionJson(sessionId, draft);
+  return normalizeSession(draft);
 }
 
 async function indexSession(session) {
@@ -355,8 +390,16 @@ export const handler = async (event) => {
       }
 
       session.updatedAt = new Date().toISOString();
-      await setCourseSessionJson(sessionId, session);
-      return { statusCode: 200, body: JSON.stringify({ session: normalizeSession(session) }), headers };
+      const saved = await saveCourseSessionMerged(sessionId, session);
+      if (!saved) {
+        return { statusCode: 404, body: JSON.stringify({ error: "Session not found" }), headers };
+      }
+      const nextIncomplete = items.find((i) => !saved.completedItemIds.includes(i.id));
+      if (!nextIncomplete && items.length && !saved.completedAt) {
+        saved.completedAt = new Date().toISOString();
+        await setCourseSessionJson(sessionId, saved);
+      }
+      return { statusCode: 200, body: JSON.stringify({ session: normalizeSession(saved) }), headers };
     }
 
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }), headers };
