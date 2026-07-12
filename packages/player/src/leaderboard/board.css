@@ -131,6 +131,8 @@ body[data-brand-corner="tr"] .lb-brand {
 
 .lb-avatar {
   display: block;
+  width: 32px;
+  height: 32px;
   image-rendering: pixelated;
 }
 

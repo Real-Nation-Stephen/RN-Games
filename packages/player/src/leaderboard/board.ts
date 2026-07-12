@@ -1,6 +1,94 @@
 import type { LeaderboardConfig, LeaderboardPublicState, LeaderboardRow } from "./types";
 import { fetchPublicConfig, getSlugFromPath, pollState } from "./api";
+import { runnerSheetFrameCount, runnerSheetFrameRect } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
+
+const AVATAR_SIZE = 32;
+const AVATAR_FPS = 3;
+
+type AvatarStop = () => void;
+const avatarStops: AvatarStop[] = [];
+
+function clearAvatarAnimators() {
+  for (const stop of avatarStops) stop();
+  avatarStops.length = 0;
+}
+
+function paintSpriteFrame(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  cellW: number,
+  cellH: number,
+  frameIndex: number,
+) {
+  const sheet = { url: "", cellWidth: cellW, cellHeight: cellH };
+  const { sx, sy, sw, sh } = runnerSheetFrameRect(
+    sheet,
+    frameIndex,
+    img.naturalWidth,
+    img.naturalHeight,
+  );
+  ctx.clearRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
+  const scale = Math.min(AVATAR_SIZE / sw, AVATAR_SIZE / sh);
+  const destW = sw * scale;
+  const destH = sh * scale;
+  const feetX = AVATAR_SIZE / 2;
+  const feetY = AVATAR_SIZE - 2;
+  ctx.drawImage(img, sx, sy, sw, sh, feetX - destW / 2, feetY - destH, destW, destH);
+}
+
+function appendAvatar(nameEl: HTMLElement, row: LeaderboardRow) {
+  const url = row.avatarUrl?.trim();
+  if (!url) return;
+  const cellW = row.avatarCellWidth || 64;
+  const cellH = row.avatarCellHeight || 64;
+  const wrap = document.createElement("span");
+  wrap.className = "lb-avatar-wrap";
+  const canvas = document.createElement("canvas");
+  canvas.className = "lb-avatar";
+  canvas.width = AVATAR_SIZE;
+  canvas.height = AVATAR_SIZE;
+  wrap.appendChild(canvas);
+  nameEl.appendChild(wrap);
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  let running = true;
+  let raf = 0;
+  let acc = 0;
+
+  const stop: AvatarStop = () => {
+    running = false;
+    cancelAnimationFrame(raf);
+  };
+  avatarStops.push(stop);
+
+  img.onload = () => {
+    if (!running) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const sheet = { url: "", cellWidth: cellW, cellHeight: cellH };
+    const total = runnerSheetFrameCount(sheet, img.naturalWidth, img.naturalHeight);
+    paintSpriteFrame(ctx, img, cellW, cellH, 0);
+    if (total <= 1) return;
+
+    let last = performance.now();
+    const tick = (now: number) => {
+      if (!running) return;
+      acc += now - last;
+      last = now;
+      const frame = Math.floor((acc * AVATAR_FPS) / 1000) % total;
+      paintSpriteFrame(ctx, img, cellW, cellH, frame);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  };
+  img.onerror = () => {
+    stop();
+    wrap.hidden = true;
+  };
+  img.src = url;
+}
 
 function $(id: string) {
   return document.getElementById(id)!;
@@ -31,26 +119,8 @@ function applyChrome(cfg: LeaderboardConfig) {
   if (powered) powered.hidden = cfg.showPoweredBy === false;
 }
 
-function appendAvatar(nameEl: HTMLElement, row: LeaderboardRow) {
-  const url = row.avatarUrl?.trim();
-  if (!url) return;
-  const cellW = row.avatarCellWidth || 64;
-  const cellH = row.avatarCellHeight || 64;
-  const displayH = 32;
-  const displayW = Math.round(cellW * (displayH / cellH));
-  const wrap = document.createElement("span");
-  wrap.className = "lb-avatar-wrap";
-  const img = document.createElement("img");
-  img.className = "lb-avatar";
-  img.src = url;
-  img.width = displayW;
-  img.height = displayH;
-  img.alt = "";
-  wrap.appendChild(img);
-  nameEl.appendChild(wrap);
-}
-
 function renderList(state: LeaderboardPublicState) {
+  clearAvatarAnimators();
   const list = $("lb-list");
   const indicator = $("lb-indicator");
   list.innerHTML = "";
