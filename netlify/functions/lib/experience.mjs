@@ -1,5 +1,7 @@
 /** Experience normalizers — mirrors @rngames/shared/experience-record (JS for Netlify functions). */
 
+import { normalizeDeploymentMeasurement } from "./measurement.mjs";
+
 export function defaultExperienceFoundation() {
   return {
     trackingEnabled: true,
@@ -133,6 +135,7 @@ export function normalizeExperienceRecord(doc) {
           : {}),
       },
     },
+    measurement: normalizeDeploymentMeasurement(doc.measurement, doc.foundation),
     templateId: doc.templateId ?? null,
     archived: !!doc.archived,
   };

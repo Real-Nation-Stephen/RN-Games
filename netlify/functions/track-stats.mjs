@@ -33,20 +33,20 @@ function aggregateEvents(events, experiencesById, modulesById) {
 
   for (const ev of events) {
     total++;
-    bump(byType, ev.type || "unknown");
-    const expId = ev.campaignId || ev.payload?.experienceId;
+    bump(byType, ev.eventName || ev.type || "unknown");
+    const expId = ev.flowId || ev.campaignId || ev.context?.flowId || ev.payload?.experienceId;
     if (expId) {
       const row = experiencesById.get(String(expId));
       const label = row ? `${row.title} (${row.slug})` : String(expId);
       bump(byExperience, label);
     }
-    const gameId = ev.gameId || ev.moduleId;
+    const gameId = ev.componentInstanceId || ev.gameId || ev.moduleId;
     if (gameId) {
       const row = modulesById.get(String(gameId));
       const label = row ? `${row.title} (${row.gameType || "module"})` : String(gameId);
       bump(byComponent, label);
     }
-    const sid = ev.sessionId || ev.payload?.sessionId;
+    const sid = ev.sessionId || ev.context?.flowSessionId || ev.context?.courseSessionId || ev.payload?.sessionId;
     if (sid) {
       uniqueSessions.add(String(sid));
       bump(bySession, String(sid));

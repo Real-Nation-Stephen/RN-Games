@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExperienceGraph, ExperienceRecord } from "@rngames/shared";
-import { graphToLinearSteps } from "@rngames/shared";
+import { defaultDeploymentMeasurement, graphToLinearSteps } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend } from "../api";
+import { DeploymentMeasurementPanel } from "../components/DeploymentMeasurementPanel";
 import { ExperienceFlowCanvas } from "../components/ExperienceFlowCanvas";
 import { ExperienceNodeOverridesPanel } from "../components/ExperienceNodeOverridesPanel";
 import type { PickerModule } from "../components/ItemPicker";
@@ -27,7 +28,11 @@ export default function ExperienceEditor() {
       apiGet(`/api/experiences?id=${encodeURIComponent(id)}`),
       apiGet("/api/wheels"),
     ]);
-    setGame(expRes.experience as ExperienceRecord);
+    setGame({
+      ...(expRes.experience as ExperienceRecord),
+      measurement:
+        (expRes.experience as ExperienceRecord).measurement || defaultDeploymentMeasurement(),
+    });
     setModules(
       (wheelsRes.wheels || []).filter((w: PickerModule & { archived?: boolean }) => !w.archived),
     );
@@ -182,33 +187,10 @@ export default function ExperienceEditor() {
               }
             />
           </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={game.foundation.trackingEnabled !== false}
-              onChange={(e) =>
-                patch((g) => ({
-                  ...g,
-                  foundation: { ...g.foundation, trackingEnabled: e.target.checked },
-                }))
-              }
-            />
-            Tracking enabled
-          </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={!!game.foundation.reportingEnabled}
-              onChange={(e) =>
-                patch((g) => ({
-                  ...g,
-                  foundation: { ...g.foundation, reportingEnabled: e.target.checked },
-                }))
-              }
-            />
-            Reporting enabled
-          </label>
         </div>
+        <p className="muted" style={{ fontSize: "0.85rem" }}>
+          Tracking and reporting settings are configured in Measurement &amp; Reporting below.
+        </p>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Live: <code>{liveUrl}</code>
           {game.status !== "published" ? (
@@ -240,6 +222,24 @@ export default function ExperienceEditor() {
           />
         ) : null}
       </div>
+
+      <DeploymentMeasurementPanel
+        kind="flow"
+        recordId={game.id}
+        measurement={game.measurement}
+        onMeasurementChange={(measurement) =>
+          patch((g) => ({
+            ...g,
+            measurement,
+            foundation: {
+              ...g.foundation,
+              trackingEnabled: measurement.trackingEnabled !== false,
+              reportingEnabled: !!measurement.reporting?.enabled,
+              requireConsentBeforeTrack: !!measurement.requireConsentBeforeTrack,
+            },
+          }))
+        }
+      />
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Preview</h3>

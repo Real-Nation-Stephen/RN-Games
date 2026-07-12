@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CourseItem, CourseRecord, CourseSection } from "@rngames/shared";
-import { defaultCoursePresentation, defaultCourseSettings, newCourseId } from "@rngames/shared";
+import { defaultCoursePresentation, defaultCourseSettings, defaultDeploymentMeasurement, newCourseId } from "@rngames/shared";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { BgUploadRow } from "../components/BgUploadRow";
 import { CollapsibleSection } from "../components/CollapsibleSection";
+import { DeploymentMeasurementPanel } from "../components/DeploymentMeasurementPanel";
 import { HexField } from "../components/HexField";
 import { ItemPicker, type PickerExperience, type PickerModule } from "../components/ItemPicker";
 import { coursePublicUrl } from "./homeShared";
@@ -18,6 +19,7 @@ function ensureCourseDefaults(doc: CourseRecord): CourseRecord {
     ...doc,
     presentation: doc.presentation || defaultCoursePresentation(),
     settings: doc.settings || defaultCourseSettings(),
+    measurement: doc.measurement || defaultDeploymentMeasurement(),
   };
 }
 
@@ -803,6 +805,13 @@ export default function CourseEditor() {
           </>
         )}
       </div>
+
+      <DeploymentMeasurementPanel
+        kind="course"
+        recordId={course.id}
+        measurement={course.measurement}
+        onMeasurementChange={(measurement) => patch((c) => ({ ...c, measurement }))}
+      />
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Preview</h3>

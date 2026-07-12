@@ -93,10 +93,11 @@ Arcade games (`catch`, `runner`) use the same blob + `/api/wheels` CRUD as other
 
 ## Data storage
 
-There is **no SQL database**. All persistent platform data uses **Netlify Blobs** (store name: `rngames-platform`).
+**Netlify Blobs** (`rngames-platform`) remain the store for configuration, sessions, and the resilient analytics buffer. **Netlify Database** (Postgres via `@netlify/database`) stores structured measurement events when `MEASUREMENT_DB_ENABLED` is set.
 
 | Key / pattern | Contents |
 |---------------|----------|
+| `track-log:{YYYY-MM-DDTHH}` | Hourly canonical event buffer (max 5000 events/bucket); source for DB replay |
 | `wheels-index` | Index of games: `id`, `slug`, `gameType`, `title`, `clientName`, `updatedAt`, `reportingEnabled`, `thumbnailUrl` |
 | `wheel:{uuid}` | Full game configuration JSON |
 | `file:{uuid}` | Uploaded binary (images, audio) |
@@ -109,7 +110,8 @@ There is **no SQL database**. All persistent platform data uses **Netlify Blobs*
 | `courses-index` | Index of courses |
 | `course-session:{sessionId}` | Learner course progress, `email`, `earnedBadges[]`, `earnedCertificates[]`, item outcomes |
 | `course-email:{slug}:{email}` | Resume lookup index for learning-link emails |
-| `track-log:{YYYY-MM-DDTHH}` | Hourly append-only analytics event batches from `POST /api/track` |
+
+**Netlify Database tables (measurement pilot):** `events`, `measurement_config`, `ingest_replay_runs`. Migrations live in `netlify/database/migrations/`. Apply locally with `netlify database migrations apply` only after confirming the correct site.
 
 **Implications**
 
@@ -147,7 +149,8 @@ Redirects in `netlify.toml` map `/api/*` → `/.netlify/functions/*`.
 | `GET /api/public-course?slug=` | Public | Published course shell/config |
 | `POST/PATCH/GET /api/course-session` | Public | Learner progress + resume |
 | `POST /api/course-resume-email` | Public | Send learning link email (stores email on session) |
-| `POST /api/track` | Public | Append analytics events (hourly blob) |
+| `POST /api/track` | Public | Append canonical analytics events (Blob buffer + optional Netlify Database) |
+| `POST /api/measurement-replay` | Studio / ops | Idempotent replay of Blob track-log events into Netlify Database |
 | `GET /api/track-stats` | Studio JWT | Aggregate dashboards + `?format=csv` export |
 
 Public wheel loader (`packages/player`) calls `/api/public-wheel` by slug. Studio calls `/api/wheels` with `Authorization: Bearer <Netlify Identity token>`.

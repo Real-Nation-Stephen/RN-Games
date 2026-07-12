@@ -2,6 +2,8 @@
  * Course record — Wave 2.5 structured learning product (separate from modules and experiences).
  */
 import { componentPublicPath } from "./experience-utils.js";
+import type { DeploymentMeasurement } from "./measurement/types.js";
+import { defaultDeploymentMeasurement, normalizeDeploymentMeasurement } from "./measurement/deployment.js";
 
 export type CourseStatus = "draft" | "published" | "archived";
 
@@ -110,6 +112,8 @@ export interface CourseRecord {
   sections: CourseSection[];
   presentation: CoursePresentation;
   settings: CourseSettings;
+  /** Single deployment-level measurement config (editable in one place). */
+  measurement?: DeploymentMeasurement;
   archived?: boolean;
 }
 
@@ -253,6 +257,7 @@ export function emptyCourse(id: string, slug: string, previewToken: string): Cou
     sections: [],
     presentation: defaultCoursePresentation(),
     settings: defaultCourseSettings(),
+    measurement: defaultDeploymentMeasurement(),
     archived: false,
   };
 }
@@ -396,6 +401,7 @@ export function normalizeCourse(doc: Partial<CourseRecord> & { id: string }): Co
     sections,
     presentation: normalizePresentation(doc.presentation),
     settings: normalizeSettings(doc.settings),
+    measurement: normalizeDeploymentMeasurement(doc.measurement),
     archived: !!doc.archived,
   };
 }

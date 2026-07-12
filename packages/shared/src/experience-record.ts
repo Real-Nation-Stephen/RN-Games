@@ -9,6 +9,8 @@ import type {
   ExperienceStatus,
   ModuleRefNode,
 } from "./experience.js";
+import type { DeploymentMeasurement } from "./measurement/types.js";
+import { normalizeDeploymentMeasurement } from "./measurement/deployment.js";
 
 export interface ExperienceLinearStep {
   id: string;
@@ -36,6 +38,8 @@ export interface ExperienceRecord {
   graph: ExperienceGraph;
   metadata: ExperienceMetadata;
   foundation: ExperienceFoundation;
+  /** Single deployment-level measurement config. */
+  measurement?: DeploymentMeasurement;
   templateId?: string | null;
   archived?: boolean;
 }
@@ -148,6 +152,7 @@ export function emptyExperience(id: string, slug: string, previewToken: string):
     graph: linearStepsToGraph(linearSteps),
     metadata: {},
     foundation: defaultExperienceFoundation(),
+    measurement: normalizeDeploymentMeasurement(undefined, defaultExperienceFoundation()),
     templateId: null,
     archived: false,
   };
@@ -199,6 +204,11 @@ export function normalizeExperience(
           : {}),
       },
     },
+    measurement: normalizeDeploymentMeasurement(doc.measurement, {
+      trackingEnabled: doc.foundation?.trackingEnabled,
+      reportingEnabled: doc.foundation?.reportingEnabled,
+      requireConsentBeforeTrack: doc.foundation?.requireConsentBeforeTrack,
+    }),
     templateId: doc.templateId ?? null,
     archived: !!doc.archived,
   };

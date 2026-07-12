@@ -21,7 +21,7 @@ const TAB_LABELS: Record<Tab, string> = {
   campaign: "Campaign",
   experience: "Experience",
   component: "Component",
-  user: "User",
+  user: "Sessions",
 };
 
 function StatTable({ rows, empty }: { rows: Row[]; empty: string }) {

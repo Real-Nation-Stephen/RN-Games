@@ -1,5 +1,5 @@
 import { connectLambda } from "@netlify/blobs";
-import { blobStore } from "./lib/store.mjs";
+import { ingestEvents } from "./lib/event-ingest.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -19,25 +19,26 @@ export const handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const events = Array.isArray(body.events) ? body.events : body.type ? [body] : [];
+    const events = Array.isArray(body.events) ? body.events : body.eventId || body.type || body.eventName ? [body] : [];
     if (!events.length) {
       return { statusCode: 400, body: JSON.stringify({ error: "No events" }), headers };
     }
 
-    const st = await blobStore();
-    const hour = new Date().toISOString().slice(0, 13);
-    const key = `track-log:${hour}`;
-    const raw = await st.get(key, { type: "json" });
-    const list = Array.isArray(raw?.events) ? raw.events : [];
-    const stamped = events.map((ev) => ({
-      ...ev,
-      timestamp: ev.timestamp || new Date().toISOString(),
-    }));
-    list.push(...stamped);
-    const trimmed = list.slice(-5000);
-    await st.setJSON(key, { events: trimmed, updatedAt: new Date().toISOString() });
+    const results = await ingestEvents(events);
+    const accepted = results.filter((r) => r.ok).length;
+    const rejected = results.filter((r) => !r.ok).length;
 
-    return { statusCode: 202, body: JSON.stringify({ ok: true, count: stamped.length }), headers };
+    return {
+      statusCode: 202,
+      body: JSON.stringify({
+        ok: true,
+        count: events.length,
+        accepted,
+        rejected,
+        results,
+      }),
+      headers,
+    };
   } catch (e) {
     return {
       statusCode: 500,

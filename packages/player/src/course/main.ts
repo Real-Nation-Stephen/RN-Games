@@ -11,6 +11,8 @@ import {
   FLOW_CONTENT_REVEAL,
   sectionUnlockState,
   isCourseItemAccessible,
+  track,
+  SHELL_EVENTS,
   type PublicCourse,
   type PublicCourseItem,
   type PublicCourseSection,
@@ -74,6 +76,9 @@ let slug = "";
 let previewToken = "";
 let resumeToken = "";
 let patchChain: Promise<void> = Promise.resolve();
+/** True after new enrolment until first course.started is emitted. */
+let pendingCourseStarted = false;
+let courseViewedEmitted = false;
 
 const KIND_ICON: Record<PublicCourseItem["kind"], string> = {
   module: "🎮",
@@ -362,10 +367,38 @@ function syncResumeUrl() {
   resumeToken = session.resumeToken;
 }
 
-function establishSession(next: CourseSession) {
+function trackCourseShell(
+  eventName: string,
+  properties: Record<string, unknown> = {},
+) {
+  if (!course || !session) return;
+  track({
+    eventName,
+    componentType: "course",
+    componentInstanceId: course.id,
+    sessionId: session.sessionId,
+    participantId: session.participantId,
+    properties: {
+      courseSlug: course.slug,
+      ...properties,
+    },
+  });
+}
+
+function establishSession(
+  next: CourseSession,
+  meta: { enrolled?: boolean; resumed?: boolean; source?: string } = {},
+) {
   session = normalizeSession(next);
   saveSessionLocal(session);
   syncResumeUrl();
+  if (meta.enrolled) {
+    pendingCourseStarted = true;
+    trackCourseShell(SHELL_EVENTS.course.enrolled, { source: meta.source || "new" });
+  }
+  if (meta.resumed) {
+    trackCourseShell(SHELL_EVENTS.course.resumed);
+  }
 }
 
 async function resumeWithToken(token: string): Promise<CourseSession> {
@@ -555,12 +588,28 @@ function renderStartScreen(message = "") {
     els.startStatus.hidden = true;
     els.startStatus.textContent = "";
   }
+
+  if (!courseViewedEmitted) {
+    courseViewedEmitted = true;
+    track({
+      eventName: SHELL_EVENTS.course.viewed,
+      componentType: "course",
+      componentInstanceId: course.id,
+      properties: { courseSlug: course.slug },
+    });
+  }
 }
 
 async function renderHome() {
   if (!course || !session) return;
   await refreshSessionFromServer();
   if (!course || !session) return;
+
+  if (pendingCourseStarted) {
+    pendingCourseStarted = false;
+    trackCourseShell(SHELL_EVENTS.course.started);
+  }
+
   applyPresentation(course);
   showView("home");
 
@@ -732,6 +781,7 @@ async function openItem(itemId: string) {
   playerReady = false;
   updatePlayerFooter();
   await patchSession({ itemId, action: "visit" });
+  trackCourseShell(SHELL_EVENTS.course.itemStarted, { courseItemId: itemId, itemKind: item.kind });
 
   showView("player");
   els.playerTitle.textContent = item.displayTitle || item.label;
@@ -741,7 +791,12 @@ async function openItem(itemId: string) {
 
 async function completeActiveItem(outcomes: Record<string, unknown> = {}) {
   if (!activeItem) return;
-  await patchSession({ itemId: activeItem.id, action: "complete", outcomes });
+  const itemId = activeItem.id;
+  await patchSession({ itemId, action: "complete", outcomes });
+  trackCourseShell(SHELL_EVENTS.course.itemCompleted, { courseItemId: itemId });
+  if (session?.completedAt) {
+    trackCourseShell(SHELL_EVENTS.course.completed);
+  }
   activeItem = null;
   els.frame.src = "about:blank";
   await renderHome();
@@ -766,7 +821,7 @@ async function handleStartNew() {
   els.startNew.setAttribute("disabled", "true");
   els.startStatus.hidden = true;
   try {
-    establishSession(await startNewSession());
+    establishSession(await startNewSession(), { enrolled: true, source: "start_new" });
     await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Could not start course");
@@ -784,7 +839,7 @@ async function handleResumeSubmit() {
   }
   els.resumeSubmit.setAttribute("disabled", "true");
   try {
-    establishSession(await resumeWithToken(token));
+    establishSession(await resumeWithToken(token), { resumed: true });
     await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Learning link not found");
@@ -802,7 +857,7 @@ async function handleClassSubmit() {
   }
   els.classSubmit.setAttribute("disabled", "true");
   try {
-    establishSession(await joinWithClassCode(code));
+    establishSession(await joinWithClassCode(code), { enrolled: true, source: "class_code" });
     await renderHome();
   } catch (e) {
     renderStartScreen(e instanceof Error ? e.message : "Invalid class code");
@@ -909,7 +964,7 @@ async function boot() {
 
     if (resumeToken) {
       try {
-        establishSession(await resumeWithToken(resumeToken));
+        establishSession(await resumeWithToken(resumeToken), { resumed: true });
         await renderHome();
         return;
       } catch {
@@ -919,7 +974,7 @@ async function boot() {
     }
 
     if (previewToken) {
-      establishSession(await startNewSession());
+      establishSession(await startNewSession(), { enrolled: true, source: "preview" });
       await renderHome();
       return;
     }

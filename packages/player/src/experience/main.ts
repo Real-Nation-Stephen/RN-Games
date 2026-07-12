@@ -7,6 +7,7 @@ import {
   resolveCourseContext,
   saveCourseContext,
   track,
+  SHELL_EVENTS,
   isModuleItemCompleteOverride,
 } from "@rngames/shared";
 import {
@@ -147,6 +148,7 @@ let slug = "";
 let previewToken = "";
 let advancing = false;
 let stepEngaged = false;
+let flowViewedEmitted = false;
 
 function showStepLoading() {
   if (!embeddedInCourse()) return;
@@ -302,13 +304,32 @@ async function fetchExperience(): Promise<PublicExperience> {
   return data.experience as PublicExperience;
 }
 
-async function createOrResumeSession(): Promise<Session> {
+function trackFlowShell(
+  eventName: string,
+  properties: Record<string, unknown> = {},
+) {
+  if (!experience || !session) return;
+  track({
+    eventName,
+    componentType: "flow",
+    componentInstanceId: experience.id,
+    sessionId: session.sessionId,
+    campaignId: experience.id,
+    properties: {
+      experienceSlug: experience.slug,
+      ...properties,
+    },
+  });
+}
+
+async function createOrResumeSession(): Promise<{ session: Session; resumed: boolean }> {
   const saved = embeddedInCourse() ? null : loadSessionLocal();
   const body: Record<string, string | boolean> = { experienceSlug: slug };
   const auth = authQueryParams();
   auth.forEach((value, key) => {
     body[key] = value;
   });
+  const hadSaved = !!saved?.sessionId;
   if (saved?.sessionId) {
     body.sessionId = saved.sessionId;
     body.participantId = saved.participantId;
@@ -326,7 +347,7 @@ async function createOrResumeSession(): Promise<Session> {
   const data = await res.json();
   const s = data.session as Session;
   saveSessionLocal(s);
-  return s;
+  return { session: s, resumed: hadSaved };
 }
 
 async function restartSession(): Promise<Session> {
@@ -444,13 +465,7 @@ function renderStep() {
       els.completeActions.hidden = !previewToken;
       els.courseReturnWrap.hidden = true;
     }
-    track({
-      type: "experience.complete",
-      gameId: experience.id,
-      campaignId: experience.id,
-      sessionId: session.sessionId,
-      payload: { slug: experience.slug },
-    });
+    trackFlowShell(SHELL_EVENTS.flow.completed, { slug: experience.slug });
     return;
   }
 
@@ -492,13 +507,11 @@ function renderStep() {
   }
   updateShellContinue();
 
-  track({
-    type: "experience.step_start",
-    gameId: step.moduleInstanceId,
-    moduleId: step.moduleInstanceId,
-    campaignId: experience.id,
-    sessionId: session.sessionId,
-    payload: { stepId: step.id, moduleType: step.moduleType },
+  trackFlowShell(SHELL_EVENTS.flow.stepStarted, {
+    stepId: step.id,
+    moduleType: step.moduleType,
+    moduleInstanceId: step.moduleInstanceId,
+    flowStepId: step.id,
   });
 
   notifyCourseStepPhase();
@@ -513,13 +526,10 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
   advancing = true;
   updateShellContinue();
 
-  track({
-    type: "experience.step_complete",
-    gameId: step?.moduleInstanceId || experience.id,
-    moduleId: step?.moduleInstanceId,
-    campaignId: experience.id,
-    sessionId: session.sessionId,
-    payload: { stepId: step?.id, outcomes },
+  trackFlowShell(SHELL_EVENTS.flow.stepCompleted, {
+    stepId: step?.id,
+    flowStepId: step?.id,
+    outcomes,
   });
 
   try {
@@ -643,7 +653,19 @@ async function boot() {
   bindEvents();
   try {
     experience = await fetchExperience();
-    session = await createOrResumeSession();
+    if (!flowViewedEmitted) {
+      flowViewedEmitted = true;
+      track({
+        eventName: SHELL_EVENTS.flow.viewed,
+        componentType: "flow",
+        componentInstanceId: experience.id,
+        campaignId: experience.id,
+        properties: { experienceSlug: experience.slug },
+      });
+    }
+    const { session: nextSession, resumed } = await createOrResumeSession();
+    session = nextSession;
+    trackFlowShell(resumed ? SHELL_EVENTS.flow.resumed : SHELL_EVENTS.flow.started);
     renderStep();
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load experience");

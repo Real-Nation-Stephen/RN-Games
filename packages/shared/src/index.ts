@@ -1,6 +1,23 @@
 /** Shared wheel types and validation for Real Nation Digital — Game Studio */
 
-export { track, type TrackEvent, type TrackEventInput } from "./track.js";
+export { track, buildCanonicalEvent, type TrackEvent, type TrackEventInput, type CanonicalTrackEvent } from "./track.js";
+export {
+  MEASUREMENT_SCHEMA_VERSION,
+  MEASUREMENT_EVENT_VERSION,
+  SHELL_EVENTS,
+  deploymentIdFor,
+  defaultDeploymentMeasurement,
+  normalizeDeploymentMeasurement,
+  resolveEffectiveMeasurement,
+  getComponentMetadata,
+  listComponentMetadata,
+  COMPONENT_METADATA_REGISTRY,
+  canonicalEventName,
+  type DeploymentContext,
+  type EffectiveMeasurementProfile,
+  type ComponentMetadataContract,
+} from "./measurement/index.js";
+export type { DeploymentMeasurement } from "./measurement/types.js";
 export {
   type ControlNodeType,
   type ControlRefNode,

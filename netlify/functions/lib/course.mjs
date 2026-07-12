@@ -1,6 +1,7 @@
 /** Course normalizers — mirrors @rngames/shared/course (JS for Netlify functions). */
 
 import { componentPublicPath } from "./experience.mjs";
+import { defaultDeploymentMeasurement, normalizeDeploymentMeasurement } from "./measurement.mjs";
 
 const MODULE_TYPES = new Set([
   "spinning-wheel",
@@ -72,6 +73,7 @@ export function emptyCourseRecord(id, slug, previewToken) {
     sections: [],
     presentation: defaultCoursePresentation(),
     settings: defaultCourseSettings(),
+    measurement: defaultDeploymentMeasurement(),
     archived: false,
   };
 }
@@ -186,6 +188,7 @@ export function normalizeCourseRecord(doc) {
     sections,
     presentation: normalizePresentation(doc.presentation),
     settings: normalizeSettings(doc.settings),
+    measurement: normalizeDeploymentMeasurement(doc.measurement),
     archived: !!doc.archived,
   };
 }

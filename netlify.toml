@@ -9,7 +9,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs", "googleapis"]
+  external_node_modules = ["@netlify/blobs", "@netlify/database", "googleapis"]
 
 [[redirects]]
   from = "/admin/*"
@@ -139,6 +139,16 @@
 [[redirects]]
   from = "/api/track"
   to = "/.netlify/functions/track"
+  status = 200
+
+[[redirects]]
+  from = "/api/deployment-measurement"
+  to = "/.netlify/functions/deployment-measurement"
+  status = 200
+
+[[redirects]]
+  from = "/api/measurement-replay"
+  to = "/.netlify/functions/measurement-replay"
   status = 200
 
 [[headers]]
