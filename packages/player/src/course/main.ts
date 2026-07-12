@@ -17,6 +17,7 @@ import {
   type CourseSession,
   type CoursePresentation,
 } from "@rngames/shared";
+import { appendFlowDebugQuery, flowDebug, flowDebugPanel } from "../flow-debug";
 
 const els = {
   loading: document.getElementById("course-loading")!,
@@ -91,24 +92,45 @@ function courseMessageMatchesActiveItem(data: {
   courseSessionId?: string;
   courseItemId?: string;
 }): boolean {
-  if (!activeItem) return false;
-  if (data.courseSessionId && session && data.courseSessionId !== session.sessionId) return false;
-  if (data.courseItemId && data.courseItemId !== activeItem.id) return false;
+  if (!activeItem) {
+    flowDebug("course", "message ignored — no active item", data as Record<string, unknown>);
+    return false;
+  }
+  if (data.courseSessionId && session && data.courseSessionId !== session.sessionId) {
+    flowDebug("course", "message session mismatch", {
+      msgSession: data.courseSessionId,
+      activeSession: session.sessionId,
+      courseItemId: data.courseItemId,
+    });
+    return false;
+  }
+  if (data.courseItemId && data.courseItemId !== activeItem.id) {
+    flowDebug("course", "message item mismatch", {
+      msgItem: data.courseItemId,
+      activeItem: activeItem.id,
+    });
+    return false;
+  }
   return true;
 }
 
 function showCourseFooter() {
   playerReady = true;
+  flowDebugPanel("course", "footer shown");
   updatePlayerFooter();
 }
 
 function hideCourseFooter() {
   playerReady = false;
+  flowDebugPanel("course", "footer hidden");
   updatePlayerFooter();
 }
 
 function showCourseFooterIfLastStep(data: { isLastFlowStep?: boolean }) {
-  if (data.isLastFlowStep !== true) return;
+  if (data.isLastFlowStep !== true) {
+    flowDebug("course", "footer skipped — not last flow step", data as Record<string, unknown>);
+    return;
+  }
   showCourseFooter();
 }
 
@@ -639,7 +661,7 @@ function itemLaunchUrl(item: PublicCourseItem): string {
     finalUrl.searchParams.set("courseLoadingTextHex", p.loadingTextHex || p.bodyHex || "#e8eef5");
     if (p.logoUrl) finalUrl.searchParams.set("courseLoadingLogo", p.logoUrl);
   }
-  return finalUrl.toString();
+  return appendFlowDebugQuery(finalUrl.toString());
 }
 
 function updatePlayerFooter() {
@@ -755,11 +777,13 @@ window.addEventListener("message", (ev) => {
     return;
   }
   if (isEndScreenReadyMessage(ev.data)) {
+    flowDebug("course", "END_SCREEN_READY", ev.data as Record<string, unknown>);
     if (!courseMessageMatchesActiveItem(ev.data)) return;
     showCourseFooterIfLastStep(ev.data);
     return;
   }
   if (isCourseItemCompleteMessage(ev.data)) {
+    flowDebug("course", "COURSE_ITEM_COMPLETE", ev.data as Record<string, unknown>);
     if (!courseMessageMatchesActiveItem(ev.data)) return;
     void completeActiveItem(ev.data.outcomes || {});
     return;
@@ -773,6 +797,7 @@ window.addEventListener("message", (ev) => {
     return;
   }
   if (isExperienceCompleteMessage(ev.data)) {
+    flowDebug("course", "EXPERIENCE_COMPLETE", ev.data as Record<string, unknown>);
     if (!courseMessageMatchesActiveItem(ev.data)) return;
     showCourseFooter();
     return;
@@ -816,6 +841,9 @@ async function boot() {
   slug = getCourseSlug();
   previewToken = getPreviewToken();
   resumeToken = getResumeToken();
+  if (new URLSearchParams(window.location.search).get("rngDebug") === "1") {
+    flowDebugPanel("course", "debug enabled");
+  }
   showView("loading");
 
   if (!slug) {

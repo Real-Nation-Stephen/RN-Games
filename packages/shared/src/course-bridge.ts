@@ -45,6 +45,14 @@ export function loadCourseContext(): CourseContext | null {
   }
 }
 
+/** Prefer URL params (authoritative for the current iframe) over sessionStorage. */
+export function resolveCourseContext(params?: URLSearchParams): CourseContext | null {
+  const p =
+    params ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
+  if (!p) return loadCourseContext();
+  return parseCourseContextFromSearch(p) ?? loadCourseContext();
+}
+
 export function clearCourseContext(): void {
   try {
     sessionStorage.removeItem(COURSE_CTX_STORAGE_KEY);

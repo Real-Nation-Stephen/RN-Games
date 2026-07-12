@@ -130,6 +130,7 @@ export {
   parseCourseContextFromSearch,
   saveCourseContext,
   loadCourseContext,
+  resolveCourseContext,
   isCourseMode,
   appendCourseQuery,
   appendCourseLastStepQuery,

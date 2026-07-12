@@ -14,6 +14,7 @@ import {
   FLOW_STEP_CONTENT_READY,
   isLastCourseStepFromSearch,
   isModuleItemCompleteFromSearch,
+  resolveCourseContext,
   type CourseContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
@@ -179,13 +180,19 @@ export function engageStep() {
   emitStepEngaged();
 }
 
-export function notifyStepContentReady() {
+export function notifyStepContentReady(opts?: { flowEndScreen?: boolean }) {
   if (window.parent === window) return;
-  window.parent.postMessage({ type: FLOW_STEP_CONTENT_READY }, "*");
+  window.parent.postMessage(
+    {
+      type: FLOW_STEP_CONTENT_READY,
+      ...(opts?.flowEndScreen ? { flowEndScreen: true } : {}),
+    },
+    "*",
+  );
 }
 
 export function courseContextFromPage(): CourseContext | null {
-  return loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  return resolveCourseContext();
 }
 
 export function isInCourseEmbed(): boolean {
@@ -289,7 +296,7 @@ export async function loadModuleSessionRoot(): Promise<{
 } | null> {
   const params = new URLSearchParams(window.location.search);
   const flow = loadFlowContext() ?? parseFlowContextFromSearch(params);
-  const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
+  const course = resolveCourseContext(params);
 
   let flowRoot: { data?: Record<string, unknown>; outcomes?: Record<string, unknown> } | null = null;
   if (flow?.sessionId) {
@@ -323,7 +330,7 @@ export async function syncModuleSession(
 ) {
   const params = new URLSearchParams(window.location.search);
   const flow = parseFlowContextFromSearch(params);
-  const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
+  const course = resolveCourseContext(params);
   const formFields =
     data.formFields && typeof data.formFields === "object"
       ? (data.formFields as Record<string, unknown>)

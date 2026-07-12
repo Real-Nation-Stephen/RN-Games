@@ -6,6 +6,7 @@ import {
 import {
   applyPageTheme,
   completeStep,
+  courseContextFromPage,
   engageStep,
   fetchPageModule,
   flowModeActive,
@@ -23,6 +24,7 @@ import {
 } from "../page-module/shared";
 import { isModuleItemCompleteFromSearch } from "@rngames/shared";
 import { renderLandingBlocks } from "../page-module/blocks";
+import { appendFlowDebugQuery, flowDebug, flowDebugPanel } from "../flow-debug";
 
 const els = {
   app: document.getElementById("page-app")!,
@@ -166,12 +168,22 @@ function maybeNotifyCourseFooter(
   screens: LandingScreen[],
   activeScreenId: string,
 ) {
-  if (!courseFooterIntent(screen, flowMode, moduleCompleteView)) return;
-  if (resolveOverrideState(screen, flowMode, moduleCompleteView)) {
-    notifyEndScreenReady({ isLastFlowStep: true });
-    return;
-  }
-  if (!moduleCompleteView && isLastContentScreen(activeScreenId, screens)) {
+  const intent = courseFooterIntent(screen, flowMode, moduleCompleteView);
+  const onOverride = resolveOverrideState(screen, flowMode, moduleCompleteView);
+  const onLastContent = !moduleCompleteView && isLastContentScreen(activeScreenId, screens);
+  flowDebug("landing", "footer check", {
+    intent,
+    onOverride,
+    onLastContent,
+    screenId: screen.id,
+    flowCompleteOverride: !!screen.flowCompleteOverride,
+    inCourse: isInCourseEmbed(),
+    courseCtx: courseContextFromPage()?.itemId || null,
+    moduleItemComplete: isModuleItemCompleteFromSearch(),
+  });
+  if (!intent) return;
+  if (onOverride || onLastContent) {
+    flowDebugPanel("landing", `notify footer (override=${onOverride})`);
     notifyEndScreenReady({ isLastFlowStep: true });
   }
 }
@@ -244,6 +256,7 @@ function mountLanding(cfg: LandingRecord) {
         const onOverride = resolveOverrideState(currentScreen, flowMode, moduleCompleteView);
 
         if (onOverride && shouldFinishAsCourseItem(currentScreen, flowMode, moduleCompleteView)) {
+          flowDebugPanel("landing", `finish course item: ${label}`);
           finishCourseOverride(cfg, label);
           return;
         }
@@ -291,7 +304,10 @@ function mountLanding(cfg: LandingRecord) {
     maybeNotifyCourseFooter(screen, flowMode, moduleCompleteView, screens, activeScreenId);
 
     els.app.hidden = false;
-    if (flowMode || isInCourseEmbed()) notifyStepContentReady();
+    const flowEndScreen = resolveOverrideState(screen, flowMode, moduleCompleteView);
+    if (flowMode || isInCourseEmbed()) {
+      notifyStepContentReady({ flowEndScreen });
+    }
 
     if (!flowMode && cfg.experienceAutoContinue && hasPrimary) {
       engageStep();
@@ -309,6 +325,11 @@ async function boot() {
     return;
   }
   initEmbeddedContexts();
+  flowDebug("landing", "boot", {
+    href: window.location.href,
+    courseCtx: courseContextFromPage(),
+    flow: flowModeActive(),
+  });
   const slug = getSlugFromPath("landing");
   if (!slug) {
     showError("Missing page slug.");

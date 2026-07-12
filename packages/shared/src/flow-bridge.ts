@@ -2,10 +2,7 @@
  * Experience flow runtime — parent/iframe coordination and session context.
  */
 
-import {
-  loadCourseContext,
-  parseCourseContextFromSearch,
-} from "./course-bridge.js";
+import { resolveCourseContext } from "./course-bridge.js";
 
 export interface FlowContext {
   sessionId: string;
@@ -96,8 +93,7 @@ export function emitStepEngaged(): void {
 export function emitStepComplete(outcomes: Record<string, unknown> = {}): void {
   if (typeof window === "undefined") return;
   const ctx = loadFlowContext() ?? parseFlowContextFromSearch(new URLSearchParams(window.location.search));
-  const courseCtx =
-    loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search));
+  const courseCtx = resolveCourseContext(new URLSearchParams(window.location.search));
   const payload = {
     type: FLOW_STEP_COMPLETE,
     sessionId: ctx?.sessionId,
@@ -192,6 +188,8 @@ export function isExperienceContentReadyMessage(data: unknown): data is Experien
 
 export type StepContentReadyMessage = {
   type: typeof FLOW_STEP_CONTENT_READY;
+  /** Landing is showing the flow completion / override view. */
+  flowEndScreen?: boolean;
 };
 
 export function isStepContentReadyMessage(data: unknown): data is StepContentReadyMessage {

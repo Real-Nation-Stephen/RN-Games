@@ -4,8 +4,7 @@ import {
   appendModuleItemCompleteQuery,
   appendFlowQuery,
   componentPublicPath,
-  loadCourseContext,
-  parseCourseContextFromSearch,
+  resolveCourseContext,
   saveCourseContext,
   track,
   isModuleItemCompleteOverride,
@@ -24,6 +23,7 @@ import {
   FLOW_EXPERIENCE_STEP_CHANGED,
   FLOW_END_SCREEN_READY,
 } from "@rngames/shared";
+import { appendFlowDebugQuery, flowDebug, flowDebugPanel } from "../flow-debug";
 
 type PublicStep = {
   id: string;
@@ -91,9 +91,7 @@ function getCoursePreviewAuth(): { courseSlug: string; coursePreviewToken: strin
 }
 
 function courseContext() {
-  return (
-    loadCourseContext() ?? parseCourseContextFromSearch(new URLSearchParams(window.location.search))
-  );
+  return resolveCourseContext();
 }
 
 function embeddedInCourse(): boolean {
@@ -206,8 +204,15 @@ function isLastExperienceStep(): boolean {
 
 function forwardCourseFooterSignal(data: Record<string, unknown>) {
   const step = currentStep();
-  if (!isLastExperienceStep() && !isModuleItemCompleteOverride(step?.overrides)) return;
+  const canForward =
+    isLastExperienceStep() ||
+    isModuleItemCompleteOverride(step?.overrides) ||
+    data.isLastFlowStep === true ||
+    data.flowEndScreen === true;
+  flowDebug("experience", "forward footer", { canForward, type: data.type, stepId: step?.id });
+  if (!canForward) return;
   forwardToCourseParent({ ...data, isLastFlowStep: true });
+  flowDebugPanel("experience", `footer → course (${String(data.type)})`);
 }
 
 function notifyCourseStepPhase() {
@@ -398,8 +403,8 @@ function stepFrameUrl(step: PublicStep): string {
       path = appendModuleItemCompleteQuery(path);
     }
   }
-  if (path.startsWith("http")) return path;
-  return `${window.location.origin}${path}`;
+  if (path.startsWith("http")) return appendFlowDebugQuery(path);
+  return appendFlowDebugQuery(`${window.location.origin}${path}`);
 }
 
 function notifyCourseComplete() {
@@ -531,6 +536,13 @@ function bindEvents() {
   window.addEventListener("message", (ev) => {
     if (isStepContentReadyMessage(ev.data)) {
       markStepContentReady();
+      if (ev.data.flowEndScreen) {
+        forwardCourseFooterSignal({
+          type: FLOW_END_SCREEN_READY,
+          flowEndScreen: true,
+          isLastFlowStep: true,
+        });
+      }
       return;
     }
     if (isEndScreenReadyMessage(ev.data)) {
