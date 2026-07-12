@@ -149,6 +149,11 @@ export const handler = async (event) => {
       const resumeId = String(body.sessionId || "").trim();
       const resumeToken = String(body.resumeToken || "").trim();
       const email = normalizeEmail(body.email);
+      const intent = String(body.intent || "").trim();
+      const classCode = String(body.classCode || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
 
       if (resumeToken) {
         const idx = await getCourseResumeIndex(resumeToken);
@@ -166,9 +171,42 @@ export const handler = async (event) => {
             };
           }
         }
+        return { statusCode: 404, body: JSON.stringify({ error: "Learning link not found" }), headers };
       }
 
-      if (resumeId) {
+      const course = await resolveCourse(slug, previewToken);
+      if (!course) {
+        return { statusCode: 404, body: JSON.stringify({ error: "Course not found" }), headers };
+      }
+
+      if (classCode) {
+        const expected = String(course.settings?.classCode || "")
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "");
+        if (course.settings?.enrollmentMode !== "class" || !expected || classCode !== expected) {
+          return { statusCode: 400, body: JSON.stringify({ error: "Invalid class code" }), headers };
+        }
+        if (!flattenCourseItems(course.sections).length && !previewToken) {
+          return { statusCode: 400, body: JSON.stringify({ error: "Course has no items" }), headers };
+        }
+        const participantId = String(body.participantId || randomUUID());
+        const session = emptySession(course, participantId);
+        session.enrolledViaClass = true;
+        await setCourseSessionJson(session.sessionId, session);
+        await indexSession(session);
+        return {
+          statusCode: 201,
+          body: JSON.stringify({
+            session: normalizeSession(session),
+            resumed: false,
+            resumeUrl: `/course/${session.courseSlug}?resumeToken=${session.resumeToken}`,
+          }),
+          headers,
+        };
+      }
+
+      if (previewToken && resumeId) {
         const existing = await getCourseSessionJson(resumeId);
         if (existing && existing.courseSlug === slug) {
           return {
@@ -183,6 +221,27 @@ export const handler = async (event) => {
             headers,
           };
         }
+      }
+
+      if (intent === "new" || previewToken) {
+        if (!flattenCourseItems(course.sections).length && !previewToken) {
+          return { statusCode: 400, body: JSON.stringify({ error: "Course has no items" }), headers };
+        }
+        const participantId = String(body.participantId || randomUUID());
+        const session = emptySession(course, participantId, email || undefined);
+        await setCourseSessionJson(session.sessionId, session);
+        await indexSession(session);
+        return {
+          statusCode: 201,
+          body: JSON.stringify({
+            session: normalizeSession(session),
+            resumed: false,
+            resumeUrl: session.resumeToken
+              ? `/course/${session.courseSlug}?resumeToken=${session.resumeToken}`
+              : undefined,
+          }),
+          headers,
+        };
       }
 
       if (email) {
@@ -205,28 +264,9 @@ export const handler = async (event) => {
         }
       }
 
-      const course = await resolveCourse(slug, previewToken);
-      if (!course) {
-        return { statusCode: 404, body: JSON.stringify({ error: "Course not found" }), headers };
-      }
-      if (!flattenCourseItems(course.sections).length && !previewToken) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Course has no items" }), headers };
-      }
-
-      const participantId = String(body.participantId || randomUUID());
-      const session = emptySession(course, participantId, email || undefined);
-      await setCourseSessionJson(session.sessionId, session);
-      await indexSession(session);
-
       return {
-        statusCode: 201,
-        body: JSON.stringify({
-          session: normalizeSession(session),
-          resumed: false,
-          resumeUrl: session.resumeToken
-            ? `/course/${session.courseSlug}?resumeToken=${session.resumeToken}`
-            : undefined,
-        }),
+        statusCode: 400,
+        body: JSON.stringify({ error: "Choose how to start: create a learning link, resume, or join a class" }),
         headers,
       };
     }

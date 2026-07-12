@@ -12,6 +12,49 @@
         <div id="course-loading" class="course-panel">Loading course…</div>
         <div id="course-error" class="course-panel course-error" hidden></div>
 
+        <div id="course-start" class="course-start" hidden>
+          <header class="course-hero">
+            <div id="course-start-logo" class="course-logo" hidden></div>
+            <h1 id="course-start-title"></h1>
+            <p id="course-start-description" class="course-muted"></p>
+          </header>
+
+          <section class="course-card course-start-card">
+            <h2>Get started</h2>
+            <p id="course-start-intro" class="course-muted"></p>
+
+            <div class="course-start-actions">
+              <button type="button" id="course-start-new" class="course-btn course-btn-primary course-start-primary">
+                Start learning
+              </button>
+            </div>
+
+            <div class="course-start-panel">
+              <h3>Resume with your learning link</h3>
+              <p class="course-muted">Paste the link you saved or bookmarked.</p>
+              <div class="course-resume-row">
+                <input id="course-resume-input" type="text" placeholder="Paste your learning link" />
+                <button type="button" id="course-resume-submit" class="course-btn course-btn-primary">Resume</button>
+              </div>
+            </div>
+
+            <div id="course-class-panel" class="course-start-panel" hidden>
+              <h3>Join with class code</h3>
+              <p class="course-muted">Enter the code from your educator.</p>
+              <div class="course-resume-row">
+                <input id="course-class-input" type="text" placeholder="Class code" autocapitalize="characters" />
+                <button type="button" id="course-class-submit" class="course-btn course-btn-primary">Join class</button>
+              </div>
+            </div>
+
+            <p id="course-start-status" class="course-muted" hidden></p>
+          </section>
+
+          <footer id="course-start-powered" class="course-powered" hidden>
+            Powered by <strong>Real Nation</strong>
+          </footer>
+        </div>
+
         <div id="course-home" hidden>
           <header class="course-hero">
             <div id="course-logo" class="course-logo" hidden></div>

@@ -45,7 +45,7 @@ export function defaultCourseSettings() {
     layout: "cards",
     learningLinkLabel: "Learning link",
     learningLinkIntro:
-      "Enter your email to receive your learning link so you can return and pick up where you left off.",
+      "Bookmark this page or copy your link below to return and pick up where you left off.",
     learningLinkRequireAcknowledgement: true,
     learningLinkAcknowledgementText:
       "I understand my email will be used only to send my learning link and reconnect my progress — not for marketing unless I opt in elsewhere.",
@@ -150,6 +150,10 @@ function normalizeSettings(raw) {
     ),
     learningLinkPrivacyUrl: String(raw.learningLinkPrivacyUrl || ""),
     enrollmentMode: raw.enrollmentMode === "class" ? "class" : "open",
+    classCode: String(raw.classCode || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, ""),
     profilePanel: {
       enabled: !!profile.enabled,
       showDisplayName: profile.showDisplayName !== false,
@@ -316,6 +320,8 @@ export function toPublicCourse(course, items) {
     unlockDaysAfterStart: section.unlockDaysAfterStart ?? null,
     items: items.filter((i) => i.sectionId === section.id),
   }));
+  const settings = course.settings || {};
+  const { classCode: _omit, ...publicSettings } = settings;
   return {
     id: course.id,
     slug: course.slug,
@@ -323,9 +329,11 @@ export function toPublicCourse(course, items) {
     description: course.description,
     status: course.status,
     presentation: course.presentation,
-    settings: course.settings,
+    settings: publicSettings,
     sections,
     items,
     itemCount: items.length,
+    classEnrollmentEnabled:
+      settings.enrollmentMode === "class" && !!String(settings.classCode || "").trim(),
   };
 }

@@ -45,6 +45,8 @@ export interface CourseSettings {
   learningLinkPrivacyUrl?: string;
   /** Parked — educator class enrollment */
   enrollmentMode?: "open" | "class";
+  /** Join code for class enrollment (not exposed on public course API) */
+  classCode?: string;
   /** Parked — learner profile panel toggles */
   profilePanel?: CourseProfilePanelSettings;
 }
@@ -169,6 +171,8 @@ export interface PublicCourse {
   sections: PublicCourseSection[];
   items: PublicCourseItem[];
   itemCount: number;
+  /** True when learners can join with a class code on the start screen */
+  classEnrollmentEnabled: boolean;
 }
 
 export interface CourseSession {
@@ -219,7 +223,7 @@ export function defaultCourseSettings(): CourseSettings {
     layout: "cards",
     learningLinkLabel: "Learning link",
     learningLinkIntro:
-      "Enter your email to receive your learning link so you can return and pick up where you left off.",
+      "Bookmark this page or copy your link below to return and pick up where you left off.",
     learningLinkRequireAcknowledgement: true,
     learningLinkAcknowledgementText:
       "I understand my email will be used only to send my learning link and reconnect my progress — not for marketing unless I opt in elsewhere.",
@@ -351,6 +355,10 @@ function normalizeSettings(raw: Partial<CourseSettings> | undefined): CourseSett
     ),
     learningLinkPrivacyUrl: String(raw.learningLinkPrivacyUrl || ""),
     enrollmentMode: raw.enrollmentMode === "class" ? "class" : "open",
+    classCode: String(raw.classCode || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, ""),
     profilePanel: {
       enabled: !!profile.enabled,
       showDisplayName: profile.showDisplayName !== false,
@@ -564,9 +572,17 @@ export function toPublicCourse(
     description: course.description,
     status: course.status,
     presentation: course.presentation,
-    settings: course.settings,
+    settings: publicCourseSettings(course.settings),
     sections,
     items,
     itemCount: items.length,
+    classEnrollmentEnabled:
+      course.settings?.enrollmentMode === "class" &&
+      !!String(course.settings?.classCode || "").trim(),
   };
+}
+
+function publicCourseSettings(settings: CourseSettings): CourseSettings {
+  const { classCode: _classCode, ...rest } = settings;
+  return rest;
 }

@@ -217,7 +217,46 @@ export default function CourseEditor() {
             </select>
           </label>
         </div>
-        <CollapsibleSection title="Learning link" summary="Email link label and privacy copy">
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <label className="field">
+            Enrollment
+            <select
+              value={s.enrollmentMode || "open"}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: {
+                    ...c.settings,
+                    enrollmentMode: e.target.value as "open" | "class",
+                    classCode: e.target.value === "class" ? c.settings.classCode || "" : "",
+                  },
+                }))
+              }
+            >
+              <option value="open">Open — learners start with a personal link</option>
+              <option value="class">Class — learners can join with a class code</option>
+            </select>
+          </label>
+          {s.enrollmentMode === "class" ? (
+            <label className="field">
+              Class code
+              <input
+                value={s.classCode || ""}
+                placeholder="e.g. BIO101"
+                onChange={(e) =>
+                  patch((c) => ({
+                    ...c,
+                    settings: {
+                      ...c.settings,
+                      classCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+                    },
+                  }))
+                }
+              />
+            </label>
+          ) : null}
+        </div>
+        <CollapsibleSection title="Learning link" summary="Link label and resume copy">
           <label className="field">
             Link label
             <input

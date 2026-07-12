@@ -21,6 +21,19 @@ import {
 const els = {
   loading: document.getElementById("course-loading")!,
   error: document.getElementById("course-error")!,
+  start: document.getElementById("course-start")!,
+  startLogo: document.getElementById("course-start-logo")!,
+  startTitle: document.getElementById("course-start-title")!,
+  startDescription: document.getElementById("course-start-description")!,
+  startIntro: document.getElementById("course-start-intro")!,
+  startNew: document.getElementById("course-start-new")!,
+  resumeInput: document.getElementById("course-resume-input") as HTMLInputElement,
+  resumeSubmit: document.getElementById("course-resume-submit")!,
+  classPanel: document.getElementById("course-class-panel")!,
+  classInput: document.getElementById("course-class-input") as HTMLInputElement,
+  classSubmit: document.getElementById("course-class-submit")!,
+  startStatus: document.getElementById("course-start-status")!,
+  startPowered: document.getElementById("course-start-powered")!,
   home: document.getElementById("course-home")!,
   player: document.getElementById("course-player")!,
   logo: document.getElementById("course-logo")!,
@@ -149,11 +162,12 @@ function loadSessionLocal(): { sessionId: string; participantId: string } | null
   }
 }
 
-type View = "loading" | "error" | "home" | "player";
+type View = "loading" | "error" | "start" | "home" | "player";
 
 function showView(view: View) {
   els.loading.hidden = view !== "loading";
   els.error.hidden = view !== "error";
+  els.start.hidden = view !== "start";
   els.home.hidden = view !== "home";
   els.player.hidden = view !== "player";
 }
@@ -270,33 +284,74 @@ async function fetchCourse(): Promise<PublicCourse> {
   return data.course as PublicCourse;
 }
 
-async function createOrResumeSession(): Promise<CourseSession> {
-  if (resumeToken) {
-    const res = await fetch("/api/course-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeToken, slug }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return normalizeSession(data.session as CourseSession);
-    }
-  }
-
-  const saved = loadSessionLocal();
+async function postCourseSession(body: Record<string, unknown>): Promise<CourseSession> {
   const res = await fetch("/api/course-session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      slug,
-      previewToken: previewToken || undefined,
-      sessionId: saved?.sessionId,
-      participantId: saved?.participantId,
-    }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("Could not start course session");
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof data.error === "string" ? data.error : "Could not start course session");
+  }
   return normalizeSession(data.session as CourseSession);
+}
+
+function parseResumeTokenInput(input: string): string {
+  const raw = input.trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw.includes("://") ? raw : `${window.location.origin}${raw.startsWith("/") ? "" : "/"}${raw}`);
+    const token = url.searchParams.get("resumeToken")?.trim();
+    if (token) return token;
+  } catch {
+    /* plain token */
+  }
+  return raw;
+}
+
+function resumeUrlForSession(c: PublicCourse, s: CourseSession): string {
+  if (!s.resumeToken) return `${window.location.origin}/course/${c.slug}`;
+  return `${window.location.origin}/course/${c.slug}?resumeToken=${encodeURIComponent(s.resumeToken)}`;
+}
+
+function syncResumeUrl() {
+  if (!course || !session?.resumeToken || previewToken) return;
+  const next = new URL(`/course/${course.slug}`, window.location.origin);
+  next.searchParams.set("resumeToken", session.resumeToken);
+  const target = `${next.pathname}${next.search}`;
+  if (`${window.location.pathname}${window.location.search}` !== target) {
+    history.replaceState(null, "", target);
+  }
+  resumeToken = session.resumeToken;
+}
+
+function establishSession(next: CourseSession) {
+  session = normalizeSession(next);
+  saveSessionLocal(session);
+  syncResumeUrl();
+}
+
+async function resumeWithToken(token: string): Promise<CourseSession> {
+  return postCourseSession({ slug, resumeToken: token });
+}
+
+async function startNewSession(): Promise<CourseSession> {
+  const body: Record<string, unknown> = { slug, intent: "new" };
+  if (previewToken) {
+    body.previewToken = previewToken;
+    const saved = loadSessionLocal();
+    if (saved?.sessionId) body.sessionId = saved.sessionId;
+  }
+  return postCourseSession(body);
+}
+
+async function joinWithClassCode(code: string): Promise<CourseSession> {
+  return postCourseSession({
+    slug,
+    intent: "new",
+    classCode: code.trim().toUpperCase(),
+  });
 }
 
 async function patchSession(body: Record<string, unknown>) {
@@ -310,6 +365,7 @@ async function patchSession(body: Record<string, unknown>) {
   const data = await res.json();
   session = normalizeSession(data.session as CourseSession);
   saveSessionLocal(session);
+  syncResumeUrl();
 }
 
 function itemById(id: string | null | undefined): PublicCourseItem | undefined {
@@ -394,6 +450,47 @@ function renderSection(section: PublicCourseSection, items: PublicCourseItem[]):
   `;
 }
 
+function renderStartScreen(message = "") {
+  if (!course) return;
+  applyPresentation(course);
+  showView("start");
+
+  els.startTitle.textContent = course.title;
+  els.startDescription.textContent = course.description || "";
+  els.startDescription.style.whiteSpace = "pre-wrap";
+
+  const linkLabel = course.settings?.learningLinkLabel?.trim() || "Learning link";
+  els.startIntro.textContent =
+    "Create a personal learning link to save your progress, resume later with your link, or join a class if your educator gave you a code.";
+
+  els.startNew.textContent = `Start and get my ${linkLabel.toLowerCase()}`;
+  els.classPanel.hidden = !course.classEnrollmentEnabled;
+
+  if (course.presentation.logoUrl) {
+    els.startLogo.replaceChildren();
+    const img = document.createElement("img");
+    img.src = course.presentation.logoUrl;
+    img.alt = "";
+    els.startLogo.appendChild(img);
+    els.startLogo.className = `course-logo course-logo--${course.presentation.logoAlign || "center"}`;
+    els.startLogo.hidden = false;
+  } else {
+    els.startLogo.hidden = true;
+    els.startLogo.replaceChildren();
+  }
+
+  els.startPowered.hidden = course.presentation.showPoweredBy === false;
+
+  if (message) {
+    els.startStatus.hidden = false;
+    els.startStatus.textContent = message;
+    els.startStatus.classList.remove("is-ok");
+  } else {
+    els.startStatus.hidden = true;
+    els.startStatus.textContent = "";
+  }
+}
+
 function renderHome() {
   if (!course || !session) return;
   applyPresentation(course);
@@ -417,12 +514,9 @@ function renderHome() {
   els.learningTitle.textContent = `Save your ${linkLabel.toLowerCase()}`;
   els.learningIntro.textContent =
     settings.learningLinkIntro?.trim() ||
-    "Copy your personal link below to return and pick up where you left off.";
+    "Bookmark this page or copy your link below — your progress saves as you go.";
 
-  const resumeUrl = session.resumeToken
-    ? `${window.location.origin}/course/${course.slug}?resumeToken=${session.resumeToken}`
-    : `${window.location.origin}/course/${course.slug}`;
-  els.resumeUrl.value = resumeUrl;
+  els.resumeUrl.value = resumeUrlForSession(course, session);
   els.resumeStatus.hidden = true;
 
   const enriched = enrichItems();
@@ -599,6 +693,56 @@ async function copyResumeLink() {
   }
 }
 
+async function handleStartNew() {
+  if (!course) return;
+  els.startNew.setAttribute("disabled", "true");
+  els.startStatus.hidden = true;
+  try {
+    establishSession(await startNewSession());
+    renderHome();
+  } catch (e) {
+    renderStartScreen(e instanceof Error ? e.message : "Could not start course");
+  } finally {
+    els.startNew.removeAttribute("disabled");
+  }
+}
+
+async function handleResumeSubmit() {
+  if (!course) return;
+  const token = parseResumeTokenInput(els.resumeInput.value);
+  if (!token) {
+    renderStartScreen("Paste your learning link to resume.");
+    return;
+  }
+  els.resumeSubmit.setAttribute("disabled", "true");
+  try {
+    establishSession(await resumeWithToken(token));
+    renderHome();
+  } catch (e) {
+    renderStartScreen(e instanceof Error ? e.message : "Learning link not found");
+  } finally {
+    els.resumeSubmit.removeAttribute("disabled");
+  }
+}
+
+async function handleClassSubmit() {
+  if (!course) return;
+  const code = els.classInput.value.trim();
+  if (!code) {
+    renderStartScreen("Enter your class code.");
+    return;
+  }
+  els.classSubmit.setAttribute("disabled", "true");
+  try {
+    establishSession(await joinWithClassCode(code));
+    renderHome();
+  } catch (e) {
+    renderStartScreen(e instanceof Error ? e.message : "Invalid class code");
+  } finally {
+    els.classSubmit.removeAttribute("disabled");
+  }
+}
+
 window.addEventListener("message", (ev) => {
   if (isExperienceContentReadyMessage(ev.data)) {
     hideItemLoading();
@@ -653,6 +797,15 @@ els.back.addEventListener("click", () => {
 
 els.markComplete.addEventListener("click", () => void completeActiveItem());
 els.copyLink.addEventListener("click", () => void copyResumeLink());
+els.startNew.addEventListener("click", () => void handleStartNew());
+els.resumeSubmit.addEventListener("click", () => void handleResumeSubmit());
+els.classSubmit.addEventListener("click", () => void handleClassSubmit());
+els.resumeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void handleResumeSubmit();
+});
+els.classInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void handleClassSubmit();
+});
 
 els.frame.addEventListener("load", () => {
   if (activeItem?.kind === "experience") return;
@@ -672,9 +825,25 @@ async function boot() {
 
   try {
     course = await fetchCourse();
-    session = normalizeSession(await createOrResumeSession());
-    saveSessionLocal(session);
-    renderHome();
+
+    if (resumeToken) {
+      try {
+        establishSession(await resumeWithToken(resumeToken));
+        renderHome();
+        return;
+      } catch {
+        renderStartScreen("That learning link could not be found. Start fresh or paste another link.");
+        return;
+      }
+    }
+
+    if (previewToken) {
+      establishSession(await startNewSession());
+      renderHome();
+      return;
+    }
+
+    renderStartScreen();
   } catch (e) {
     showError(e instanceof Error ? e.message : "Failed to load course");
   }
