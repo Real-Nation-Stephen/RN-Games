@@ -93,7 +93,7 @@ export type ControlNodeType =
 
 /** In-flow overrides — component layout unchanged; behaviour/labels adjusted per experience node. */
 export interface ExperienceNodeOverrides {
-  completionBehaviour?: "auto_continue" | "show_continue" | "replay" | "custom";
+  completionBehaviour?: "auto_continue" | "show_continue" | "replay" | "custom" | "module_item_complete";
   endScreen?: {
     headline?: string;
     body?: string;

@@ -22,6 +22,7 @@ export function ExperienceNodeOverridesPanel({ overrides, onChange }: Props) {
       <h4 style={{ marginTop: 0 }}>Experience overrides (this step)</h4>
       <p className="muted" style={{ fontSize: "0.85rem" }}>
         Adjust completion behaviour and end-screen copy without changing the component layout.
+        Use <strong>Module item complete</strong> on the final step when embedded in a course to show the &quot;Mark complete &amp; continue&quot; bar.
       </p>
       <div className="grid2">
         <label className="field">
@@ -39,6 +40,7 @@ export function ExperienceNodeOverridesPanel({ overrides, onChange }: Props) {
             <option value="show_continue">Show continue</option>
             <option value="replay">Replay</option>
             <option value="custom">Custom</option>
+            <option value="module_item_complete">Module item complete</option>
           </select>
         </label>
         <label className="field">

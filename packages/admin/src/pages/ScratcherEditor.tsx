@@ -30,6 +30,7 @@ type Scratcher = {
   backgroundColor: string;
   sounds: { win?: string | null; lose?: string | null };
   winButtonUrl: string;
+  hideWinButton?: boolean;
   clearThreshold: number;
   winChancePercent: number;
 };
@@ -458,6 +459,17 @@ export default function ScratcherEditor() {
           onChange={(e) => setGame({ ...game, winButtonUrl: e.target.value })}
           placeholder="https://"
         />
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!game.hideWinButton}
+            onChange={(e) => setGame({ ...game, hideWinButton: e.target.checked })}
+          />
+          Hide win button (e.g. discount code baked into artwork)
+        </label>
+        <p className="muted" style={{ marginTop: 6, fontSize: "0.85rem" }}>
+          When hidden, the reveal completes without a button. In flows, the step completes automatically after scratch-off.
+        </p>
       </div>
 
       <div className="card">

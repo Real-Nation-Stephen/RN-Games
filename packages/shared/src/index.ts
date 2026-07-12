@@ -134,6 +134,9 @@ export {
   appendCourseQuery,
   appendCourseLastStepQuery,
   isLastCourseStepFromSearch,
+  isModuleItemCompleteFromSearch,
+  appendModuleItemCompleteQuery,
+  isModuleItemCompleteOverride,
 } from "./course-bridge.js";
 export {
   type FlowContext,

@@ -1,7 +1,7 @@
 /** Leaderboard module — record helpers, ranking, public payload. */
 
 /** gameType values allowed to POST scores into a linked leaderboard (see shared leaderboard-linkable.ts). */
-export const LEADERBOARD_LINKABLE_GAME_TYPES = new Set(["catch"]);
+export const LEADERBOARD_LINKABLE_GAME_TYPES = new Set(["catch", "runner"]);
 
 export function isLeaderboardLinkableGameType(gameType) {
   const t = String(gameType || "spinning-wheel").trim() || "spinning-wheel";
@@ -150,6 +150,9 @@ export function toPublicLeaderboardState(state) {
     displayName: r.displayName,
     score: r.score,
     source: r.source,
+    avatarUrl: r.avatarUrl || "",
+    avatarCellWidth: Number(r.avatarCellWidth) || 0,
+    avatarCellHeight: Number(r.avatarCellHeight) || 0,
   });
   return {
     revision: state.revision || 0,

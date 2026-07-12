@@ -13,9 +13,11 @@ import {
   FLOW_COURSE_ITEM_COMPLETE,
   FLOW_STEP_CONTENT_READY,
   isLastCourseStepFromSearch,
+  isModuleItemCompleteFromSearch,
   type CourseContext,
 } from "@rngames/shared";
 import type { PageModuleRecord } from "@rngames/shared/page-modules";
+import { extractLearnerDisplayName } from "@rngames/shared/page-modules";
 import { track } from "@rngames/shared/track";
 import { applyPageFonts } from "./blocks";
 
@@ -215,7 +217,7 @@ export function notifyEndScreenReady() {
   if (!ctx) return;
   const payload = {
     type: FLOW_END_SCREEN_READY,
-    isLastFlowStep: isLastCourseStepFromSearch(),
+    isLastFlowStep: isLastCourseStepFromSearch() || isModuleItemCompleteFromSearch(),
   };
   postToCourseShell(payload);
   if (window.parent && window.parent !== window) {
@@ -281,20 +283,32 @@ export async function loadModuleSessionRoot(): Promise<{
 } | null> {
   const params = new URLSearchParams(window.location.search);
   const flow = loadFlowContext() ?? parseFlowContextFromSearch(params);
-  if (flow?.sessionId) {
-    return (await fetchSession(flow.sessionId)) || null;
-  }
   const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
+
+  let flowRoot: { data?: Record<string, unknown>; outcomes?: Record<string, unknown> } | null = null;
+  if (flow?.sessionId) {
+    flowRoot = (await fetchSession(flow.sessionId)) || null;
+  }
+
+  let courseRoot: { data?: Record<string, unknown>; outcomes?: Record<string, unknown> } | null = null;
   if (course?.sessionId) {
     const session = await fetchCourseSession(course.sessionId);
-    if (!session) return null;
-    const itemOutcomes = session.itemOutcomes?.[course.itemId] || {};
+    if (session) {
+      const itemOutcomes = session.itemOutcomes?.[course.itemId] || {};
+      courseRoot = {
+        data: session.data,
+        outcomes: { ...session.outcomes, ...itemOutcomes },
+      };
+    }
+  }
+
+  if (flowRoot && courseRoot) {
     return {
-      data: session.data,
-      outcomes: { ...session.outcomes, ...itemOutcomes },
+      data: { ...(courseRoot.data || {}), ...(flowRoot.data || {}) },
+      outcomes: { ...(courseRoot.outcomes || {}), ...(flowRoot.outcomes || {}) },
     };
   }
-  return null;
+  return flowRoot || courseRoot || null;
 }
 
 export async function syncModuleSession(
@@ -304,11 +318,22 @@ export async function syncModuleSession(
   const params = new URLSearchParams(window.location.search);
   const flow = parseFlowContextFromSearch(params);
   const course = loadCourseContext() ?? parseCourseContextFromSearch(params);
+  const formFields =
+    data.formFields && typeof data.formFields === "object"
+      ? (data.formFields as Record<string, unknown>)
+      : null;
+  const learnerDisplayName = formFields ? extractLearnerDisplayName(formFields) : undefined;
+  const courseData =
+    learnerDisplayName && course?.sessionId
+      ? { ...data, learnerDisplayName }
+      : data;
   if (course?.sessionId) {
-    await patchCourseSessionData(course.sessionId, course.itemId, data, outcomes);
+    await patchCourseSessionData(course.sessionId, course.itemId, courseData, outcomes);
   }
   if (flow?.sessionId) {
-    await patchSessionData(flow.sessionId, data, outcomes);
+    const flowData =
+      learnerDisplayName ? { ...data, learnerDisplayName } : data;
+    await patchSessionData(flow.sessionId, flowData, outcomes);
   }
 }
 

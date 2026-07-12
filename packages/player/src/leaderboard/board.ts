@@ -1,4 +1,4 @@
-import type { LeaderboardConfig, LeaderboardPublicState } from "./types";
+import type { LeaderboardConfig, LeaderboardPublicState, LeaderboardRow } from "./types";
 import { fetchPublicConfig, getSlugFromPath, pollState } from "./api";
 import { track } from "@rngames/shared/track";
 
@@ -31,6 +31,25 @@ function applyChrome(cfg: LeaderboardConfig) {
   if (powered) powered.hidden = cfg.showPoweredBy === false;
 }
 
+function appendAvatar(nameEl: HTMLElement, row: LeaderboardRow) {
+  const url = row.avatarUrl?.trim();
+  if (!url) return;
+  const cellW = row.avatarCellWidth || 64;
+  const cellH = row.avatarCellHeight || 64;
+  const displayH = 32;
+  const displayW = Math.round(cellW * (displayH / cellH));
+  const wrap = document.createElement("span");
+  wrap.className = "lb-avatar-wrap";
+  const img = document.createElement("img");
+  img.className = "lb-avatar";
+  img.src = url;
+  img.width = displayW;
+  img.height = displayH;
+  img.alt = "";
+  wrap.appendChild(img);
+  nameEl.appendChild(wrap);
+}
+
 function renderList(state: LeaderboardPublicState) {
   const list = $("lb-list");
   const indicator = $("lb-indicator");
@@ -52,7 +71,11 @@ function renderList(state: LeaderboardPublicState) {
     li.innerHTML = `<span class="lb-rank">${row.rank}</span>`;
     const name = document.createElement("span");
     name.className = "lb-name";
-    name.textContent = row.displayName;
+    appendAvatar(name, row);
+    const text = document.createElement("span");
+    text.className = "lb-name-text";
+    text.textContent = row.displayName;
+    name.appendChild(text);
     const score = document.createElement("span");
     score.className = "lb-score";
     score.textContent = String(row.score);

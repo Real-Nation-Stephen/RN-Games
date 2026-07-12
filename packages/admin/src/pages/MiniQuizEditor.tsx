@@ -7,7 +7,9 @@ import {
   type MiniQuizQuestion,
   type MiniQuizRecord,
 } from "@rngames/shared";
-import { apiDelete, apiGet, apiSend } from "../api";
+import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
+import { BgUploadRow } from "../components/BgUploadRow";
+import { CollapsibleSection } from "../components/CollapsibleSection";
 import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
 import { HexField } from "../components/HexField";
 
@@ -41,6 +43,19 @@ export default function MiniQuizEditor() {
   const [archiving, setArchiving] = useState(false);
 
   const patch = (fn: (d: MiniQuizRecord) => MiniQuizRecord) => setDoc((d) => (d ? fn(d) : d));
+
+  async function uploadFont(role: "heading" | "body" | "button", file: File) {
+    const { url } = await uploadFile(file);
+    const family = file.name.replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "-") || "CustomFont";
+    patch((d) => ({
+      ...d,
+      typography: {
+        ...d.typography,
+        fontUploads: { ...d.typography.fontUploads, [role]: { url, family } },
+        fonts: { ...d.typography.fonts, [role]: `'${family}', system-ui, sans-serif` },
+      },
+    }));
+  }
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -163,6 +178,28 @@ export default function MiniQuizEditor() {
         <p className="muted" style={{ marginTop: 8 }}>
           Public URL: <code>{publicUrl(doc.slug)}</code>
         </p>
+        <label className="field" style={{ marginTop: 12 }}>
+          Tab icon (favicon)
+        </label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            patch((d) => ({ ...d, faviconUrl: url }));
+          }}
+        />
+        {doc.faviconUrl ? <span className="muted"> ✓</span> : null}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={doc.showPoweredBy !== false}
+            onChange={(e) => patch((d) => ({ ...d, showPoweredBy: e.target.checked }))}
+          />
+          Show “Powered by Real Nation” on the public page
+        </label>
       </div>
 
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginBottom: 16 }}>
@@ -205,17 +242,95 @@ export default function MiniQuizEditor() {
         </div>
 
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Branding</h3>
+          <h3 style={{ marginTop: 0 }}>Page background</h3>
           <HexField
             label="Background colour"
             value={doc.backgroundHex}
             onChange={(v) => patch((d) => ({ ...d, backgroundHex: v }))}
           />
+          <label className="field">
+            Background behaviour
+            <select
+              value={doc.backgroundMode || "fixed"}
+              onChange={(e) => patch((d) => ({ ...d, backgroundMode: e.target.value as "fixed" | "scroll" }))}
+            >
+              <option value="fixed">Fixed — background stays, content scrolls</option>
+              <option value="scroll">Scroll — background moves with page</option>
+            </select>
+          </label>
+          <label className="field">Logo</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((d) => ({ ...d, logoUrl: url }));
+            }}
+          />
+          {doc.logoUrl ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 8 }}>
+            Logo alignment
+            <select
+              value={doc.logoAlign || "center"}
+              onChange={(e) => patch((d) => ({ ...d, logoAlign: e.target.value as "left" | "center" | "right" }))}
+            >
+              <option value="left">Left</option>
+              <option value="center">Centre</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <CollapsibleSection title="Breakpoint backgrounds" summary="Desktop / tablet / mobile">
+            <BgUploadRow
+              label="Desktop"
+              hint="Shown at 1024px and wider."
+              value={doc.backgrounds.desktop || ""}
+              onUploaded={(url) => patch((d) => ({ ...d, backgrounds: { ...d.backgrounds, desktop: url } }))}
+            />
+            <BgUploadRow
+              label="Tablet"
+              hint="768px – 1023px."
+              value={doc.backgrounds.tablet || ""}
+              onUploaded={(url) => patch((d) => ({ ...d, backgrounds: { ...d.backgrounds, tablet: url } }))}
+            />
+            <BgUploadRow
+              label="Mobile"
+              hint="Below 768px."
+              value={doc.backgrounds.mobile || ""}
+              onUploaded={(url) => patch((d) => ({ ...d, backgrounds: { ...d.backgrounds, mobile: url } }))}
+            />
+          </CollapsibleSection>
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Typography & colours</h3>
           <HexField
             label="Headline colour"
             value={doc.typography.headlineHex}
             onChange={(v) => patch((d) => ({ ...d, typography: { ...d.typography, headlineHex: v } }))}
           />
+          <HexField
+            label="Body colour"
+            value={doc.typography.bodyHex}
+            onChange={(v) => patch((d) => ({ ...d, typography: { ...d.typography, bodyHex: v } }))}
+          />
+          <CollapsibleSection title="Custom fonts" summary="Heading, body, button">
+            {(["heading", "body", "button"] as const).map((role) => (
+              <div key={role} style={{ marginTop: 10 }}>
+                <label className="field">{role.charAt(0).toUpperCase() + role.slice(1)} font</label>
+                <input
+                  type="file"
+                  accept=".woff,.woff2,.ttf,.otf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadFont(role, f);
+                  }}
+                />
+                {doc.typography.fontUploads?.[role]?.url ? <span className="muted"> ✓</span> : null}
+              </div>
+            ))}
+          </CollapsibleSection>
           <HexField
             label="Button background"
             value={doc.primaryCta.backgroundHex}

@@ -2,6 +2,8 @@
  * Course shell runtime — parent/iframe coordination (mirrors flow-bridge).
  */
 
+import type { ExperienceNodeOverrides } from "./experience.js";
+
 export interface CourseContext {
   sessionId: string;
   courseId: string;
@@ -86,4 +88,23 @@ export function isLastCourseStepFromSearch(params?: URLSearchParams): boolean {
 export function appendCourseLastStepQuery(path: string): string {
   const sep = path.includes("?") ? "&" : "?";
   return `${path}${sep}courseLastStep=1`;
+}
+
+/** True when the flow editor marked this step to surface the course "Mark complete" bar. */
+export function isModuleItemCompleteFromSearch(params?: URLSearchParams): boolean {
+  const p =
+    params ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
+  return p?.get("moduleItemComplete") === "1";
+}
+
+export function appendModuleItemCompleteQuery(path: string): string {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}moduleItemComplete=1`;
+}
+
+/** Whether this step override should show the course completion footer when embedded in a course. */
+export function isModuleItemCompleteOverride(
+  overrides?: ExperienceNodeOverrides | null,
+): boolean {
+  return overrides?.completionBehaviour === "module_item_complete";
 }

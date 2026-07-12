@@ -378,8 +378,12 @@ function completeReveal() {
       console.warn("Confetti failed:", e);
     }
   }
-  els.buttonSlot?.classList.add("is-visible");
-  els.buttonSlot?.setAttribute("aria-hidden", "false");
+  if (!liveConfig?.hideWinButton) {
+    els.buttonSlot?.classList.add("is-visible");
+    els.buttonSlot?.setAttribute("aria-hidden", "false");
+  } else if (isEmbeddedShellActive()) {
+    emitStepComplete({ completed: true, "scratcher.revealed": true });
+  }
   notifyEndScreenReady();
 }
 

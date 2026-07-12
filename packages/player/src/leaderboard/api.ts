@@ -48,6 +48,9 @@ export async function submitLinkedScore(opts: {
   displayName: string;
   score: number;
   externalId?: string;
+  avatarUrl?: string;
+  avatarCellWidth?: number;
+  avatarCellHeight?: number;
 }) {
   const res = await fetch(API, {
     method: "POST",
@@ -58,6 +61,9 @@ export async function submitLinkedScore(opts: {
       displayName: opts.displayName,
       score: opts.score,
       externalId: opts.externalId,
+      avatarUrl: opts.avatarUrl,
+      avatarCellWidth: opts.avatarCellWidth,
+      avatarCellHeight: opts.avatarCellHeight,
     }),
   });
   const data = await res.json().catch(() => ({}));

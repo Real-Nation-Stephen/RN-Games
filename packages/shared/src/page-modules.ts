@@ -1177,6 +1177,19 @@ export function toPublicPageModule(doc: PageModuleRecord): PageModuleRecord {
   return doc;
 }
 
+export function extractLearnerDisplayName(formFields: Record<string, unknown>): string | undefined {
+  const direct = formFields.name ?? formFields.full_name ?? formFields.fullName;
+  if (direct != null && String(direct).trim()) return String(direct).trim();
+  const first = formFields.firstName ?? formFields.first_name;
+  const last = formFields.lastName ?? formFields.last_name;
+  const combined = [first, last]
+    .filter((v) => v != null && String(v).trim())
+    .map(String)
+    .join(" ")
+    .trim();
+  return combined || undefined;
+}
+
 export function buildBadgeSessionRoot(session?: {
   data?: Record<string, unknown>;
   outcomes?: Record<string, unknown>;
@@ -1191,10 +1204,15 @@ export function buildCertificateSessionRoot(session?: {
   const now = new Date();
   const outcomes = session?.outcomes || {};
   const data = session?.data || {};
-  const formFields =
+  let formFields =
     (outcomes["form.fieldValues"] as Record<string, unknown> | undefined) ||
     (data.formFields as Record<string, unknown> | undefined) ||
     {};
+  const learnerDisplayName =
+    typeof data.learnerDisplayName === "string" ? data.learnerDisplayName.trim() : "";
+  if (learnerDisplayName && !formFields.name) {
+    formFields = { ...formFields, name: learnerDisplayName };
+  }
   return {
     ...data,
     ...outcomes,

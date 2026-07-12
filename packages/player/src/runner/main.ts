@@ -859,12 +859,21 @@ function updateHud() {
 async function submitToLeaderboard() {
   if (!cfg?.linkedLeaderboardSlug || !cfg.id || !engine) return;
   try {
+    const char = runnerCharacterList(cfg)[engine.characterIndex] ?? runnerCharacterList(cfg)[0];
+    const sheet = char?.run;
     await submitLinkedScore({
       leaderboardSlug: cfg.linkedLeaderboardSlug,
       sourceGameId: cfg.id,
       displayName: needsPlayerName() ? getPlayerName() : "Player",
       score: engine.leaderboardScore(),
       externalId: getLeaderboardExternalId(),
+      ...(sheet?.url
+        ? {
+            avatarUrl: sheet.url,
+            avatarCellWidth: sheet.cellWidth,
+            avatarCellHeight: sheet.cellHeight,
+          }
+        : {}),
     });
   } catch {
     /* optional */

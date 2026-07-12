@@ -108,6 +108,30 @@ body[data-brand-corner="tr"] .lb-brand {
   font-size: 1.1rem;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lb-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-avatar-wrap {
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lb-avatar {
+  display: block;
+  image-rendering: pixelated;
 }
 
 .lb-score {

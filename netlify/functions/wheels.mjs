@@ -56,6 +56,7 @@ function emptyScratcherRecord(id, slug) {
     backgroundColor: "#0a1628",
     sounds: { win: null, lose: null },
     winButtonUrl: "",
+    hideWinButton: false,
     clearThreshold: 0.97,
     winChancePercent: 50,
   };
@@ -633,6 +634,7 @@ export const handler = async (event, context) => {
           "backgroundColor",
           "sounds",
           "winButtonUrl",
+          "hideWinButton",
           "clearThreshold",
           "winChancePercent",
         ];

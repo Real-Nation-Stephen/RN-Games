@@ -1,12 +1,14 @@
 import {
   appendCourseQuery,
   appendCourseLastStepQuery,
+  appendModuleItemCompleteQuery,
   appendFlowQuery,
   componentPublicPath,
   loadCourseContext,
   parseCourseContextFromSearch,
   saveCourseContext,
   track,
+  isModuleItemCompleteOverride,
 } from "@rngames/shared";
 import {
   FLOW_EXPERIENCE_COMPLETE,
@@ -33,6 +35,7 @@ type PublicStep = {
   missing?: boolean;
   archived?: boolean;
   overrides?: {
+    completionBehaviour?: "auto_continue" | "show_continue" | "replay" | "custom" | "module_item_complete";
     endScreen?: {
       headline?: string;
       body?: string;
@@ -202,7 +205,8 @@ function isLastExperienceStep(): boolean {
 }
 
 function forwardCourseFooterSignal(data: Record<string, unknown>) {
-  if (!isLastExperienceStep()) return;
+  const step = currentStep();
+  if (!isLastExperienceStep() && !isModuleItemCompleteOverride(step?.overrides)) return;
   forwardToCourseParent({ ...data, isLastFlowStep: true });
 }
 
@@ -380,6 +384,7 @@ function stepFrameUrl(step: PublicStep): string {
       itemId: courseCtx.itemId,
     });
     if (isLastStep) path = appendCourseLastStepQuery(path);
+    if (isModuleItemCompleteOverride(step.overrides)) path = appendModuleItemCompleteQuery(path);
   }
   if (path.startsWith("http")) return path;
   return `${window.location.origin}${path}`;
@@ -487,6 +492,7 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
   if (session.completedAt) return;
 
   const step = currentStep();
+  const showCourseFooterOnComplete = embeddedInCourse() && isModuleItemCompleteOverride(step?.overrides);
   advancing = true;
   updateShellContinue();
 
@@ -501,6 +507,17 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
 
   try {
     await advanceSession(outcomes);
+    if (showCourseFooterOnComplete) {
+      const courseCtx = courseContext();
+      if (courseCtx) {
+        forwardToCourseParent({
+          type: FLOW_END_SCREEN_READY,
+          courseSessionId: courseCtx.sessionId,
+          courseItemId: courseCtx.itemId,
+          isLastFlowStep: true,
+        });
+      }
+    }
     renderStep();
   } catch (e) {
     showError(e instanceof Error ? e.message : "Could not advance");

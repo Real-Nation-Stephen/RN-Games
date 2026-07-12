@@ -111,6 +111,7 @@ function toPublicScratcher(s) {
       lose: s.sounds?.lose || null,
     },
     winButtonUrl: s.winButtonUrl || "",
+    hideWinButton: !!s.hideWinButton,
     clearThreshold: typeof s.clearThreshold === "number" ? s.clearThreshold : 0.97,
     winChancePercent: winOnly ? 100 : winChance,
     reportingEnabled: s.reportingEnabled,

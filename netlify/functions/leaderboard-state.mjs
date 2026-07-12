@@ -110,6 +110,9 @@ export const handler = async (event) => {
     }
 
     const displayName = String(body.displayName || "").trim().slice(0, 64);
+    const avatarUrl = String(body.avatarUrl || "").trim().slice(0, 2048);
+    const avatarCellWidth = Math.max(0, Math.min(256, Number(body.avatarCellWidth) || 0));
+    const avatarCellHeight = Math.max(0, Math.min(256, Number(body.avatarCellHeight) || 0));
     const score = Number(body.score);
     if (!displayName) {
       return { statusCode: 400, body: JSON.stringify({ error: "displayName required" }), headers };
@@ -130,6 +133,7 @@ export const handler = async (event) => {
           ...prev,
           displayName,
           score: Math.max(Number(prev.score) || 0, score),
+          ...(avatarUrl ? { avatarUrl, avatarCellWidth, avatarCellHeight } : {}),
           updatedAt: now,
         };
         entry = state.entries[i];
@@ -143,6 +147,7 @@ export const handler = async (event) => {
         source: "linked",
         linkedGameId: sourceGameId,
         externalId: externalId || undefined,
+        ...(avatarUrl ? { avatarUrl, avatarCellWidth, avatarCellHeight } : {}),
         rankTieAt: now,
         createdAt: now,
         updatedAt: now,

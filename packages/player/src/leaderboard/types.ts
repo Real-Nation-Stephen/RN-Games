@@ -39,6 +39,9 @@ export interface LeaderboardRow {
   displayName: string;
   score: number;
   source?: "linked" | "manual";
+  avatarUrl?: string;
+  avatarCellWidth?: number;
+  avatarCellHeight?: number;
 }
 
 export interface LeaderboardPublicState {
