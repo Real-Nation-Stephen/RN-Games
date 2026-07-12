@@ -136,6 +136,7 @@ const NATIVE_FLOW_TYPES = new Set([
   "email-signup",
   "redemption",
   "mini-quiz",
+  "leaderboard",
   ...AUTO_ADVANCE_TYPES,
 ]);
 

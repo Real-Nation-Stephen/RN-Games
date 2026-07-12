@@ -2,6 +2,14 @@ import type { LeaderboardConfig, LeaderboardPublicState, LeaderboardRow } from "
 import { fetchPublicConfig, getSlugFromPath, pollState } from "./api";
 import { runnerSheetFrameCount, runnerSheetFrameRect } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
+import {
+  completeStep,
+  embeddedShellActive,
+  engageStep,
+  initEmbeddedContexts,
+  notifyStepContentReady,
+  wireEmbeddedFlowContinue,
+} from "../page-module/shared";
 
 const AVATAR_SIZE = 32;
 const AVATAR_FPS = 3;
@@ -180,6 +188,7 @@ window.addEventListener("message", (e) => {
 });
 
 async function main() {
+  initEmbeddedContexts();
   const slug = getSlugFromPath();
   if (!slug) throw new Error("Missing leaderboard slug");
   const cfg = await fetchPublicConfig(slug);
@@ -189,6 +198,14 @@ async function main() {
   $("app").hidden = false;
 
   track({ type: "leaderboard.view", gameId: cfg.id || slug, payload: { slug, surface: "live" } });
+
+  if (embeddedShellActive()) {
+    wireEmbeddedFlowContinue({
+      onContinue: () => completeStep({ gameId: cfg.id || slug }),
+    });
+    notifyStepContentReady();
+    engageStep();
+  }
 
   let rev = 0;
   const loop = async () => {
