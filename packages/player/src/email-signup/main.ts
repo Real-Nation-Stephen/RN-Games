@@ -6,10 +6,12 @@ import {
   engageStep,
   embeddedShellActive,
   fetchPageModule,
+  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
   isInCourseEmbed,
+  notifyCourseItemComplete,
   notifyEndScreenReady,
   notifyStepContentReady,
   patchSessionData,
@@ -98,7 +100,12 @@ function mountEmailSignup(cfg: EmailSignupRecord) {
     const finish = () => {
       void (async () => {
         if (flow?.sessionId) await patchSessionData(flow.sessionId, { emailSignup: values }, outcomes);
-        completeStep({ gameId: cfg.id, ...outcomes });
+        const payload = { gameId: cfg.id, ...outcomes };
+        if (flowModeActive()) {
+          completeStep(payload);
+        } else if (isInCourseEmbed()) {
+          notifyCourseItemComplete(payload);
+        }
       })();
     };
     showThankYou(cfg, finish);

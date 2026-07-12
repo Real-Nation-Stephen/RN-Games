@@ -334,6 +334,29 @@ export const handler = async (event) => {
         }
       }
 
+      function markItemComplete(itemId) {
+        const completed = new Set(session.completedItemIds || []);
+        completed.add(itemId);
+        session.completedItemIds = [...completed];
+        session.lastVisitedItemId = itemId;
+
+        const item = items.find((i) => i.id === itemId);
+        if (item?.kind === "module" && item.moduleType === "certificate") {
+          const earned = new Set(session.earnedCertificates || []);
+          earned.add(itemId);
+          session.earnedCertificates = [...earned];
+        }
+        if (item?.kind === "module" && item.moduleType === "badge") {
+          const earned = new Set(session.earnedBadges || []);
+          earned.add(itemId);
+          session.earnedBadges = [...earned];
+        }
+
+        const next = items.find((i) => !session.completedItemIds.includes(i.id));
+        session.currentItemId = next?.id || null;
+        if (!next) session.completedAt = new Date().toISOString();
+      }
+
       if (body.data && typeof body.data === "object") {
         session.data = { ...(session.data || {}), ...body.data };
       }
@@ -351,6 +374,9 @@ export const handler = async (event) => {
         const itemId = String(body.itemId);
         if (itemIds.has(itemId)) {
           mergeOutcomes(itemId, body.outcomes);
+          if (body.outcomes?.completed === true) {
+            markItemComplete(itemId);
+          }
         }
       }
 
@@ -366,26 +392,7 @@ export const handler = async (event) => {
         const itemId = String(body.itemId);
         if (itemIds.has(itemId)) {
           mergeOutcomes(itemId, body.outcomes);
-          const completed = new Set(session.completedItemIds || []);
-          completed.add(itemId);
-          session.completedItemIds = [...completed];
-          session.lastVisitedItemId = itemId;
-
-          const item = items.find((i) => i.id === itemId);
-          if (item?.kind === "module" && item.moduleType === "certificate") {
-            const earned = new Set(session.earnedCertificates || []);
-            earned.add(itemId);
-            session.earnedCertificates = [...earned];
-          }
-          if (item?.kind === "module" && item.moduleType === "badge") {
-            const earned = new Set(session.earnedBadges || []);
-            earned.add(itemId);
-            session.earnedBadges = [...earned];
-          }
-
-          const next = items.find((i) => !session.completedItemIds.includes(i.id));
-          session.currentItemId = next?.id || null;
-          if (!next) session.completedAt = new Date().toISOString();
+          markItemComplete(itemId);
         }
       }
 

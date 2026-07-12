@@ -5,9 +5,12 @@ import {
   engageStep,
   embeddedShellActive,
   fetchPageModule,
+  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
+  isInCourseEmbed,
+  notifyCourseItemComplete,
   setupPagePreview,
   syncModuleSession,
   wirePageLogo,
@@ -120,7 +123,12 @@ function mountQuiz(cfg: MiniQuizRecord) {
       { miniQuiz: { correctCount, scorePercent, total } },
       outcomes,
     );
-    completeStep({ gameId: cfg.id, ...outcomes });
+    const payload = { gameId: cfg.id, ...outcomes };
+    if (flowModeActive()) {
+      completeStep(payload);
+    } else if (isInCourseEmbed()) {
+      notifyCourseItemComplete(payload);
+    }
   }
 
   els.start.onclick = () => {

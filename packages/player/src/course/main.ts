@@ -850,7 +850,6 @@ window.addEventListener("message", (ev) => {
   }
   if (!isStepCompleteMessage(ev.data)) return;
   if (!courseMessageMatchesActiveItem(ev.data)) return;
-  if (!ev.data.courseItemId) return;
   if (activeItem?.kind === "experience") return;
   if (
     activeItem?.kind === "module" &&
