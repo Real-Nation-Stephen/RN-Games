@@ -1,10 +1,22 @@
-import { getDatabase } from "@netlify/database";
+import { getDatabase, getConnectionString } from "@netlify/database";
 
 let dbPromise = null;
 
+function resolveConnectionString() {
+  if (process.env.NETLIFY_DB_URL) return process.env.NETLIFY_DB_URL;
+  try {
+    return getConnectionString();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getDb() {
   if (!dbPromise) {
-    dbPromise = Promise.resolve(getDatabase());
+    const connectionString = resolveConnectionString();
+    dbPromise = Promise.resolve(
+      connectionString ? getDatabase({ connectionString }) : getDatabase(),
+    );
   }
   return dbPromise;
 }

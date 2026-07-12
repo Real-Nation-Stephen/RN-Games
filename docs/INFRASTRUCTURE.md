@@ -113,6 +113,8 @@ Arcade games (`catch`, `runner`) use the same blob + `/api/wheels` CRUD as other
 
 **Netlify Database tables (measurement pilot):** `events`, `measurement_config`, `ingest_replay_runs`. Migrations live in `netlify/database/migrations/`. Apply locally with `netlify database migrations apply` only after confirming the correct site.
 
+**Functions connection:** runtime reads `NETLIFY_DB_URL` (auto-injected when Database is linked) or `getConnectionString()`. If `/api/track` returns `dbInserted: false` with a connection error, open Netlify → Database → production branch → copy connection string → Site configuration → Environment variables → add `NETLIFY_DB_URL` (scoped to Production) → redeploy.
+
 **Implications**
 
 - Reads can be briefly inconsistent after writes (eventual consistency on Blobs).
