@@ -342,6 +342,44 @@ export function scheduleAutoContinue(cfg: PageModuleRecord, onContinue: () => vo
   window.setTimeout(onContinue, ms);
 }
 
+export type WireEmbeddedContinueOptions = {
+  button?: HTMLButtonElement | null;
+  standaloneLabel?: string;
+  onContinue: () => void;
+};
+
+/** Show or inject a Continue button when embedded in a flow or course player. */
+export function wireEmbeddedFlowContinue(opts: WireEmbeddedContinueOptions): void {
+  const embedded = embeddedShellActive();
+  const label = embedded ? flowNextLabel() : opts.standaloneLabel || "Continue";
+
+  if (opts.button) {
+    opts.button.hidden = false;
+    opts.button.textContent = label;
+    opts.button.onclick = () => opts.onContinue();
+    return;
+  }
+
+  if (!embedded) return;
+
+  let footer = document.getElementById("embedded-flow-footer") as HTMLElement | null;
+  if (!footer) {
+    footer = document.createElement("footer");
+    footer.id = "embedded-flow-footer";
+    footer.className = "embedded-flow-footer";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "page-btn embedded-flow-continue";
+    footer.appendChild(btn);
+    document.body.appendChild(footer);
+  }
+
+  const btn = footer.querySelector("button")!;
+  btn.textContent = label;
+  btn.onclick = () => opts.onContinue();
+  footer.hidden = false;
+}
+
 export function setupPagePreview(gameType: string, onConfig: (cfg: PageModuleRecord) => void) {
   window.addEventListener("message", (e) => {
     if (e.origin !== window.location.origin) return;

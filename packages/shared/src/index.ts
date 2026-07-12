@@ -153,6 +153,7 @@ export {
   loadFlowContext,
   clearFlowContext,
   isFlowMode,
+  isEmbeddedShellActive,
   emitStepComplete,
   emitStepEngaged,
   isStepCompleteMessage,

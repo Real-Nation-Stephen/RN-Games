@@ -6,9 +6,7 @@ import {
   applyPageTheme,
   completeStep,
   engageStep,
-  embeddedShellActive,
   fetchPageModule,
-  flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
   isInCourseEmbed,
@@ -18,6 +16,7 @@ import {
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
+  wireEmbeddedFlowContinue,
 } from "../page-module/shared";
 import { mountScaledMergeOverlay } from "../page-module/cert-scaling";
 
@@ -120,16 +119,12 @@ async function mountCertificate(cfg: CertificateRecord, sessionRoot: Record<stri
   renderCertificate(cfg, sessionRoot);
   els.app.hidden = false;
 
-  const embedded = embeddedShellActive();
   els.downloads.hidden = false;
-  els.cta.hidden = embedded;
-  if (embedded) {
-    els.cta.textContent = flowNextLabel();
-    els.cta.onclick = () => completeStep({ gameId: cfg.id });
-  } else {
-    els.cta.textContent = cfg.primaryCta?.label || "Continue";
-    els.cta.onclick = () => completeStep({ gameId: cfg.id });
-  }
+  wireEmbeddedFlowContinue({
+    button: els.cta,
+    standaloneLabel: cfg.primaryCta?.label || "Continue",
+    onContinue: () => completeStep({ gameId: cfg.id }),
+  });
 
   els.downloadPng.onclick = () => void downloadPng().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));
   els.downloadPdf.onclick = () => void downloadPdf().catch((e) => showError(e instanceof Error ? e.message : "Download failed"));

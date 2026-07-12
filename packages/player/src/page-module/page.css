@@ -563,3 +563,21 @@ html.page-bg-scroll::before {
   font-size: 0.82rem;
   opacity: 0.75;
 }
+
+.embedded-flow-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+.embedded-flow-footer .embedded-flow-continue {
+  pointer-events: auto;
+  min-width: min(100%, 320px);
+}

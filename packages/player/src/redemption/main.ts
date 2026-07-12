@@ -3,11 +3,11 @@ import {
   applyPageTheme,
   completeStep,
   engageStep,
+  embeddedShellActive,
   fetchPageModule,
-  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
+  initEmbeddedContexts,
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
@@ -31,7 +31,7 @@ function mountRedemption(cfg: RedemptionRecord) {
   els.body.textContent = cfg.instructions || cfg.body;
   els.codeLabel.textContent = cfg.codeLabel;
   els.code.textContent = cfg.redemptionCode;
-  els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.primaryCta.label;
+  els.cta.textContent = embeddedShellActive() ? flowNextLabel() : cfg.primaryCta.label;
   els.app.hidden = false;
   engageStep();
   els.cta.onclick = () => completeStep({ gameId: cfg.id });
@@ -43,7 +43,7 @@ async function boot() {
     setupPagePreview("redemption", (cfg) => mountRedemption(cfg as RedemptionRecord));
     return;
   }
-  initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("redemption");
   if (!slug) {
     els.error.textContent = "Missing slug.";

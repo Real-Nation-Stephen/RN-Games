@@ -6,9 +6,9 @@ import {
 import { startSpinAudioAsync, playRevealSound, unlockAudio } from "./audio.js";
 import { burstConfetti } from "./fanfare.js";
 import { track } from "@rngames/shared/track";
-import { isFlowMode, emitStepComplete, emitStepEngaged } from "@rngames/shared";
+import { isEmbeddedShellActive, emitStepComplete, emitStepEngaged } from "@rngames/shared";
 
-const flowMode = isFlowMode();
+const flowMode = isEmbeddedShellActive();
 const flowNextLabel = () =>
   new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Next Activity";
 /** @type {number | null} */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormField, FormRecord } from "@rngames/shared";
 import { apiGet } from "../api";
+import { CollapsibleSection } from "./CollapsibleSection";
 
 type Submission = {
   id: string;
@@ -85,27 +86,27 @@ export function FormResultsPanel({ doc }: Props) {
     downloadCsv(`${doc.slug || "form"}-results.csv`, [header, ...rows]);
   }
 
+  const summary = loading
+    ? "Loading…"
+    : err
+      ? "Could not load"
+      : `${submissions.length} submission${submissions.length === 1 ? "" : "s"}`;
+
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0 }}>Form results</h3>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" className="btn" disabled={loading} onClick={() => void load()}>
-            Refresh
-          </button>
-          <button type="button" className="btn btn-primary" disabled={!submissions.length} onClick={exportCsv}>
-            Export CSV
-          </button>
-        </div>
+    <CollapsibleSection title="Form results" summary={summary} defaultOpen={false}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <button type="button" className="btn" disabled={loading} onClick={() => void load()}>
+          Refresh
+        </button>
+        <button type="button" className="btn btn-primary" disabled={!submissions.length} onClick={exportCsv}>
+          Export CSV
+        </button>
       </div>
-      <p className="muted" style={{ fontSize: "0.85rem" }}>
-        {loading ? "Loading…" : `${submissions.length} submission${submissions.length === 1 ? "" : "s"}`}
-      </p>
       {err ? <p className="error">{err}</p> : null}
 
       {!loading && submissions.length > 0 ? (
         <>
-          <div className="grid2" style={{ marginTop: 16 }}>
+          <div className="grid2" style={{ marginTop: 8 }}>
             {summaries.map(({ field, entries, max, total }) => (
               <div key={field.id} className="card" style={{ padding: 12, margin: 0 }}>
                 <strong>{field.label || field.id}</strong>
@@ -179,10 +180,10 @@ export function FormResultsPanel({ doc }: Props) {
       ) : null}
 
       {!loading && !submissions.length && !err ? (
-        <p className="muted" style={{ marginTop: 12 }}>
+        <p className="muted" style={{ marginTop: 4 }}>
           No submissions yet. Responses appear here when someone completes this form.
         </p>
       ) : null}
-    </div>
+    </CollapsibleSection>
   );
 }

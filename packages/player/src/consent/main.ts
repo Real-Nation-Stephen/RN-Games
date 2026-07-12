@@ -3,11 +3,11 @@ import {
   applyPageTheme,
   completeStep,
   engageStep,
+  embeddedShellActive,
   fetchPageModule,
-  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
-  initFlowContext,
+  initEmbeddedContexts,
   setupPagePreview,
   wirePageLogo,
   wirePoweredBy,
@@ -30,7 +30,7 @@ function mountConsent(cfg: ConsentRecord) {
   document.documentElement.style.setProperty("--consent-checkbox-col", `${cfg.checkboxColumnWidthPx || 28}px`);
   els.headline.textContent = cfg.headline;
   els.body.textContent = cfg.introText || cfg.body;
-  els.cta.textContent = flowModeActive() ? flowNextLabel() : cfg.acceptLabel;
+  els.cta.textContent = embeddedShellActive() ? flowNextLabel() : cfg.acceptLabel;
   if (cfg.gdprUrl) {
     els.gdpr.href = cfg.gdprUrl;
     els.gdpr.textContent = cfg.gdprLinkLabel;
@@ -75,7 +75,7 @@ async function boot() {
     setupPagePreview("consent", (cfg) => mountConsent(cfg as ConsentRecord));
     return;
   }
-  initFlowContext();
+  initEmbeddedContexts();
   const slug = getSlugFromPath("consent");
   if (!slug) {
     els.error.hidden = false;

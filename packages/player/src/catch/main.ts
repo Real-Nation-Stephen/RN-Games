@@ -2,7 +2,7 @@ import { CATCH_DESIGN_H, CATCH_DESIGN_W, type CatchItemVariant } from "@rngames/
 import { track } from "@rngames/shared/track";
 import {
   emitStepComplete,
-  isFlowMode,
+  isEmbeddedShellActive,
   parseFlowContextFromSearch,
   saveFlowContext,
 } from "@rngames/shared";
@@ -30,7 +30,7 @@ import { bindCatchLayout, layoutCatchStage, pointerToStageX as mapPointerX } fro
 import type { CatchConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
-const flowMode = isFlowMode();
+const flowMode = isEmbeddedShellActive();
 const flowNextLabel =
   new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Continue";
 

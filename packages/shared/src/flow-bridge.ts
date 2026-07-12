@@ -67,9 +67,15 @@ export function clearFlowContext(): void {
   }
 }
 
+import { isCourseMode } from "./course-bridge.js";
+
 export function isFlowMode(params?: URLSearchParams): boolean {
   const p = params ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
   return p?.get("flow") === "1";
+}
+
+export function isEmbeddedShellActive(params?: URLSearchParams): boolean {
+  return isFlowMode(params) || isCourseMode(params);
 }
 
 export function emitStepEngaged(): void {

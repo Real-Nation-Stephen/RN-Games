@@ -2,10 +2,10 @@
  * Flip cards — production player (public API or admin preview postMessage).
  */
 import { track } from "@rngames/shared/track";
-import { isFlowMode, emitStepComplete, emitStepEngaged } from "@rngames/shared";
+import { isEmbeddedShellActive, emitStepComplete, emitStepEngaged } from "@rngames/shared";
 
 const API_BASE = "/api";
-const flowMode = isFlowMode();
+const flowMode = isEmbeddedShellActive();
 const flowNextLabel = () =>
   new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Next Activity";
 let flowEngaged = false;

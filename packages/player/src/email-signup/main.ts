@@ -4,8 +4,8 @@ import {
   applyPageTheme,
   completeStep,
   engageStep,
+  embeddedShellActive,
   fetchPageModule,
-  flowModeActive,
   flowNextLabel,
   getSlugFromPath,
   initEmbeddedContexts,
@@ -43,7 +43,7 @@ function showThankYou(cfg: EmailSignupRecord, onContinue: () => void) {
   els.thankYou.hidden = false;
   els.thankYouHeadline.textContent = "Thank you";
   els.thankYouBody.textContent = cfg.thankYouMessage;
-  els.thankYouBtn.textContent = flowModeActive() ? flowNextLabel() : "Continue";
+  els.thankYouBtn.textContent = embeddedShellActive() ? flowNextLabel() : "Continue";
   els.thankYouBtn.onclick = onContinue;
   if (isInCourseEmbed()) notifyEndScreenReady();
   notifyStepContentReady();
@@ -56,7 +56,7 @@ function mountEmailSignup(cfg: EmailSignupRecord) {
   els.headline.textContent = cfg.headline;
   els.nameLabel.textContent = cfg.nameLabel;
   els.emailLabel.textContent = cfg.emailLabel;
-  els.submit.textContent = flowModeActive() ? flowNextLabel() : cfg.submitLabel;
+  els.submit.textContent = embeddedShellActive() ? flowNextLabel() : cfg.submitLabel;
   els.signupPanel.hidden = false;
   els.thankYou.hidden = true;
 

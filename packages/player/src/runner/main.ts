@@ -10,7 +10,7 @@ import {
 import { track } from "@rngames/shared/track";
 import {
   emitStepComplete,
-  isFlowMode,
+  isEmbeddedShellActive,
   parseFlowContextFromSearch,
   saveFlowContext,
 } from "@rngames/shared";
@@ -48,7 +48,7 @@ import { parallaxDrawHeight, runnerAuthorHeight, runnerCharacterDrawSize, scaleR
 import type { RunnerConfig } from "./types";
 
 const isPreview = new URLSearchParams(window.location.search).get("preview") === "1";
-const flowMode = isFlowMode();
+const flowMode = isEmbeddedShellActive();
 const flowNextLabel =
   new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Continue";
 

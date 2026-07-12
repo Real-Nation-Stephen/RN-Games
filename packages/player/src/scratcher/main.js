@@ -4,7 +4,7 @@
 import { burstConfetti } from "../js/fanfare.js";
 import { FORMATS, getFormatOrThrow } from "./formats.js";
 import { track } from "@rngames/shared/track";
-import { emitStepEngaged, isFlowMode } from "@rngames/shared";
+import { emitStepEngaged, emitStepComplete, isEmbeddedShellActive } from "@rngames/shared";
 import { notifyEndScreenReady } from "../page-module/shared";
 
 const isEmbed = document.body.classList.contains("scratcher-embed");
@@ -283,7 +283,7 @@ let lastPoint = null;
 function onPointerDown(evt) {
   if (completed) return;
   evt.preventDefault();
-  if (!scratchEngaged && isFlowMode()) {
+  if (!scratchEngaged && isEmbeddedShellActive()) {
     scratchEngaged = true;
     emitStepEngaged();
   }
@@ -514,6 +514,10 @@ async function runLive(cfg) {
     if (!ctaWired) {
       ctaWired = true;
       els.cta?.addEventListener("click", () => {
+        if (isEmbeddedShellActive()) {
+          emitStepComplete({ completed: true, "scratcher.revealed": true });
+          return;
+        }
         const u = liveConfig?.winButtonUrl?.trim();
         if (u) window.open(u, "_blank", "noopener,noreferrer");
       });
