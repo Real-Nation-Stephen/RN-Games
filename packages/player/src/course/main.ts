@@ -88,6 +88,15 @@ const INTERACTIVE_FOOTER_MODULE_TYPES = new Set([
   "runner",
 ]);
 
+/** Direct course modules that mark the item complete when the learner finishes (no extra footer click). */
+const AUTO_COMPLETE_MODULE_TYPES = new Set([
+  "form",
+  "email-signup",
+  "consent",
+  "redemption",
+  "mini-quiz",
+]);
+
 function courseMessageMatchesActiveItem(data: {
   courseSessionId?: string;
   courseItemId?: string;
@@ -412,6 +421,11 @@ function enrichItems(): PublicCourseItem[] {
       withLock.locked = true;
       withLock.lockReason = access.reason;
     }
+    const done = session!.completedItemIds.includes(item.id);
+    if (done && item.lockAfterComplete) {
+      withLock.locked = true;
+      withLock.lockReason = "Completed";
+    }
     return withLock;
   });
 }
@@ -426,6 +440,7 @@ function renderSection(section: PublicCourseSection, items: PublicCourseItem[]):
       const done = session!.completedItemIds.includes(item.id);
       const current = session!.currentItemId === item.id;
       const locked = !!item.locked;
+      const completedLocked = done && !!item.lockAfterComplete && locked;
       const title = item.displayTitle || item.label;
       const meta = [
         item.kind,
@@ -447,7 +462,7 @@ function renderSection(section: PublicCourseSection, items: PublicCourseItem[]):
           </div>
           <div class="course-item-actions">
             <button type="button" class="course-btn course-btn-primary" data-item-id="${escapeAttr(item.id)}" ${locked || item.missing || item.archived || !item.launchPath ? "disabled" : ""}>
-              ${locked ? "Locked" : done ? "Review" : "Start"}
+              ${completedLocked ? "Completed" : locked ? "Locked" : done ? "Review" : "Start"}
             </button>
           </div>
         </article>
@@ -806,6 +821,14 @@ window.addEventListener("message", (ev) => {
   if (!courseMessageMatchesActiveItem(ev.data)) return;
   if (!ev.data.courseItemId) return;
   if (activeItem?.kind === "experience") return;
+  if (
+    activeItem?.kind === "module" &&
+    activeItem.moduleType &&
+    AUTO_COMPLETE_MODULE_TYPES.has(activeItem.moduleType)
+  ) {
+    void completeActiveItem(ev.data.outcomes || {});
+    return;
+  }
   showCourseFooter();
 });
 

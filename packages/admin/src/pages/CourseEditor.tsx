@@ -716,6 +716,30 @@ export default function CourseEditor() {
                             }}
                           />
                           {item.iconUrl ? <span className="muted"> ✓</span> : null}
+                          <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={!!item.lockAfterComplete}
+                              onChange={(e) =>
+                                patch((c) => ({
+                                  ...c,
+                                  sections: c.sections.map((s) =>
+                                    s.id === activeSection.id
+                                      ? {
+                                          ...s,
+                                          items: s.items.map((it, j) =>
+                                            j === i
+                                              ? { ...it, lockAfterComplete: e.target.checked || undefined }
+                                              : it,
+                                          ),
+                                        }
+                                      : s,
+                                  ),
+                                }))
+                              }
+                            />
+                            Lock after completion (surveys / one-time items)
+                          </label>
                           {itemWarnings.length > 0 ? (
                             <ul className="muted" style={{ fontSize: "0.8rem", margin: "4px 0 0", paddingLeft: 18, color: "#ffb4b4" }}>
                               {itemWarnings.map((w) => (

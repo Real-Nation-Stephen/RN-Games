@@ -77,6 +77,8 @@ export interface CourseItem {
   experienceId?: string;
   videoUrl?: string;
   videoTitle?: string;
+  /** When true, learners cannot reopen this item after marking it complete once. */
+  lockAfterComplete?: boolean;
 }
 
 export interface CourseSection {
@@ -145,6 +147,7 @@ export interface PublicCourseItem {
   archived?: boolean;
   locked?: boolean;
   lockReason?: string;
+  lockAfterComplete?: boolean;
 }
 
 export interface PublicCourseSection {
@@ -295,6 +298,7 @@ export function normalizeCourseItem(raw: Partial<CourseItem>, index: number): Co
     experienceId: raw.experienceId ? String(raw.experienceId) : undefined,
     videoUrl: raw.videoUrl ? String(raw.videoUrl) : undefined,
     videoTitle: raw.videoTitle ? String(raw.videoTitle) : undefined,
+    lockAfterComplete: raw.lockAfterComplete === true,
   };
 }
 
@@ -464,6 +468,7 @@ export function resolvePublicCourseItems(
               : undefined,
           missing: !mod,
           archived: !!mod?.archived,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
         continue;
       }
@@ -486,6 +491,7 @@ export function resolvePublicCourseItems(
           previewToken: needsPreview ? exp.previewToken : undefined,
           missing: !exp || blockedOnLive,
           archived: !!exp?.archived,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
         continue;
       }
@@ -501,6 +507,7 @@ export function resolvePublicCourseItems(
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
           launchPath: item.videoUrl,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
       }
     }

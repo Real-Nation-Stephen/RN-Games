@@ -90,6 +90,7 @@ function normalizeCourseItem(raw, index) {
     experienceId: raw.experienceId ? String(raw.experienceId) : undefined,
     videoUrl: raw.videoUrl ? String(raw.videoUrl) : undefined,
     videoTitle: raw.videoTitle ? String(raw.videoTitle) : undefined,
+    lockAfterComplete: raw.lockAfterComplete === true,
   };
 }
 
@@ -265,6 +266,7 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
               : undefined,
           missing: !mod,
           archived: !!mod?.archived,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
         continue;
       }
@@ -287,6 +289,7 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
           previewToken: needsPreview ? exp.previewToken : undefined,
           missing: !exp || blockedOnLive,
           archived: !!exp?.archived,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
         continue;
       }
@@ -302,6 +305,7 @@ export function resolvePublicCourseItems(course, moduleById, experienceById, opt
           iconUrl: item.iconUrl,
           iconEmoji: item.iconEmoji,
           launchPath: item.videoUrl,
+          lockAfterComplete: item.lockAfterComplete === true,
         });
       }
     }
