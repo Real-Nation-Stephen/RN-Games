@@ -65,7 +65,11 @@ export function courseModeActive(): boolean {
 }
 
 export function flowNextLabel(): string {
-  return new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Continue";
+  const params = new URLSearchParams(window.location.search);
+  if (isModuleItemCompleteFromSearch()) {
+    return params.get("endCta")?.trim() || "Mark complete & continue";
+  }
+  return params.get("nextStepLabel")?.trim() || "Continue";
 }
 
 export function flowModeActive(): boolean {

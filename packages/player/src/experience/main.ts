@@ -213,11 +213,12 @@ function forwardCourseFooterSignal(data: Record<string, unknown>) {
 function notifyCourseStepPhase() {
   const courseCtx = courseContext();
   if (!embeddedInCourse() || !courseCtx) return;
+  const step = currentStep();
   forwardToCourseParent({
     type: FLOW_EXPERIENCE_STEP_CHANGED,
     courseSessionId: courseCtx.sessionId,
     courseItemId: courseCtx.itemId,
-    isLastFlowStep: isLastExperienceStep(),
+    isLastFlowStep: isLastExperienceStep() || isModuleItemCompleteOverride(step?.overrides),
   });
 }
 
@@ -368,12 +369,16 @@ function stepFrameUrl(step: PublicStep): string {
   if (!session || !experience) return "";
   const base = componentPublicPath(step.moduleType, step.moduleSlug);
   const isLastStep = session.currentStepIndex >= experience.steps.length - 1;
+  const moduleComplete = isModuleItemCompleteOverride(step.overrides);
+  const useEndScreen = isLastStep || moduleComplete;
   let path = appendFlowQuery(base, {
     sessionId: session.sessionId,
     experienceId: experience.id,
     nodeId: step.id,
-    nextStepLabel: nextStepButtonLabel(),
-    endScreen: isLastStep ? step.overrides?.endScreen : undefined,
+    nextStepLabel: moduleComplete
+      ? step.overrides?.endScreen?.primaryCtaLabel?.trim() || "Mark complete & continue"
+      : nextStepButtonLabel(),
+    endScreen: useEndScreen ? step.overrides?.endScreen : undefined,
   });
   const courseCtx = courseContext();
   if (courseCtx) {
@@ -492,7 +497,6 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
   if (session.completedAt) return;
 
   const step = currentStep();
-  const showCourseFooterOnComplete = embeddedInCourse() && isModuleItemCompleteOverride(step?.overrides);
   advancing = true;
   updateShellContinue();
 
@@ -507,17 +511,6 @@ async function onStepComplete(outcomes: Record<string, unknown> = {}, fromShell 
 
   try {
     await advanceSession(outcomes);
-    if (showCourseFooterOnComplete) {
-      const courseCtx = courseContext();
-      if (courseCtx) {
-        forwardToCourseParent({
-          type: FLOW_END_SCREEN_READY,
-          courseSessionId: courseCtx.sessionId,
-          courseItemId: courseCtx.itemId,
-          isLastFlowStep: true,
-        });
-      }
-    }
     renderStep();
   } catch (e) {
     showError(e instanceof Error ? e.message : "Could not advance");

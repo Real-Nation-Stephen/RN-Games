@@ -21,6 +21,7 @@ import {
   wirePageLogo,
   wirePoweredBy,
 } from "../page-module/shared";
+import { isModuleItemCompleteFromSearch } from "@rngames/shared";
 import { renderLandingBlocks } from "../page-module/blocks";
 
 const els = {
@@ -47,9 +48,14 @@ function flowEndCopyFromQuery(): { headline: string; body: string; cta: string }
 }
 
 function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock[] {
-  if (!flowMode || !screen.flowCompleteOverride) return screen.blocks;
+  const moduleItemComplete = isModuleItemCompleteFromSearch();
+  if (!flowMode || (!screen.flowCompleteOverride && !moduleItemComplete)) return screen.blocks;
 
   const end = flowEndCopyFromQuery();
+  if (moduleItemComplete && !end.headline && !end.body && !end.cta) {
+    return screen.blocks;
+  }
+
   const blocks: LandingBlock[] = [];
 
   if (end.headline) {
@@ -149,7 +155,9 @@ function mountLanding(cfg: LandingRecord) {
     if (!screen) return;
     activeScreenId = screen.id;
 
-    const onOverrideScreen = flowMode && !!screen.flowCompleteOverride;
+    const moduleItemComplete = isModuleItemCompleteFromSearch();
+    const onOverrideScreen =
+      flowMode && (!!screen.flowCompleteOverride || moduleItemComplete);
 
     const screenCfg: LandingRecord = {
       ...cfg,
