@@ -216,12 +216,14 @@ function postToCourseShell(data: Record<string, unknown>) {
   }
 }
 
-export function notifyEndScreenReady() {
+export function notifyEndScreenReady(opts?: { isLastFlowStep?: boolean }) {
   const ctx = courseContextFromPage();
   if (!ctx) return;
   const payload = {
     type: FLOW_END_SCREEN_READY,
-    isLastFlowStep: isLastCourseStepFromSearch() || isModuleItemCompleteFromSearch(),
+    isLastFlowStep:
+      opts?.isLastFlowStep ??
+      (isLastCourseStepFromSearch() || isModuleItemCompleteFromSearch()),
   };
   postToCourseShell(payload);
   if (window.parent && window.parent !== window) {

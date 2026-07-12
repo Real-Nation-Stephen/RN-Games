@@ -370,6 +370,11 @@ function stepFrameUrl(step: PublicStep): string {
   const base = componentPublicPath(step.moduleType, step.moduleSlug);
   const isLastStep = session.currentStepIndex >= experience.steps.length - 1;
   const moduleComplete = isModuleItemCompleteOverride(step.overrides);
+  const hasEndScreenCopy = !!(
+    step.overrides?.endScreen?.headline?.trim() ||
+    step.overrides?.endScreen?.body?.trim() ||
+    step.overrides?.endScreen?.primaryCtaLabel?.trim()
+  );
   const useEndScreen = isLastStep || moduleComplete;
   let path = appendFlowQuery(base, {
     sessionId: session.sessionId,
@@ -389,7 +394,9 @@ function stepFrameUrl(step: PublicStep): string {
       itemId: courseCtx.itemId,
     });
     if (isLastStep) path = appendCourseLastStepQuery(path);
-    if (isModuleItemCompleteOverride(step.overrides)) path = appendModuleItemCompleteQuery(path);
+    if (moduleComplete || (isLastStep && hasEndScreenCopy)) {
+      path = appendModuleItemCompleteQuery(path);
+    }
   }
   if (path.startsWith("http")) return path;
   return `${window.location.origin}${path}`;

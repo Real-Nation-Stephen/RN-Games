@@ -146,6 +146,19 @@ function resolveOverrideState(
   return shouldShowFlowEndBlocks(screen, flowMode, moduleCompleteView);
 }
 
+/** True when this landing should surface the course "Mark complete & continue" bar. */
+function courseFooterIntent(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+): boolean {
+  if (!flowMode || !isInCourseEmbed()) return false;
+  if (isModuleItemCompleteFromSearch()) return true;
+  if (screen.flowCompleteOverride || moduleCompleteView) return true;
+  const end = flowEndCopyFromQuery();
+  return !!(end.headline || end.body || end.cta);
+}
+
 function maybeNotifyCourseFooter(
   screen: LandingScreen,
   flowMode: boolean,
@@ -153,21 +166,29 @@ function maybeNotifyCourseFooter(
   screens: LandingScreen[],
   activeScreenId: string,
 ) {
-  if (!isInCourseEmbed() || !isModuleItemCompleteFromSearch()) return;
+  if (!courseFooterIntent(screen, flowMode, moduleCompleteView)) return;
   if (resolveOverrideState(screen, flowMode, moduleCompleteView)) {
-    notifyEndScreenReady();
+    notifyEndScreenReady({ isLastFlowStep: true });
     return;
   }
   if (!moduleCompleteView && isLastContentScreen(activeScreenId, screens)) {
-    notifyEndScreenReady();
+    notifyEndScreenReady({ isLastFlowStep: true });
   }
 }
 
 function finishCourseOverride(cfg: LandingRecord, label: string) {
   engageStep();
-  notifyEndScreenReady();
+  notifyEndScreenReady({ isLastFlowStep: true });
   notifyCourseItemComplete({ gameId: cfg.id, "landing.cta": label });
   onContinue(cfg, label);
+}
+
+function shouldFinishAsCourseItem(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+): boolean {
+  return isInCourseEmbed() && courseFooterIntent(screen, flowMode, moduleCompleteView);
 }
 
 function resetLandingScroll() {
@@ -222,7 +243,7 @@ function mountLanding(cfg: LandingRecord) {
         const currentScreen = screens.find((s) => s.id === activeScreenId) || screens[0];
         const onOverride = resolveOverrideState(currentScreen, flowMode, moduleCompleteView);
 
-        if (onOverride && isInCourseEmbed()) {
+        if (onOverride && shouldFinishAsCourseItem(currentScreen, flowMode, moduleCompleteView)) {
           finishCourseOverride(cfg, label);
           return;
         }
