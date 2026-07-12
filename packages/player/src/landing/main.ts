@@ -47,12 +47,37 @@ function flowEndCopyFromQuery(): { headline: string; body: string; cta: string }
   };
 }
 
-function blocksForScreen(screen: LandingScreen, flowMode: boolean): LandingBlock[] {
-  const moduleItemComplete = isModuleItemCompleteFromSearch();
-  if (!flowMode || (!screen.flowCompleteOverride && !moduleItemComplete)) return screen.blocks;
+/** Experience end-screen copy replaces blocks only on the dedicated override view. */
+function shouldShowFlowEndBlocks(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+): boolean {
+  if (!flowMode) return false;
+  if (screen.flowCompleteOverride) return true;
+  return moduleCompleteView && isModuleItemCompleteFromSearch();
+}
+
+function isLastContentScreen(activeScreenId: string, screens: LandingScreen[]): boolean {
+  const override = screens.find((s) => s.flowCompleteOverride);
+  const activeIdx = screens.findIndex((s) => s.id === activeScreenId);
+  if (activeIdx < 0) return false;
+  if (override) {
+    const overrideIdx = screens.findIndex((s) => s.id === override.id);
+    return overrideIdx >= 0 && activeIdx === overrideIdx - 1;
+  }
+  return activeIdx === screens.length - 1;
+}
+
+function blocksForScreen(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+): LandingBlock[] {
+  if (!shouldShowFlowEndBlocks(screen, flowMode, moduleCompleteView)) return screen.blocks;
 
   const end = flowEndCopyFromQuery();
-  if (moduleItemComplete && !end.headline && !end.body && !end.cta) {
+  if (isModuleItemCompleteFromSearch() && !screen.flowCompleteOverride && !end.headline && !end.body && !end.cta) {
     return screen.blocks;
   }
 
@@ -141,6 +166,7 @@ function mountLanding(cfg: LandingRecord) {
   const flowMode = flowModeActive();
   const screens = getVisibleLandingScreens(cfg, flowMode);
   let activeScreenId = screens[0]?.id || "";
+  let moduleCompleteView = false;
 
   window.addEventListener("message", (ev) => {
     if (ev.data?.type === FLOW_CONTENT_REVEAL) revealContent();
@@ -155,13 +181,11 @@ function mountLanding(cfg: LandingRecord) {
     if (!screen) return;
     activeScreenId = screen.id;
 
-    const moduleItemComplete = isModuleItemCompleteFromSearch();
-    const onOverrideScreen =
-      flowMode && (!!screen.flowCompleteOverride || moduleItemComplete);
+    const onOverrideScreen = shouldShowFlowEndBlocks(screen, flowMode, moduleCompleteView);
 
     const screenCfg: LandingRecord = {
       ...cfg,
-      blocks: blocksForScreen(screen, flowMode),
+      blocks: blocksForScreen(screen, flowMode, moduleCompleteView),
     };
 
     const hasPrimary = renderLandingBlocks(els.blocks, screenCfg, {
@@ -188,6 +212,18 @@ function mountLanding(cfg: LandingRecord) {
             renderScreen();
             return;
           }
+        }
+        if (
+          flowMode &&
+          isModuleItemCompleteFromSearch() &&
+          !override &&
+          !moduleCompleteView &&
+          isLastContentScreen(activeScreenId, screens)
+        ) {
+          moduleCompleteView = true;
+          engageStep();
+          renderScreen();
+          return;
         }
         onContinue(cfg, label);
       },
