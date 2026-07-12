@@ -138,9 +138,36 @@ function onContinue(cfg: LandingRecord, label: string) {
   completeStep({ gameId: cfg.id, "landing.cta": label });
 }
 
+function resolveOverrideState(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+): boolean {
+  return shouldShowFlowEndBlocks(screen, flowMode, moduleCompleteView);
+}
+
+function maybeNotifyCourseFooter(
+  screen: LandingScreen,
+  flowMode: boolean,
+  moduleCompleteView: boolean,
+  screens: LandingScreen[],
+  activeScreenId: string,
+) {
+  if (!isInCourseEmbed() || !isModuleItemCompleteFromSearch()) return;
+  if (resolveOverrideState(screen, flowMode, moduleCompleteView)) {
+    notifyEndScreenReady();
+    return;
+  }
+  if (!moduleCompleteView && isLastContentScreen(activeScreenId, screens)) {
+    notifyEndScreenReady();
+  }
+}
+
 function finishCourseOverride(cfg: LandingRecord, label: string) {
-  onContinue(cfg, label);
+  engageStep();
+  notifyEndScreenReady();
   notifyCourseItemComplete({ gameId: cfg.id, "landing.cta": label });
+  onContinue(cfg, label);
 }
 
 function resetLandingScroll() {
@@ -181,8 +208,6 @@ function mountLanding(cfg: LandingRecord) {
     if (!screen) return;
     activeScreenId = screen.id;
 
-    const onOverrideScreen = shouldShowFlowEndBlocks(screen, flowMode, moduleCompleteView);
-
     const screenCfg: LandingRecord = {
       ...cfg,
       blocks: blocksForScreen(screen, flowMode, moduleCompleteView),
@@ -194,11 +219,14 @@ function mountLanding(cfg: LandingRecord) {
       deferEntranceAnimation: cfg.pageSettings.entranceAnimation !== false && !contentRevealed,
       onEngage: () => engageStep(),
       onPrimaryAction: (label) => {
-        if (onOverrideScreen && isInCourseEmbed()) {
+        const currentScreen = screens.find((s) => s.id === activeScreenId) || screens[0];
+        const onOverride = resolveOverrideState(currentScreen, flowMode, moduleCompleteView);
+
+        if (onOverride && isInCourseEmbed()) {
           finishCourseOverride(cfg, label);
           return;
         }
-        if (onOverrideScreen) {
+        if (onOverride) {
           onContinue(cfg, label);
           return;
         }
@@ -239,7 +267,7 @@ function mountLanding(cfg: LandingRecord) {
       els.blocks.classList.add("landing-await-reveal");
     }
 
-    if (onOverrideScreen && isInCourseEmbed()) notifyEndScreenReady();
+    maybeNotifyCourseFooter(screen, flowMode, moduleCompleteView, screens, activeScreenId);
 
     els.app.hidden = false;
     if (flowMode || isInCourseEmbed()) notifyStepContentReady();
