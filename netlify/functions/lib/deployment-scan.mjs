@@ -7,19 +7,7 @@ import { normalizeCourseRecord, flattenCourseItems } from "./course.mjs";
 import { normalizeExperienceRecord, graphToLinearSteps } from "./experience.mjs";
 import { normalizeDeploymentMeasurement } from "./measurement.mjs";
 import { getComponentMetadata } from "./measurement-registry.mjs";
-
-function detectFormFields(config) {
-  if (!Array.isArray(config?.fields)) return [];
-  return config.fields.map((f) => String(f?.id || "")).filter(Boolean);
-}
-
-function detectEnabledFields(componentType, config) {
-  if (componentType === "form" || componentType === "email-signup") {
-    return detectFormFields(config);
-  }
-  if (config?.reportingEnabled === true) return ["reportingEnabled"];
-  return [];
-}
+import { detectEnabledRegistryFieldIds } from "./field-detection.mjs";
 
 function collectionAllowed(mode, dataClass) {
   if (mode === "diagnostic") return true;
@@ -45,7 +33,9 @@ export function resolveEffectiveMeasurementJs(input) {
       continue;
     }
 
-    const enabledFieldIds = new Set(detectEnabledFields(instance.componentType, instance.config));
+    const enabledFieldIds = new Set(
+      detectEnabledRegistryFieldIds({ componentType: instance.componentType, config: instance.config || {} }),
+    );
 
     for (const field of meta.fields || []) {
       const enabled =

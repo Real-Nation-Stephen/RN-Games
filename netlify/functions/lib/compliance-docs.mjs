@@ -1,11 +1,37 @@
 const DISCLAIMER =
   "This document is generated from platform configuration facts detected at the time of generation. It does not constitute legal advice. A qualified privacy professional should review before publication.";
 
-export function generateComplianceDocuments(deployment, effective, findings, complianceStatus) {
-  const hasPersonal = effective.fields.some(
-    (f) => f.collect && (f.dataClass === "personal" || f.dataClass === "pseudonymous"),
+function hasEmailCollection(deployment) {
+  return deployment.components.some((c) => {
+    if (c.componentType !== "form" && c.componentType !== "email-signup") return false;
+    if (c.componentType === "email-signup") return true;
+    const fields = c.config?.fields;
+    if (!Array.isArray(fields)) return false;
+    return fields.some(
+      (f) => f?.type === "email" || f?.id === "email" || String(f?.label || "").toLowerCase().includes("email"),
+    );
+  });
+}
+
+function getConfiguredPersonalFields(effective) {
+  return effective.fields.filter(
+    (f) =>
+      (f.dataClass === "personal" || f.dataClass === "pseudonymous") &&
+      f.reason !== "Not enabled in component configuration.",
   );
-  const collectedFields = effective.fields.filter((f) => f.collect);
+}
+
+function deploymentProcessesPersonalData(deployment, effective) {
+  if (getConfiguredPersonalFields(effective).length > 0) return true;
+  if (hasEmailCollection(deployment)) return true;
+  return deployment.components.some((c) =>
+    ["leaderboard", "certificate", "pinboard"].includes(c.componentType),
+  );
+}
+
+export function generateComplianceDocuments(deployment, effective, findings, complianceStatus) {
+  const hasPersonal = deploymentProcessesPersonalData(deployment, effective);
+  const collectedFields = getConfiguredPersonalFields(effective);
   const generatedAt = new Date().toISOString();
 
   const privacyPage = hasPersonal
@@ -14,7 +40,7 @@ export function generateComplianceDocuments(deployment, effective, findings, com
 
   const checklist = buildChecklist(deployment, findings, complianceStatus, generatedAt);
   const snippet = hasPersonal
-    ? `This experience may process: ${collectedFields.map((f) => f.fieldId).join(", ") || "activity data"}. See the hosted privacy page for details.`
+    ? `This experience may process personal data including: ${collectedFields.map((f) => f.fieldId).join(", ") || "names, email addresses, or survey responses"}. See the hosted privacy page for details.`
     : "This experience is configured not to collect personal or pseudonymous data beyond operational session identifiers.";
 
   return {
@@ -48,8 +74,13 @@ If you change form fields, email collection, or other component settings, regene
 
 function buildPersonalDataPrivacyPage(deployment, collectedFields, generatedAt) {
   const fieldLines = collectedFields.length
-    ? collectedFields.map((f) => `- **${f.fieldId}** (${f.dataClass}) — from ${f.componentType}: ${f.reason}`).join("\n")
-    : "- No specific fields detected; review component configuration.";
+    ? collectedFields
+        .map(
+          (f) =>
+            `- **${f.fieldId}** (${f.dataClass}) — from ${f.componentType}${f.title ? ` (“${f.title}”)` : ""}: ${f.reason}`,
+        )
+        .join("\n")
+    : "- Personal or survey data may be collected via forms, email signup, or participant-entered names. Review component configuration for details.";
 
   return `# Privacy notice — ${deployment.title}
 

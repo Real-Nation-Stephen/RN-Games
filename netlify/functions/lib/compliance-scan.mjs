@@ -32,8 +32,11 @@ export function runComplianceScan(deployment, effective, context = {}) {
   const findings = [];
   const childrenEnabled = !!context.childrenEnabled;
   const hasPersonal =
-    effective.fields.some((f) => f.collect && (f.dataClass === "personal" || f.dataClass === "pseudonymous")) ||
-    hasEmailCollection(deployment);
+    effective.fields.some(
+      (f) =>
+        (f.dataClass === "personal" || f.dataClass === "pseudonymous") &&
+        f.reason !== "Not enabled in component configuration.",
+    ) || hasEmailCollection(deployment);
 
   const add = (ruleId, severity, message, recommendation, blocksPublish = false) => {
     findings.push({
@@ -73,8 +76,11 @@ export function runComplianceScan(deployment, effective, context = {}) {
       add("PHOTO_PUBLIC_001", SEVERITY.review_required, "Photo upload is enabled on pinboard.", "Confirm publication consent and moderation workflow.");
     }
     if (c.componentType === "email-signup") {
-      const items = c.config?.consentItems || c.config?.items;
-      if (!Array.isArray(items) || !items.length) {
+      const hasOptIn =
+        (Array.isArray(c.config?.consentItems) && c.config.consentItems.length) ||
+        (Array.isArray(c.config?.items) && c.config.items.length) ||
+        (c.config?.consentRequired && c.config?.consentText);
+      if (!hasOptIn) {
         add("EMAIL_SIGNUP_OPTIN_002", SEVERITY.high_risk, "Email Signup has no explicit opt-in state.", "Add an explicit opt-in and record its wording/version.");
       }
     }

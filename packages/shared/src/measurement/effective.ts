@@ -1,5 +1,6 @@
 import { getComponentMetadata } from "./registry.js";
 import { deploymentIdFor } from "./deployment.js";
+import { detectEnabledRegistryFieldIds } from "./field-detection.js";
 import type {
   DeploymentMeasurement,
   EffectiveFieldState,
@@ -8,21 +9,11 @@ import type {
   ScannedComponentInstance,
 } from "./types.js";
 
-function detectFormFields(config: Record<string, unknown>): string[] {
-  const fields = config.fields;
-  if (!Array.isArray(fields)) return [];
-  return fields
-    .map((f) => (f && typeof f === "object" ? String((f as { id?: string }).id || "") : ""))
-    .filter(Boolean);
-}
-
 function detectEnabledFields(instance: ScannedComponentInstance): string[] {
-  const { componentType, config } = instance;
-  if (componentType === "form" || componentType === "email-signup") {
-    return detectFormFields(config);
-  }
-  if (config.reportingEnabled === true) return ["reportingEnabled"];
-  return [];
+  return detectEnabledRegistryFieldIds({
+    componentType: instance.componentType,
+    config: instance.config,
+  });
 }
 
 function collectionAllowed(mode: DeploymentMeasurement["collectionMode"], dataClass: string): boolean {

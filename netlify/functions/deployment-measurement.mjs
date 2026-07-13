@@ -1,6 +1,7 @@
 import { connectLambda } from "@netlify/blobs";
 import { requireAuth } from "./lib/auth.mjs";
 import { scanDeployment, resolveEffectiveMeasurementJs } from "./lib/deployment-scan.mjs";
+import { detectEnabledRegistryFieldIds } from "./lib/field-detection.mjs";
 import { runComplianceScan, calculateComplianceStatus } from "./lib/compliance-scan.mjs";
 import { generateComplianceDocuments } from "./lib/compliance-docs.mjs";
 import { queryDeploymentMetrics, metricsDeploymentId } from "./lib/measurement-metrics.mjs";
@@ -32,7 +33,10 @@ async function buildDeploymentView(kind, id) {
     instanceId: c.instanceId,
     title: c.title,
     reportingEnabled: !!c.config?.reportingEnabled,
-    fieldCount: Array.isArray(c.config?.fields) ? c.config.fields.length : 0,
+    fieldCount: detectEnabledRegistryFieldIds({
+      componentType: c.componentType,
+      config: c.config || {},
+    }).length,
   }));
   return { deployment, effective, inventory };
 }

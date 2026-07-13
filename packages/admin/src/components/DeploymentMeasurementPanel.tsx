@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CollapsibleSection } from "./CollapsibleSection";
 import type { DeploymentMeasurement, EffectiveMeasurementProfile } from "@rngames/shared";
 import { defaultDeploymentMeasurement } from "@rngames/shared";
 import { apiGet, apiSend } from "../api";
@@ -163,9 +164,14 @@ export function DeploymentMeasurementPanel({ kind, recordId, measurement, onMeas
       return !row.id.startsWith("course");
     }) || [];
 
+  const panelSummary = [
+    m.trackingEnabled !== false ? "Tracking on" : "Tracking off",
+    m.collectionMode,
+    m.reporting?.enabled ? "Reporting on" : "Reporting off",
+  ].join(" · ");
+
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <h3 style={{ marginTop: 0 }}>Measurement &amp; Reporting</h3>
+    <CollapsibleSection title="Measurement & Reporting" summary={panelSummary} defaultOpen={false}>
       <p className="muted" style={{ fontSize: "0.85rem", marginTop: 0 }}>
         One deployment-level configuration. Component settings feed the computed profile below — they are not edited here.
       </p>
@@ -487,6 +493,6 @@ export function DeploymentMeasurementPanel({ kind, recordId, measurement, onMeas
           )}
         </>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }
