@@ -109,7 +109,7 @@ export function runComplianceScan(deployment, effective, context = {}) {
 function getComponentMetadataExists(componentType) {
   const known = new Set([
     "course", "flow", "form", "email-signup", "leaderboard", "certificate", "pinboard",
-    "mini-quiz", "landing", "runner", "catch", "spinning-wheel", "badge", "quiz",
+    "mini-quiz", "landing", "runner", "catch", "matching", "spinning-wheel", "badge", "quiz",
     "scratcher", "flip-cards", "consent", "redemption",
   ]);
   return known.has(componentType);

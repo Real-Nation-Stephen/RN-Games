@@ -35,6 +35,13 @@ export const COMPONENT_METADATA_REGISTRY = {
   runner: { componentType: "runner", fields: [{ id: "score", dataClass: "behavioural" }] },
   catch: { componentType: "catch", fields: [{ id: "score", dataClass: "behavioural" }] },
   "spinning-wheel": { componentType: "spinning-wheel", fields: [{ id: "prize", dataClass: "behavioural" }] },
+  matching: {
+    componentType: "matching",
+    fields: [
+      { id: "matchedPairs", dataClass: "behavioural" },
+      { id: "moves", dataClass: "behavioural" },
+    ],
+  },
   badge: { componentType: "badge", fields: [] },
 };
 

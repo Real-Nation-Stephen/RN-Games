@@ -91,6 +91,7 @@ const INTERACTIVE_FOOTER_MODULE_TYPES = new Set([
   "spinning-wheel",
   "scratcher",
   "catch",
+  "matching",
   "runner",
 ]);
 

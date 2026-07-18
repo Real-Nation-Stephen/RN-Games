@@ -124,7 +124,7 @@ const els = {
 };
 
 /** End-of-game Continue is wired inside the iframe. */
-const AUTO_ADVANCE_TYPES = new Set(["catch", "runner"]);
+const AUTO_ADVANCE_TYPES = new Set(["catch", "runner", "matching"]);
 /** In-game next-step button; no experience shell banner. */
 const NATIVE_FLOW_TYPES = new Set([
   "flip-cards",

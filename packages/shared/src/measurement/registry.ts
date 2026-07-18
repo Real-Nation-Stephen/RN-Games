@@ -92,6 +92,15 @@ export const COMPONENT_METADATA_REGISTRY: Record<string, ComponentMetadataContra
     [{ id: "prize", label: "Prize outcome", dataClass: "behavioural", defaultCollect: true, defaultReport: true }],
     ["wheel.spin"],
   ),
+  matching: componentContract(
+    "matching",
+    "Matching game",
+    [
+      { id: "matchedPairs", label: "Matched pairs", dataClass: "behavioural", defaultCollect: true, defaultReport: true },
+      { id: "moves", label: "Moves", dataClass: "behavioural", defaultCollect: true, defaultReport: true },
+    ],
+    ["matching.round_start", "matching.pair_matched", "matching.round_end"],
+  ),
   certificate: componentContract(
     "certificate",
     "Certificate",

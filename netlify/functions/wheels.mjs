@@ -5,6 +5,7 @@ import { emptyPinboardRecord, normalizePinboardRecord } from "./lib/pinboard.mjs
 import { emptyLeaderboardRecord, normalizeLeaderboardRecord } from "./lib/leaderboard.mjs";
 import { emptyCatchRecord, normalizeCatchRecord } from "./lib/catch.mjs";
 import { emptyRunnerRecord, normalizeRunnerRecord } from "./lib/runner.mjs";
+import { emptyMatchingRecord, normalizeMatchingRecord } from "./lib/matching.mjs";
 import {
   emptyPageModuleRecord,
   isPageModuleType,
@@ -297,6 +298,7 @@ export const handler = async (event, context) => {
         if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
         if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
+        if (wheel.gameType === "matching") normalizeMatchingRecord(wheel);
         if (isPageModuleType(wheel.gameType)) Object.assign(wheel, normalizePageModule(wheel));
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
@@ -337,6 +339,7 @@ export const handler = async (event, context) => {
         else if (wheel.gameType === "leaderboard") normalizeLeaderboardRecord(wheel);
         else if (wheel.gameType === "catch") normalizeCatchRecord(wheel);
         else if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
+        else if (wheel.gameType === "matching") normalizeMatchingRecord(wheel);
         else if (
           wheel.gameType !== "scratcher" &&
           wheel.gameType !== "flip-cards" &&
@@ -344,7 +347,8 @@ export const handler = async (event, context) => {
           wheel.gameType !== "pinboard" &&
           wheel.gameType !== "leaderboard" &&
           wheel.gameType !== "catch" &&
-          wheel.gameType !== "runner"
+          wheel.gameType !== "runner" &&
+          wheel.gameType !== "matching"
         ) {
           syncSegmentArrays(wheel);
         }
@@ -356,6 +360,7 @@ export const handler = async (event, context) => {
         const isLeaderboard = body.gameType === "leaderboard";
         const isCatch = body.gameType === "catch";
         const isRunner = body.gameType === "runner";
+        const isMatching = body.gameType === "matching";
         const isPageModule = isPageModuleType(body.gameType);
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
@@ -371,6 +376,8 @@ export const handler = async (event, context) => {
                     ? emptyCatchRecord(id, slugCheck.slug)
                   : isRunner
                     ? emptyRunnerRecord(id, slugCheck.slug)
+                  : isMatching
+                    ? emptyMatchingRecord(id, slugCheck.slug)
                     : isPageModule
                       ? emptyPageModuleRecord(id, slugCheck.slug, body.gameType)
                       : emptyWheelRecord(id, slugCheck.slug);
@@ -425,6 +432,7 @@ export const handler = async (event, context) => {
       const isLeaderboard = existing.gameType === "leaderboard";
       const isCatch = existing.gameType === "catch";
       const isRunner = existing.gameType === "runner";
+      const isMatching = existing.gameType === "matching";
       const isPageModule = isPageModuleType(existing.gameType);
       const isWheel =
         !isPageModule &&
@@ -434,7 +442,8 @@ export const handler = async (event, context) => {
         existing.gameType !== "pinboard" &&
         existing.gameType !== "leaderboard" &&
         existing.gameType !== "catch" &&
-        existing.gameType !== "runner";
+        existing.gameType !== "runner" &&
+        existing.gameType !== "matching";
 
       if (isWheel && existing.reportingEnabled && existing.reportingLockedAt) {
         const schemaKeys = ["segmentCount", "prizes", "segmentOutcome"];
@@ -593,6 +602,35 @@ export const handler = async (event, context) => {
           if (body[k] !== undefined) existing[k] = body[k];
         }
         normalizeRunnerRecord(existing);
+      } else if (isMatching) {
+        const assign = [
+          "title",
+          "clientName",
+          "projectCode",
+          "designCode",
+          "thumbnailUrl",
+          "reportingEnabled",
+          "faviconUrl",
+          "showPoweredBy",
+          "playMode",
+          "pairs",
+          "sharedBack",
+          "layout",
+          "cardChrome",
+          "backgroundHex",
+          "backgrounds",
+          "logoUrl",
+          "logoAlign",
+          "gameplay",
+          "introHeadline",
+          "introBody",
+          "startLabel",
+          "endScreen",
+        ];
+        for (const k of assign) {
+          if (body[k] !== undefined) existing[k] = body[k];
+        }
+        normalizeMatchingRecord(existing);
       } else if (isPageModule) {
         const skip = new Set(["id", "slug", "gameType"]);
         for (const [k, v] of Object.entries(body)) {

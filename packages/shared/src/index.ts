@@ -256,6 +256,25 @@ export {
   type CatchItemVariant,
   type CatchSounds,
 } from "./catch.js";
+export {
+  MATCHING_PAIR_SOFT_WARN,
+  emptyMatchFace,
+  emptyMatchPair,
+  emptyMatching,
+  newMatchId,
+  normalizeMatching,
+  resolveMemoryBack,
+  type MatchFace,
+  type MatchMediaKind,
+  type MatchPair,
+  type MatchingCardChrome,
+  type MatchingEndScreen,
+  type MatchingGameplay,
+  type MatchingLayout,
+  type MatchingPlayMode,
+  type MatchingRecord,
+  type MatchingSharedBack,
+} from "./matching.js";
 
 export const RESERVED_SLUGS = new Set([
   "admin",
@@ -284,6 +303,8 @@ export const RESERVED_SLUGS = new Set([
   "catch",
   /** Runner arcade game (Phase E) */
   "runner",
+  /** Matching / memory game */
+  "matching",
   /** Wave 2 page modules */
   "landing",
   "form",
@@ -295,7 +316,16 @@ export const RESERVED_SLUGS = new Set([
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */
-export type GameType = "spinning-wheel" | "quiz" | "scratcher" | "flip-cards" | "pinboard" | "leaderboard" | "catch" | "runner";
+export type GameType =
+  | "spinning-wheel"
+  | "quiz"
+  | "scratcher"
+  | "flip-cards"
+  | "pinboard"
+  | "leaderboard"
+  | "catch"
+  | "runner"
+  | "matching";
 
 export type QuizPresentation = "frame16x9" | "responsive";
 export type QuizMotion = "static" | "videoSequences";

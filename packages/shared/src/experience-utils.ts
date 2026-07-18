@@ -17,6 +17,8 @@ export function componentPublicPath(moduleType: string, slug: string): string {
       return `/catch/${encodeURIComponent(slug)}`;
     case "runner":
       return `/runner/${encodeURIComponent(slug)}`;
+    case "matching":
+      return `/matching/${encodeURIComponent(slug)}`;
     case "leaderboard":
       return `/leaderboard/${encodeURIComponent(slug)}`;
     case "pinboard":

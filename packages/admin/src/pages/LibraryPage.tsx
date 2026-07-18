@@ -41,6 +41,13 @@ const LIBRARY_TYPES: {
     publicUrl: (w) => `${window.location.origin}/catch/${w.slug}`,
   },
   {
+    gameType: "matching",
+    title: "Matching games",
+    newLabel: "New matching game",
+    editPrefix: "/matching",
+    publicUrl: (w) => `${window.location.origin}/matching/${w.slug}`,
+  },
+  {
     gameType: "runner",
     title: "Runner games",
     newLabel: "New runner game",

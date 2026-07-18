@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Matching game</title>
+    <link rel="stylesheet" href="/src/matching/matching.css" />
+  </head>
+  <body class="matching-game">
+    <div id="match-bg" class="match-bg" aria-hidden="true"></div>
+    <div id="match-app" hidden>
+      <header id="match-banner" class="match-banner" hidden>
+        <img id="match-logo" class="match-logo" alt="" />
+      </header>
+      <div id="match-hud" class="match-hud" hidden>
+        <span id="match-moves">Moves: 0</span>
+        <span id="match-timer" hidden></span>
+        <span id="match-status" class="match-status" aria-live="polite"></span>
+      </div>
+      <div id="match-intro" class="match-panel">
+        <h1 id="match-intro-headline" class="match-headline"></h1>
+        <p id="match-intro-body" class="match-body"></p>
+        <button type="button" id="match-start" class="match-btn"></button>
+      </div>
+      <div id="match-board" class="match-board" hidden role="list"></div>
+      <div id="match-end" class="match-panel" hidden>
+        <h2 id="match-end-headline" class="match-headline"></h2>
+        <p id="match-end-subhead" class="match-body"></p>
+        <p id="match-end-stats" class="match-body"></p>
+        <button type="button" id="match-again" class="match-btn"></button>
+        <button type="button" id="match-flow-continue" class="match-btn match-btn--secondary" hidden>Continue</button>
+      </div>
+    </div>
+    <p id="match-error" class="match-error" hidden></p>
+    <a id="powered-by-rn" class="powered-by-rn" href="https://www.realnation.ie" target="_blank" rel="noopener noreferrer" hidden>
+      <img src="/play/powered-by-real-nation.png" alt="Powered by Real Nation" loading="lazy" />
+    </a>
+    <script type="module" src="/src/matching/main.ts"></script>
+  </body>
+</html>

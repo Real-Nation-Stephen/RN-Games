@@ -19,7 +19,16 @@ export type PickerExperience = {
 type PickerCategory = "pages" | "games" | "data" | "outcomes" | "experiences" | "video";
 
 const PAGE_TYPES = new Set(["landing", "consent", "email-signup"]);
-const GAME_TYPES = new Set(["spinning-wheel", "scratcher", "flip-cards", "catch", "runner", "quiz", "mini-quiz"]);
+const GAME_TYPES = new Set([
+  "spinning-wheel",
+  "scratcher",
+  "flip-cards",
+  "catch",
+  "matching",
+  "runner",
+  "quiz",
+  "mini-quiz",
+]);
 const DATA_TYPES = new Set(["form", "pinboard"]);
 const OUTCOME_TYPES = new Set(["certificate", "badge", "redemption", "leaderboard"]);
 

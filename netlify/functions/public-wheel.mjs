@@ -6,6 +6,7 @@ import { toPublicPinboard } from "./lib/pinboard.mjs";
 import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
 import { toPublicCatch } from "./lib/catch.mjs";
 import { toPublicRunner } from "./lib/runner.mjs";
+import { toPublicMatching } from "./lib/matching.mjs";
 
 const headers = {
   "Content-Type": "application/json",
@@ -171,6 +172,8 @@ export const handler = async (event) => {
                   ? toPublicCatch(doc)
                 : doc.gameType === "runner"
                   ? toPublicRunner(doc)
+                : doc.gameType === "matching"
+                  ? toPublicMatching(doc)
                   : isPageModuleType(doc.gameType)
                     ? toPublicPageModule(doc)
                     : toPublicWheel(doc);

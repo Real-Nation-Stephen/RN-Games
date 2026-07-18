@@ -8,6 +8,7 @@ import FlipCardEditor from "./pages/FlipCardEditor";
 import PinboardEditor from "./pages/PinboardEditor";
 import LeaderboardEditor from "./pages/LeaderboardEditor";
 import CatchEditor from "./pages/CatchEditor";
+import MatchingEditor from "./pages/MatchingEditor";
 import RunnerEditor from "./pages/RunnerEditor";
 import WheelEditor from "./pages/WheelEditor";
 import ExperienceEditor from "./pages/ExperienceEditor";
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/pinboards/:id" element={<PinboardEditor />} />
           <Route path="/leaderboards/:id" element={<LeaderboardEditor />} />
           <Route path="/catch/:id" element={<CatchEditor />} />
+          <Route path="/matching/:id" element={<MatchingEditor />} />
           <Route path="/runner/:id" element={<RunnerEditor />} />
           <Route path="/landing/:id" element={<PageModuleEditor gameType="landing" />} />
           <Route path="/forms/:id" element={<PageModuleEditor gameType="form" />} />

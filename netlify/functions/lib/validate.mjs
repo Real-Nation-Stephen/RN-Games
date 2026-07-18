@@ -16,6 +16,7 @@ export const RESERVED_SLUGS = new Set([
   "leaderboard",
   "catch",
   "runner",
+  "matching",
   "x",
 ]);
 

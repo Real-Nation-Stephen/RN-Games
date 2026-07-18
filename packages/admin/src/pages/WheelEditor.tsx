@@ -96,6 +96,10 @@ export default function WheelEditor() {
         navigate(`/catch/${id}`, { replace: true });
         return;
       }
+      if (data.gameType === "matching") {
+        navigate(`/matching/${id}`, { replace: true });
+        return;
+      }
       setWheel(data);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");

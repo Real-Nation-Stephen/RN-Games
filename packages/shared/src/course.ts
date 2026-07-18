@@ -433,6 +433,7 @@ const MODULE_TYPES = new Set([
   "leaderboard",
   "catch",
   "runner",
+  "matching",
   "landing",
   "form",
   "certificate",

@@ -44,6 +44,20 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
     ],
   },
   {
+    typeId: "matching",
+    category: "game",
+    label: "Matching game",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [
+      { id: "completed", label: "Completed", outcomeKey: "completed", valueType: "boolean" },
+      { id: "matchedPairs", label: "Matched pairs", outcomeKey: "matching.matchedPairs", valueType: "number" },
+      { id: "moves", label: "Moves", outcomeKey: "matching.moves", valueType: "number" },
+      { id: "playMode", label: "Play mode", outcomeKey: "matching.playMode", valueType: "string" },
+    ],
+  },
+  {
     typeId: "quiz",
     category: "data-collection",
     label: "Quiz",

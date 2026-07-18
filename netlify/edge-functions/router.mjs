@@ -19,6 +19,8 @@ const RESERVED = new Set([
   "catch",
   /** Runner arcade game public routes */
   "runner",
+  /** Matching / memory game */
+  "matching",
   /** Wave 2 page modules */
   "landing",
   "form",
@@ -121,6 +123,15 @@ export default async (request, context) => {
     if (seg.length >= 2 && seg[0] === "runner") {
       const slug = seg[1];
       return fetch(new URL(`/play/runner.html?slug=${encodeURIComponent(slug)}`, url));
+    }
+  }
+
+  // Matching game: /matching/:slug
+  if (path === "/matching" || path.startsWith("/matching/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "matching") {
+      const slug = seg[1];
+      return fetch(new URL(`/play/matching.html?slug=${encodeURIComponent(slug)}`, url));
     }
   }
 
