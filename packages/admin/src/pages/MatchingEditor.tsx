@@ -166,6 +166,7 @@ export default function MatchingEditor() {
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const patch = (fn: (d: MatchingRecord) => MatchingRecord) => setDoc((d) => (d ? fn(d) : d));
 
@@ -391,6 +392,48 @@ export default function MatchingEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Round deal</h3>
+        <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
+          Deck has {doc.pairs.length} pair{doc.pairs.length === 1 ? "" : "s"}. Each round deals a random subset; pairs
+          are not repeated until every pair in the deck has been used.
+        </p>
+        <label className="field">
+          Pairs dealt per round
+          <input
+            type="number"
+            min={1}
+            max={Math.max(1, doc.pairs.length)}
+            value={doc.gameplay.pairsDealt}
+            onChange={(e) =>
+              patch((d) => ({
+                ...d,
+                gameplay: {
+                  ...d.gameplay,
+                  pairsDealt: Math.min(
+                    d.pairs.length,
+                    Math.max(1, Number(e.target.value) || 1),
+                  ),
+                },
+              }))
+            }
+          />
+        </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+          <input
+            type="checkbox"
+            checked={doc.gameplay.shuffle}
+            onChange={(e) =>
+              patch((d) => ({
+                ...d,
+                gameplay: { ...d.gameplay, shuffle: e.target.checked },
+              }))
+            }
+          />
+          Shuffle tile positions on the board
+        </label>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Container chrome</h3>
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
@@ -519,11 +562,26 @@ export default function MatchingEditor() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Live preview</h3>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <button type="button" className="btn btn-primary" onClick={() => pushPreview()}>
+            Refresh preview
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setPreviewKey((k) => k + 1);
+            }}
+          >
+            Reload iframe
+          </button>
+        </div>
         <iframe
+          key={previewKey}
           ref={iframeRef}
           title="Matching preview"
           src={`/play/matching.html?preview=1`}
-          style={{ width: "100%", height: 520, border: "1px solid var(--rn-border)", borderRadius: 8 }}
+          style={{ width: "100%", height: 560, border: "1px solid var(--rn-border)", borderRadius: 8 }}
           onLoad={() => pushPreview()}
         />
       </div>

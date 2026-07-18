@@ -2,6 +2,7 @@ import {
   normalizeMatching,
   resolveMemoryBack,
   type MatchFace,
+  type MatchPair,
   type MatchingRecord,
 } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
@@ -42,6 +43,7 @@ const els = {
 
 let config: MatchingRecord | null = null;
 let tiles: Tile[] = [];
+let roundPairCount = 0;
 let selectedId: string | null = null;
 let locked = false;
 let moves = 0;
@@ -50,6 +52,9 @@ let startedAt = 0;
 let timerId: number | null = null;
 let engaged = false;
 let dragId: string | null = null;
+let finished = false;
+const revealedTemp = new Set<string>();
+const isPreview = () => params().get("preview") === "1";
 
 function params() {
   return new URLSearchParams(window.location.search);
@@ -144,9 +149,62 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function buildTiles(c: MatchingRecord): Tile[] {
+function dealKey(gameId: string) {
+  return `matching-deal-queue:${gameId}`;
+}
+
+function loadDealQueue(gameId: string): string[] {
+  try {
+    const raw = sessionStorage.getItem(dealKey(gameId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDealQueue(gameId: string, queue: string[]) {
+  try {
+    sessionStorage.setItem(dealKey(gameId), JSON.stringify(queue));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearDealQueue(gameId: string) {
+  try {
+    sessionStorage.removeItem(dealKey(gameId));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Draw the next round of pairs without repeating until the full deck has been dealt. */
+function dealPairsForRound(c: MatchingRecord): MatchPair[] {
+  const deck = c.pairs;
+  const n = Math.max(1, Math.min(c.gameplay.pairsDealt, deck.length));
+  const byId = new Map(deck.map((p) => [p.id, p]));
+  let queue = loadDealQueue(c.id).filter((id) => byId.has(id));
+
+  if (queue.length < n) {
+    const inQueue = new Set(queue);
+    const refill = shuffle(deck.map((p) => p.id).filter((id) => !inQueue.has(id)));
+    queue = [...queue, ...refill];
+    if (queue.length < n) {
+      // Deck smaller than deal size shouldn't happen after clamp; refill from all.
+      queue = shuffle(deck.map((p) => p.id));
+    }
+  }
+
+  const dealtIds = queue.splice(0, n);
+  saveDealQueue(c.id, queue);
+  return dealtIds.map((id) => byId.get(id)!).filter(Boolean);
+}
+
+function buildTiles(c: MatchingRecord, pairs: MatchPair[]): Tile[] {
   const out: Tile[] = [];
-  for (const pair of c.pairs) {
+  for (const pair of pairs) {
     const back = c.playMode === "memory" ? resolveMemoryBack(c, pair) : undefined;
     out.push({
       id: `${pair.id}-a`,
@@ -179,8 +237,6 @@ function setStatus(msg: string) {
   els.status.textContent = msg;
 }
 
-let finished = false;
-
 function updateHud() {
   els.moves.textContent = `Moves: ${moves}`;
   if (config?.gameplay.timerSec) {
@@ -191,11 +247,45 @@ function updateHud() {
   }
 }
 
+function fitTileSizes(tileCount: number, cols: number) {
+  if (!config) return;
+  const rows = Math.max(1, Math.ceil(tileCount / cols));
+  const gap = config.layout.gapPx;
+  const hudH = els.hud.hidden ? 0 : els.hud.getBoundingClientRect().height;
+  const bannerH = els.banner.hidden ? 0 : els.banner.getBoundingClientRect().height;
+  const pad = 32;
+  const availW = Math.max(160, els.app.clientWidth - pad);
+  const availH = Math.max(
+    180,
+    window.innerHeight - hudH - bannerH - pad - (isPreview() ? 24 : 48),
+  );
+  const cellW = Math.floor((availW - gap * (cols - 1)) / cols);
+  const cellH = Math.floor((availH - gap * (rows - 1)) / rows);
+  const max = config.layout.tileMaxPx;
+  const min = config.layout.tileMinPx;
+  // Prefer filling the viewport; allow wide cards for text-heavy art.
+  let tileW = Math.min(cellW, max);
+  let tileH = Math.min(cellH, max);
+  tileW = Math.max(min, tileW);
+  tileH = Math.max(min, Math.min(tileH, Math.round(tileW * 1.35)));
+  // If height is the tighter constraint, scale width down to keep readable aspect.
+  if (tileH < tileW * 0.75) {
+    tileW = Math.max(min, Math.round(tileH / 0.75));
+  }
+  els.board.style.setProperty("--match-tile-w", `${tileW}px`);
+  els.board.style.setProperty("--match-tile-h", `${tileH}px`);
+  els.board.style.setProperty(
+    "--match-board-w",
+    `${cols * tileW + gap * (cols - 1)}px`,
+  );
+}
+
 function renderBoard() {
   if (!config) return;
   const n = tiles.length;
   const cols = colsFor(n, config.layout.columns);
   els.board.style.setProperty("--match-cols", String(cols));
+  fitTileSizes(n, cols);
   els.board.innerHTML = "";
   const memory = config.playMode === "memory";
 
@@ -211,11 +301,7 @@ function renderBoard() {
     btn.innerHTML = faceContent(displayFace, !showFace && memory);
     btn.setAttribute(
       "aria-label",
-      tile.matched
-        ? "Matched"
-        : showFace
-          ? faceLabel(tile.face)
-          : "Hidden card",
+      tile.matched ? "Matched" : showFace ? faceLabel(tile.face) : "Hidden card",
     );
     if (tile.matched) btn.classList.add("is-matched");
     if (selectedId === tile.id) btn.classList.add("is-selected");
@@ -232,7 +318,6 @@ function renderBoard() {
   }
 }
 
-const revealedTemp = new Set<string>();
 function isRevealed(id: string) {
   return revealedTemp.has(id);
 }
@@ -297,7 +382,7 @@ function onSelect(tileId: string) {
     revealedTemp.clear();
     locked = false;
     renderBoard();
-    if (matchedPairs >= config.pairs.length) finish(true);
+    if (matchedPairs >= roundPairCount) finish(true);
   } else {
     setStatus("Try again");
     window.setTimeout(() => {
@@ -355,7 +440,6 @@ function wireDrag(btn: HTMLButtonElement, tileId: string) {
     onSelect(tileId);
   });
 
-  // Touch drag (simple): pointer events
   let pointing = false;
   btn.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -405,6 +489,7 @@ function finish(won: boolean) {
       completed: won,
       matchedPairs,
       moves,
+      pairsDealt: roundPairCount,
     },
   });
   if (won) {
@@ -419,7 +504,9 @@ function finish(won: boolean) {
 
 function startRound() {
   if (!config) return;
-  tiles = buildTiles(config);
+  const dealt = dealPairsForRound(config);
+  roundPairCount = dealt.length;
+  tiles = buildTiles(config, dealt);
   selectedId = null;
   locked = false;
   moves = 0;
@@ -437,7 +524,11 @@ function startRound() {
   track({
     type: "matching.round_start",
     gameId: config.id,
-    payload: { playMode: config.playMode, pairCount: config.pairs.length },
+    payload: {
+      playMode: config.playMode,
+      pairCount: roundPairCount,
+      deckSize: config.pairs.length,
+    },
   });
   if (timerId) window.clearInterval(timerId);
   if (config.gameplay.timerSec) {
@@ -455,23 +546,26 @@ function showIntro(c: MatchingRecord) {
   els.end.hidden = true;
   els.hud.hidden = true;
   els.app.hidden = false;
+  els.error.hidden = true;
 }
 
-async function loadConfig(): Promise<MatchingRecord> {
-  const preview = params().get("preview") === "1";
-  if (preview) {
-    return new Promise((resolve) => {
-      const onMsg = (ev: MessageEvent) => {
-        if (ev.origin !== window.location.origin) return;
-        if (ev.data?.type !== "rngames-matching-config" || !ev.data.config) return;
-        window.removeEventListener("message", onMsg);
-        resolve(normalizeMatching(ev.data.config));
-      };
-      window.addEventListener("message", onMsg);
-      // Ask parent in case the first postMessage arrived before we were ready.
-      window.parent?.postMessage({ type: "rngames-matching-preview-ready" }, window.location.origin);
-    });
+function applyConfig(next: MatchingRecord, opts?: { resetDeal?: boolean }) {
+  if (timerId) {
+    window.clearInterval(timerId);
+    timerId = null;
   }
+  config = next;
+  document.title = config.title || "Matching game";
+  if (opts?.resetDeal) clearDealQueue(config.id);
+  engaged = false;
+  finished = false;
+  selectedId = null;
+  locked = false;
+  revealedTemp.clear();
+  showIntro(config);
+}
+
+async function fetchPublicConfig(): Promise<MatchingRecord> {
   const slug = slugFromPath();
   if (!slug) throw new Error("Missing slug");
   const res = await fetch(`/api/public-wheel?slug=${encodeURIComponent(slug)}`);
@@ -492,11 +586,24 @@ els.flowContinue.addEventListener("click", () => {
   });
 });
 
+window.addEventListener("resize", () => {
+  if (!config || els.board.hidden) return;
+  const cols = colsFor(tiles.length, config.layout.columns);
+  fitTileSizes(tiles.length, cols);
+});
+
 void (async () => {
   try {
-    config = await loadConfig();
-    document.title = config.title || "Matching game";
-    showIntro(config);
+    if (isPreview()) {
+      window.addEventListener("message", (ev) => {
+        if (ev.origin !== window.location.origin) return;
+        if (ev.data?.type !== "rngames-matching-config" || !ev.data.config) return;
+        applyConfig(normalizeMatching(ev.data.config), { resetDeal: true });
+      });
+      window.parent?.postMessage({ type: "rngames-matching-preview-ready" }, window.location.origin);
+      return;
+    }
+    applyConfig(await fetchPublicConfig());
   } catch (e) {
     els.error.hidden = false;
     els.error.textContent = e instanceof Error ? e.message : "Failed to load";

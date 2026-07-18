@@ -54,7 +54,7 @@ export function emptyMatchingRecord(id, slug) {
       },
     ],
     sharedBack: { enabled: false, face: emptyFace("image") },
-    layout: { columns: "auto", gapPx: 12, tileMinPx: 72, tileMaxPx: 180 },
+    layout: { columns: "auto", gapPx: 12, tileMinPx: 96, tileMaxPx: 320 },
     cardChrome: {
       enabled: true,
       backgroundHex: "#ffffff",
@@ -69,6 +69,7 @@ export function emptyMatchingRecord(id, slug) {
     logoAlign: "center",
     gameplay: {
       shuffle: true,
+      pairsDealt: 4,
       timerSec: null,
       maxAttempts: null,
       mismatchDelayMs: 700,
@@ -114,8 +115,8 @@ export function normalizeMatchingRecord(doc) {
     layout: {
       columns,
       gapPx: Math.max(4, Math.min(48, Number(doc.layout?.gapPx) || base.layout.gapPx)),
-      tileMinPx: Math.max(40, Math.min(200, Number(doc.layout?.tileMinPx) || base.layout.tileMinPx)),
-      tileMaxPx: Math.max(60, Math.min(320, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      tileMinPx: Math.max(40, Math.min(240, Number(doc.layout?.tileMinPx) || base.layout.tileMinPx)),
+      tileMaxPx: Math.max(80, Math.min(480, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
     },
     cardChrome: {
       enabled: doc.cardChrome?.enabled !== false,
@@ -136,6 +137,15 @@ export function normalizeMatchingRecord(doc) {
     showPoweredBy: doc.showPoweredBy !== false,
     gameplay: {
       shuffle: doc.gameplay?.shuffle !== false,
+      pairsDealt: Math.max(
+        1,
+        Math.min(
+          pairs.length,
+          Number(doc.gameplay?.pairsDealt) > 0
+            ? Number(doc.gameplay.pairsDealt)
+            : Math.min(base.gameplay.pairsDealt, pairs.length),
+        ),
+      ),
       timerSec:
         doc.gameplay?.timerSec == null || Number.isNaN(Number(doc.gameplay.timerSec))
           ? null

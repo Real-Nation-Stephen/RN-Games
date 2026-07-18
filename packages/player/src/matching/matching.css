@@ -20,19 +20,20 @@
 #match-app {
   position: relative;
   z-index: 1;
-  max-width: 960px;
+  max-width: min(1200px, 100%);
   margin: 0 auto;
-  padding: 16px;
+  padding: 12px 16px 24px;
   min-height: 100dvh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .match-banner {
   display: flex;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .match-banner--left {
@@ -54,6 +55,7 @@
   flex-wrap: wrap;
   font-size: 0.9rem;
   opacity: 0.9;
+  flex-shrink: 0;
 }
 
 .match-status {
@@ -66,6 +68,9 @@
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.35);
   text-align: center;
+  max-width: 32rem;
+  align-self: center;
+  width: 100%;
 }
 
 .match-headline {
@@ -98,22 +103,31 @@
 }
 
 .match-board {
+  --match-cols: 2;
+  --match-tile-w: 160px;
+  --match-tile-h: 200px;
+  --match-board-w: 100%;
   display: grid;
   gap: var(--match-gap, 12px);
-  grid-template-columns: repeat(var(--match-cols, 4), minmax(0, 1fr));
-  align-content: start;
-  flex: 1;
+  grid-template-columns: repeat(var(--match-cols), var(--match-tile-w));
+  width: var(--match-board-w);
+  max-width: 100%;
+  margin: auto;
+  flex: 1 1 auto;
+  align-content: center;
+  justify-content: center;
+  place-content: center;
+  min-height: 0;
 }
 
 .match-tile {
   appearance: none;
   border: none;
   cursor: grab;
-  min-width: var(--match-tile-min, 72px);
-  min-height: var(--match-tile-min, 72px);
-  max-width: var(--match-tile-max, 180px);
-  justify-self: center;
-  width: 100%;
+  width: var(--match-tile-w);
+  height: var(--match-tile-h);
+  min-width: var(--match-tile-min, 96px);
+  min-height: var(--match-tile-min, 96px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,6 +137,7 @@
   color: inherit;
   touch-action: none;
   user-select: none;
+  overflow: hidden;
 }
 
 .match-tile--chrome {
@@ -159,21 +174,25 @@
 }
 
 .match-face-img {
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: 120px;
+  max-height: 100%;
   object-fit: contain;
   display: block;
+  pointer-events: none;
 }
 
 .match-face-text {
-  font-size: 0.95rem;
+  font-size: clamp(0.8rem, 2.2vw, 1.05rem);
   font-weight: 600;
   text-align: center;
   word-break: break-word;
+  line-height: 1.35;
 }
 
 .match-face-icon {
-  font-size: 2rem;
+  font-size: clamp(1.6rem, 5vw, 2.6rem);
   line-height: 1;
 }
 
@@ -195,6 +214,16 @@
 .powered-by-rn img {
   height: 28px;
   display: block;
+}
+
+@media (max-width: 640px) {
+  #match-app {
+    padding: 10px 12px 20px;
+  }
+
+  .match-panel {
+    margin-block: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
