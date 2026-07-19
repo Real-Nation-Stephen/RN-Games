@@ -40,6 +40,7 @@ export const COMPONENT_METADATA_REGISTRY = {
     fields: [
       { id: "matchedPairs", dataClass: "behavioural" },
       { id: "moves", dataClass: "behavioural" },
+      { id: "score", dataClass: "behavioural" },
     ],
   },
   badge: { componentType: "badge", fields: [] },

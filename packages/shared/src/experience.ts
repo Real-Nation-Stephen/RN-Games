@@ -22,6 +22,7 @@ export type ModuleOutcomeKey =
   | "matching.matchedPairs"
   | "matching.moves"
   | "matching.playMode"
+  | "matching.score"
   | "quiz.score"
   | "quiz.scorePercent"
   | "quiz.correctCount"

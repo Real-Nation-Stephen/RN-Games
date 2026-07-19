@@ -621,11 +621,20 @@ export const handler = async (event, context) => {
           "backgrounds",
           "logoUrl",
           "logoAlign",
+          "fonts",
+          "fontUploads",
+          "hud",
           "gameplay",
           "introHeadline",
           "introBody",
           "startLabel",
+          "introHeadlineHex",
+          "introBodyHex",
+          "introButtonHex",
+          "introButtonTextHex",
           "endScreen",
+          "highScore",
+          "linkedLeaderboardSlug",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];

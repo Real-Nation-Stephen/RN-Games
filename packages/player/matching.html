@@ -13,20 +13,27 @@
         <img id="match-logo" class="match-logo" alt="" />
       </header>
       <div id="match-hud" class="match-hud" hidden>
-        <span id="match-moves">Moves: 0</span>
-        <span id="match-timer" hidden></span>
+        <span id="match-moves" class="match-hud__item">Moves: 0</span>
+        <span id="match-score" class="match-hud__item" hidden>Score: 0</span>
+        <span id="match-timer" class="match-hud__item" hidden></span>
         <span id="match-status" class="match-status" aria-live="polite"></span>
       </div>
-      <div id="match-intro" class="match-panel">
+      <div id="match-intro" class="match-panel match-panel--intro">
         <h1 id="match-intro-headline" class="match-headline"></h1>
         <p id="match-intro-body" class="match-body"></p>
         <button type="button" id="match-start" class="match-btn"></button>
       </div>
       <div id="match-board" class="match-board" hidden role="list"></div>
-      <div id="match-end" class="match-panel" hidden>
+      <div id="match-end" class="match-panel match-panel--end" hidden>
+        <img id="match-end-logo" class="match-end-logo" alt="" hidden />
         <h2 id="match-end-headline" class="match-headline"></h2>
         <p id="match-end-subhead" class="match-body"></p>
+        <p id="match-end-score" class="match-body match-end-score" hidden></p>
         <p id="match-end-stats" class="match-body"></p>
+        <div id="match-end-name-wrap" class="match-end-name" hidden>
+          <label for="match-end-name">Your name</label>
+          <input id="match-end-name" type="text" maxlength="32" autocomplete="nickname" />
+        </div>
         <button type="button" id="match-again" class="match-btn"></button>
         <button type="button" id="match-flow-continue" class="match-btn match-btn--secondary" hidden>Continue</button>
       </div>

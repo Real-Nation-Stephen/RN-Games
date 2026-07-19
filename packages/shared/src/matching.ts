@@ -1,5 +1,7 @@
 /** Matching game — shared pairing engine for Match (A→B) and Memory modes. */
 
+import type { HighScoreSettings } from "./leaderboard.js";
+
 export type MatchMediaKind = "image" | "text" | "icon" | "audio";
 export type MatchingPlayMode = "match" | "memory";
 export type MatchLogoAlign = "left" | "center" | "right";
@@ -33,6 +35,7 @@ export interface MatchingSharedBack {
 }
 
 export interface MatchingLayout {
+  /** Desktop max columns when Global Shuffle is on. Mobile/tablet are hard-capped at 2. */
   columns: number | "auto";
   gapPx: number;
   tileMinPx: number;
@@ -49,24 +52,59 @@ export interface MatchingCardChrome {
   paddingPx: number;
 }
 
+export interface MatchingFonts {
+  heading: string;
+  body: string;
+  hud: string;
+}
+
+export interface MatchingFontUpload {
+  url: string;
+  family: string;
+}
+
+export interface MatchingHud {
+  showMoves: boolean;
+  showScore: boolean;
+  movesHex: string;
+  scoreHex: string;
+  timerHex: string;
+  labelHex: string;
+}
+
 export interface MatchingGameplay {
-  shuffle: boolean;
-  /** How many pairs to deal each round (≤ deck size). Exhausts the deck before repeating. */
+  /**
+   * When false (default): Side A in left column, Side B in right.
+   * When true: mix all tiles across the grid.
+   */
+  globalShuffle: boolean;
+  /** Desktop pairs per round (≤ deck). Exhausts deck before repeating. */
   pairsDealt: number;
+  /** Tablet pairs per round — default 4 (2×4 tiles). */
+  pairsDealtTablet: number;
+  /** Mobile pairs per round — default 3 (2×3 tiles). */
+  pairsDealtMobile: number;
   timerSec: number | null;
   maxAttempts: number | null;
   mismatchDelayMs: number;
   inputModes: ("tap" | "drag" | "keyboard")[];
+  scoreEnabled: boolean;
+  pointsPerMatch: number;
+  /** Points removed on a mismatch (floored at 0). */
+  mismatchPenalty: number;
 }
 
 export interface MatchingEndScreen {
+  logoUrl: string;
   headline: string;
   subhead: string;
+  scorePrefix: string;
   playAgainLabel: string;
   buttonHex: string;
   buttonTextHex: string;
   headlineHex: string;
   subheadHex: string;
+  textHex: string;
 }
 
 export interface MatchingRecord {
@@ -94,11 +132,20 @@ export interface MatchingRecord {
   backgrounds: MatchingBreakpointBg;
   logoUrl: string;
   logoAlign: MatchLogoAlign;
+  fonts: MatchingFonts;
+  fontUploads: Record<string, MatchingFontUpload>;
+  hud: MatchingHud;
   gameplay: MatchingGameplay;
   introHeadline: string;
   introBody: string;
   startLabel: string;
+  introHeadlineHex: string;
+  introBodyHex: string;
+  introButtonHex: string;
+  introButtonTextHex: string;
   endScreen: MatchingEndScreen;
+  highScore: HighScoreSettings;
+  linkedLeaderboardSlug: string;
 }
 
 export const MATCHING_PAIR_SOFT_WARN = 12;
@@ -151,6 +198,12 @@ function normalizePair(raw: Partial<MatchPair> | undefined, index: number): Matc
   };
 }
 
+function clampPairsDealt(value: unknown, fallback: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return Math.min(fallback, max);
+  return Math.max(1, Math.min(max, Math.round(n)));
+}
+
 export function emptyMatching(partial: { id: string; slug: string }): MatchingRecord {
   const pair = emptyMatchPair();
   pair.faceA = { ...emptyMatchFace("image"), alt: "Item A" };
@@ -180,40 +233,68 @@ export function emptyMatching(partial: { id: string; slug: string }): MatchingRe
       columns: "auto",
       gapPx: 12,
       tileMinPx: 96,
-      tileMaxPx: 320,
+      tileMaxPx: 360,
     },
     cardChrome: {
-      enabled: true,
+      enabled: false,
       backgroundHex: "#ffffff",
       borderHex: "rgba(0,0,0,0.12)",
       radiusPx: 12,
       shadow: true,
-      paddingPx: 10,
+      paddingPx: 0,
     },
     backgroundHex: "#0f1a24",
     backgrounds: { desktop: "", tablet: "", mobile: "" },
     logoUrl: "",
     logoAlign: "center",
+    fonts: {
+      heading: "system-ui, sans-serif",
+      body: "system-ui, sans-serif",
+      hud: "system-ui, sans-serif",
+    },
+    fontUploads: {},
+    hud: {
+      showMoves: true,
+      showScore: true,
+      movesHex: "#ffffff",
+      scoreHex: "#ffffff",
+      timerHex: "#ffffff",
+      labelHex: "#c8d4e0",
+    },
     gameplay: {
-      shuffle: true,
+      globalShuffle: false,
       pairsDealt: 4,
+      pairsDealtTablet: 4,
+      pairsDealtMobile: 3,
       timerSec: null,
       maxAttempts: null,
       mismatchDelayMs: 700,
       inputModes: ["tap", "drag", "keyboard"],
+      scoreEnabled: true,
+      pointsPerMatch: 100,
+      mismatchPenalty: 0,
     },
     introHeadline: "Matching game",
     introBody: "Match each pair to continue.",
     startLabel: "Start",
+    introHeadlineHex: "#ffffff",
+    introBodyHex: "#c8d4e0",
+    introButtonHex: "#2d6cdf",
+    introButtonTextHex: "#ffffff",
     endScreen: {
+      logoUrl: "",
       headline: "Well done!",
       subhead: "You matched all the pairs.",
+      scorePrefix: "Score:",
       playAgainLabel: "Play again",
       buttonHex: "#2d6cdf",
       buttonTextHex: "#ffffff",
       headlineHex: "#ffffff",
       subheadHex: "#c8d4e0",
+      textHex: "#eef2f7",
     },
+    highScore: { enabled: true, nameMaxLength: 16 },
+    linkedLeaderboardSlug: "",
   };
 }
 
@@ -230,6 +311,16 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
     ? (doc.gameplay!.inputModes.filter((m) => m === "tap" || m === "drag" || m === "keyboard") as MatchingGameplay["inputModes"])
     : base.gameplay.inputModes;
 
+  const legacyShuffle = (doc.gameplay as { shuffle?: boolean } | undefined)?.shuffle;
+  const globalShuffle =
+    doc.gameplay?.globalShuffle != null
+      ? !!doc.gameplay.globalShuffle
+      : legacyShuffle === true
+        ? true
+        : false;
+
+  const maxPairs = Math.max(1, pairs.length);
+
   return {
     ...base,
     ...doc,
@@ -241,6 +332,8 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
     designCode: String(doc.designCode || ""),
     updatedAt: String(doc.updatedAt || base.updatedAt),
     reportingEnabled: !!doc.reportingEnabled,
+    thumbnailUrl: String(doc.thumbnailUrl || ""),
+    faviconUrl: String(doc.faviconUrl || ""),
     playMode,
     pairs,
     sharedBack: {
@@ -251,10 +344,10 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
       columns,
       gapPx: Math.max(4, Math.min(48, Number(doc.layout?.gapPx) || base.layout.gapPx)),
       tileMinPx: Math.max(40, Math.min(240, Number(doc.layout?.tileMinPx) || base.layout.tileMinPx)),
-      tileMaxPx: Math.max(80, Math.min(480, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      tileMaxPx: Math.max(80, Math.min(560, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
     },
     cardChrome: {
-      enabled: doc.cardChrome?.enabled !== false,
+      enabled: doc.cardChrome?.enabled === true,
       backgroundHex: String(doc.cardChrome?.backgroundHex || base.cardChrome.backgroundHex),
       borderHex: String(doc.cardChrome?.borderHex || base.cardChrome.borderHex),
       radiusPx: Math.max(0, Math.min(48, Number(doc.cardChrome?.radiusPx) ?? base.cardChrome.radiusPx)),
@@ -271,16 +364,33 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
     logoAlign:
       doc.logoAlign === "left" || doc.logoAlign === "right" ? doc.logoAlign : "center",
     showPoweredBy: doc.showPoweredBy !== false,
+    fonts: {
+      heading: String(doc.fonts?.heading || base.fonts.heading),
+      body: String(doc.fonts?.body || base.fonts.body),
+      hud: String(doc.fonts?.hud || base.fonts.hud),
+    },
+    fontUploads:
+      doc.fontUploads && typeof doc.fontUploads === "object" ? { ...doc.fontUploads } : {},
+    hud: {
+      showMoves: doc.hud?.showMoves !== false,
+      showScore: doc.hud?.showScore !== false,
+      movesHex: String(doc.hud?.movesHex || base.hud.movesHex),
+      scoreHex: String(doc.hud?.scoreHex || base.hud.scoreHex),
+      timerHex: String(doc.hud?.timerHex || base.hud.timerHex),
+      labelHex: String(doc.hud?.labelHex || base.hud.labelHex),
+    },
     gameplay: {
-      shuffle: doc.gameplay?.shuffle !== false,
-      pairsDealt: Math.max(
-        1,
-        Math.min(
-          pairs.length,
-          Number(doc.gameplay?.pairsDealt) > 0
-            ? Number(doc.gameplay?.pairsDealt)
-            : Math.min(base.gameplay.pairsDealt, pairs.length),
-        ),
+      globalShuffle,
+      pairsDealt: clampPairsDealt(doc.gameplay?.pairsDealt, base.gameplay.pairsDealt, maxPairs),
+      pairsDealtTablet: clampPairsDealt(
+        doc.gameplay?.pairsDealtTablet,
+        base.gameplay.pairsDealtTablet,
+        maxPairs,
+      ),
+      pairsDealtMobile: clampPairsDealt(
+        doc.gameplay?.pairsDealtMobile,
+        base.gameplay.pairsDealtMobile,
+        maxPairs,
       ),
       timerSec:
         doc.gameplay?.timerSec == null || Number.isNaN(Number(doc.gameplay.timerSec))
@@ -292,17 +402,31 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
           : Math.max(1, Math.min(999, Number(doc.gameplay.maxAttempts) || 20)),
       mismatchDelayMs: Math.max(200, Math.min(3000, Number(doc.gameplay?.mismatchDelayMs) || 700)),
       inputModes: inputModes.length ? inputModes : ["tap", "drag", "keyboard"],
+      scoreEnabled: doc.gameplay?.scoreEnabled !== false,
+      pointsPerMatch: Math.max(0, Math.min(9999, Number(doc.gameplay?.pointsPerMatch) || base.gameplay.pointsPerMatch)),
+      mismatchPenalty: Math.max(0, Math.min(9999, Number(doc.gameplay?.mismatchPenalty) || 0)),
     },
     introHeadline: String(doc.introHeadline || base.introHeadline),
     introBody: String(doc.introBody || base.introBody),
     startLabel: String(doc.startLabel || base.startLabel),
+    introHeadlineHex: String(doc.introHeadlineHex || base.introHeadlineHex),
+    introBodyHex: String(doc.introBodyHex || base.introBodyHex),
+    introButtonHex: String(doc.introButtonHex || base.introButtonHex),
+    introButtonTextHex: String(doc.introButtonTextHex || base.introButtonTextHex),
     endScreen: {
       ...base.endScreen,
       ...(doc.endScreen || {}),
+      logoUrl: String(doc.endScreen?.logoUrl || ""),
       headline: String(doc.endScreen?.headline || base.endScreen.headline),
       subhead: String(doc.endScreen?.subhead || base.endScreen.subhead),
+      scorePrefix: String(doc.endScreen?.scorePrefix || base.endScreen.scorePrefix),
       playAgainLabel: String(doc.endScreen?.playAgainLabel || base.endScreen.playAgainLabel),
     },
+    highScore: {
+      enabled: doc.highScore?.enabled !== false,
+      nameMaxLength: Math.max(2, Math.min(32, Number(doc.highScore?.nameMaxLength) || 16)),
+    },
+    linkedLeaderboardSlug: String(doc.linkedLeaderboardSlug || "").trim(),
   };
 }
 
@@ -310,4 +434,19 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
 export function resolveMemoryBack(doc: MatchingRecord, pair: MatchPair): MatchFace {
   if (doc.sharedBack.enabled) return doc.sharedBack.face;
   return pair.back || emptyMatchFace("image");
+}
+
+export type MatchingBreakpoint = "mobile" | "tablet" | "desktop";
+
+export function matchingBreakpoint(width = typeof window !== "undefined" ? window.innerWidth : 1200): MatchingBreakpoint {
+  if (width < 768) return "mobile";
+  if (width < 1024) return "tablet";
+  return "desktop";
+}
+
+export function pairsDealtForBreakpoint(doc: MatchingRecord, bp: MatchingBreakpoint = matchingBreakpoint()): number {
+  const max = Math.max(1, doc.pairs.length);
+  if (bp === "mobile") return Math.min(doc.gameplay.pairsDealtMobile, max);
+  if (bp === "tablet") return Math.min(doc.gameplay.pairsDealtTablet, max);
+  return Math.min(doc.gameplay.pairsDealt, max);
 }

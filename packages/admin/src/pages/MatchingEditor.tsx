@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import html2canvas from "html2canvas";
 import {
   MATCHING_PAIR_SOFT_WARN,
   emptyMatchFace,
@@ -16,10 +17,38 @@ import { CollapsibleSection } from "../components/CollapsibleSection";
 import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
 import { HexField } from "../components/HexField";
 
+type LeaderboardOption = { id: string; slug: string; title: string; gameType?: string };
+
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
 function publicUrl(slug: string) {
   return `${siteUrl}/matching/${encodeURIComponent(slug)}`;
+}
+
+function getMatchingHtml2CanvasOptions(iframe: HTMLIFrameElement) {
+  const idoc = iframe.contentDocument;
+  const idwin = iframe.contentWindow;
+  if (!idoc || !idwin) return { useCORS: true, allowTaint: false, logging: false };
+  const root = idoc.documentElement;
+  const bgSolid = idwin.getComputedStyle(root).getPropertyValue("--match-bg-solid").trim() || "#0f1a24";
+  const bgImage = idwin.getComputedStyle(root).getPropertyValue("--match-bg-image").trim();
+  return {
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: bgSolid,
+    onclone: (doc: Document) => {
+      const app = doc.getElementById("match-app");
+      if (!app) return;
+      (app as HTMLElement).style.backgroundColor = bgSolid;
+      if (bgImage && bgImage !== "none") {
+        (app as HTMLElement).style.backgroundImage = bgImage;
+        (app as HTMLElement).style.backgroundSize = "auto 100%";
+        (app as HTMLElement).style.backgroundPosition = "center";
+        (app as HTMLElement).style.backgroundRepeat = "no-repeat";
+      }
+    },
+  };
 }
 
 function FaceEditor({
@@ -163,12 +192,23 @@ export default function MatchingEditor() {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [doc, setDoc] = useState<MatchingRecord | null>(null);
+  const [leaderboards, setLeaderboards] = useState<LeaderboardOption[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
 
   const patch = (fn: (d: MatchingRecord) => MatchingRecord) => setDoc((d) => (d ? fn(d) : d));
+
+  const loadLeaderboards = useCallback(async () => {
+    try {
+      const data = await apiGet("/api/wheels");
+      const list = Array.isArray(data) ? data : data?.wheels || [];
+      setLeaderboards(list.filter((w: LeaderboardOption) => w.gameType === "leaderboard"));
+    } catch {
+      /* optional — editor still works without the dropdown list */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -180,10 +220,11 @@ export default function MatchingEditor() {
         return;
       }
       setDoc(normalizeMatching(data as MatchingRecord));
+      void loadLeaderboards();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     }
-  }, [id, navigate]);
+  }, [id, navigate, loadLeaderboards]);
 
   useEffect(() => {
     void load();
@@ -226,6 +267,37 @@ export default function MatchingEditor() {
     }
   }
 
+  async function saveWithThumbnail() {
+    if (!doc) return;
+    await save();
+    pushPreview();
+    await new Promise((r) => setTimeout(r, 500));
+    const iframe = iframeRef.current;
+    const stage = iframe?.contentDocument?.getElementById("match-app");
+    if (!stage || !doc || !iframe) return;
+    try {
+      const canvas = await html2canvas(stage, { scale: 0.5, ...getMatchingHtml2CanvasOptions(iframe) });
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.88));
+      if (!blob) return;
+      const file = new File([blob], `thumb-${doc.id}.jpg`, { type: "image/jpeg" });
+      const { url } = await uploadFile(file);
+      const res = await apiSend("/api/wheels", "PUT", { ...doc, thumbnailUrl: url });
+      if (res?.wheel) setDoc(normalizeMatching(res.wheel as MatchingRecord));
+    } catch {
+      /* optional */
+    }
+  }
+
+  async function uploadFont(role: "heading" | "body" | "hud", file: File) {
+    const { url } = await uploadFile(file);
+    const family = `Matching${role}${Date.now().toString(36)}`;
+    patch((d) => ({
+      ...d,
+      fontUploads: { ...d.fontUploads, [role]: { url, family } },
+      fonts: { ...d.fonts, [role]: `'${family}', system-ui, sans-serif` },
+    }));
+  }
+
   async function archive() {
     if (!doc || !confirm("Archive this component?")) return;
     setArchiving(true);
@@ -254,6 +326,7 @@ export default function MatchingEditor() {
   }
 
   const pairWarn = doc.pairs.length > MATCHING_PAIR_SOFT_WARN;
+  const maxPairs = Math.max(1, doc.pairs.length);
 
   return (
     <div>
@@ -293,6 +366,20 @@ export default function MatchingEditor() {
         <p className="muted" style={{ marginTop: 8 }}>
           Public URL: <code>{publicUrl(doc.slug)}</code>
         </p>
+        <label className="field" style={{ marginTop: 12 }}>
+          Tab icon
+        </label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            patch((d) => ({ ...d, faviconUrl: url }));
+          }}
+        />
+        {doc.faviconUrl ? <span className="muted"> ✓</span> : null}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
           <input
             type="checkbox"
@@ -392,45 +479,404 @@ export default function MatchingEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Logo</h3>
+        <label className="field">Logo</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const { url } = await uploadFile(f);
+            patch((d) => ({ ...d, logoUrl: url }));
+          }}
+        />
+        {doc.logoUrl ? (
+          <img src={doc.logoUrl} alt="" style={{ maxWidth: 120, marginTop: 8, borderRadius: 6, display: "block" }} />
+        ) : null}
+        <label className="field" style={{ marginTop: 12 }}>
+          Logo alignment
+        </label>
+        <select
+          value={doc.logoAlign}
+          onChange={(e) => patch((d) => ({ ...d, logoAlign: e.target.value as MatchingRecord["logoAlign"] }))}
+        >
+          <option value="left">Left aligned</option>
+          <option value="center">Centred</option>
+          <option value="right">Right aligned</option>
+        </select>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Round deal</h3>
         <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
           Deck has {doc.pairs.length} pair{doc.pairs.length === 1 ? "" : "s"}. Each round deals a random subset; pairs
           are not repeated until every pair in the deck has been used.
         </p>
-        <label className="field">
-          Pairs dealt per round
-          <input
-            type="number"
-            min={1}
-            max={Math.max(1, doc.pairs.length)}
-            value={doc.gameplay.pairsDealt}
-            onChange={(e) =>
-              patch((d) => ({
-                ...d,
-                gameplay: {
-                  ...d.gameplay,
-                  pairsDealt: Math.min(
-                    d.pairs.length,
-                    Math.max(1, Number(e.target.value) || 1),
-                  ),
-                },
-              }))
-            }
-          />
-        </label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+        <div className="grid2">
+          <label className="field">
+            Pairs dealt — desktop
+            <input
+              type="number"
+              min={1}
+              max={maxPairs}
+              value={doc.gameplay.pairsDealt}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: {
+                    ...d.gameplay,
+                    pairsDealt: Math.min(d.pairs.length, Math.max(1, Number(e.target.value) || 1)),
+                  },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Pairs dealt — tablet
+            <input
+              type="number"
+              min={1}
+              max={maxPairs}
+              value={doc.gameplay.pairsDealtTablet}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: {
+                    ...d.gameplay,
+                    pairsDealtTablet: Math.min(d.pairs.length, Math.max(1, Number(e.target.value) || 1)),
+                  },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Pairs dealt — mobile
+            <input
+              type="number"
+              min={1}
+              max={maxPairs}
+              value={doc.gameplay.pairsDealtMobile}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: {
+                    ...d.gameplay,
+                    pairsDealtMobile: Math.min(d.pairs.length, Math.max(1, Number(e.target.value) || 1)),
+                  },
+                }))
+              }
+            />
+          </label>
+        </div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
           <input
             type="checkbox"
-            checked={doc.gameplay.shuffle}
+            checked={doc.gameplay.globalShuffle}
             onChange={(e) =>
               patch((d) => ({
                 ...d,
-                gameplay: { ...d.gameplay, shuffle: e.target.checked },
+                gameplay: { ...d.gameplay, globalShuffle: e.target.checked },
               }))
             }
           />
-          Shuffle tile positions on the board
+          Global Shuffle (mix all tiles across the grid)
         </label>
+        <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+          Off = Side A tiles stay in the left column, Side B tiles in the right column. On = every tile is shuffled
+          together.
+        </p>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>HUD</h3>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={doc.hud.showMoves}
+            onChange={(e) => patch((d) => ({ ...d, hud: { ...d.hud, showMoves: e.target.checked } }))}
+          />
+          Show moves counter
+        </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={doc.hud.showScore}
+            onChange={(e) => patch((d) => ({ ...d, hud: { ...d.hud, showScore: e.target.checked } }))}
+          />
+          Show score
+        </label>
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <HexField
+            label="Moves hex"
+            value={doc.hud.movesHex}
+            onChange={(v) => patch((d) => ({ ...d, hud: { ...d.hud, movesHex: v } }))}
+          />
+          <HexField
+            label="Score hex"
+            value={doc.hud.scoreHex}
+            onChange={(v) => patch((d) => ({ ...d, hud: { ...d.hud, scoreHex: v } }))}
+          />
+          <HexField
+            label="Timer hex"
+            value={doc.hud.timerHex}
+            onChange={(v) => patch((d) => ({ ...d, hud: { ...d.hud, timerHex: v } }))}
+          />
+          <HexField
+            label="Label hex"
+            value={doc.hud.labelHex}
+            onChange={(v) => patch((d) => ({ ...d, hud: { ...d.hud, labelHex: v } }))}
+          />
+        </div>
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <label className="field">
+            Timer (seconds, empty = off)
+            <input
+              type="number"
+              min={10}
+              max={3600}
+              value={doc.gameplay.timerSec ?? ""}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: {
+                    ...d.gameplay,
+                    timerSec: e.target.value === "" ? null : Number(e.target.value),
+                  },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Max attempts (empty = unlimited)
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={doc.gameplay.maxAttempts ?? ""}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: {
+                    ...d.gameplay,
+                    maxAttempts: e.target.value === "" ? null : Number(e.target.value),
+                  },
+                }))
+              }
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Score</h3>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={doc.gameplay.scoreEnabled}
+            onChange={(e) =>
+              patch((d) => ({ ...d, gameplay: { ...d.gameplay, scoreEnabled: e.target.checked } }))
+            }
+          />
+          Scoring enabled
+        </label>
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <label className="field">
+            Points per match
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={doc.gameplay.pointsPerMatch}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: { ...d.gameplay, pointsPerMatch: Number(e.target.value) || 0 },
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            Mismatch penalty
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={doc.gameplay.mismatchPenalty}
+              onChange={(e) =>
+                patch((d) => ({
+                  ...d,
+                  gameplay: { ...d.gameplay, mismatchPenalty: Number(e.target.value) || 0 },
+                }))
+              }
+            />
+          </label>
+        </div>
+        <label className="field" style={{ marginTop: 12 }}>
+          Linked leaderboard
+        </label>
+        <select
+          value={doc.linkedLeaderboardSlug}
+          onChange={(e) => patch((d) => ({ ...d, linkedLeaderboardSlug: e.target.value }))}
+        >
+          <option value="">— None —</option>
+          {leaderboards.map((lb) => (
+            <option key={lb.id} value={lb.slug}>
+              {lb.title} — /leaderboard/{lb.slug}
+            </option>
+          ))}
+        </select>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={doc.highScore.enabled}
+            onChange={(e) => patch((d) => ({ ...d, highScore: { ...d.highScore, enabled: e.target.checked } }))}
+          />
+          Collect player name before play (for leaderboard)
+        </label>
+        <label className="field" style={{ marginTop: 12 }}>
+          Name character limit
+        </label>
+        <input
+          type="number"
+          min={2}
+          max={32}
+          value={doc.highScore.nameMaxLength}
+          onChange={(e) =>
+            patch((d) => ({
+              ...d,
+              highScore: { ...d.highScore, nameMaxLength: Number(e.target.value) || 16 },
+            }))
+          }
+        />
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Fonts</h3>
+        <p className="muted" style={{ fontSize: "0.85rem" }}>
+          Upload WOFF/WOFF2/TTF for heading, body, and HUD display.
+        </p>
+        {(["heading", "body", "hud"] as const).map((role) => (
+          <div key={role} style={{ marginTop: 12 }}>
+            <label className="field">{role}</label>
+            <input
+              type="file"
+              accept=".woff,.woff2,.ttf,.otf,font/woff,font/woff2"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                await uploadFont(role, f);
+              }}
+            />
+            {doc.fontUploads[role]?.url ? <span className="muted"> ✓</span> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Intro screen</h3>
+        <label className="field">
+          Headline
+          <input value={doc.introHeadline} onChange={(e) => patch((d) => ({ ...d, introHeadline: e.target.value }))} />
+        </label>
+        <label className="field">
+          Body
+          <textarea rows={2} value={doc.introBody} onChange={(e) => patch((d) => ({ ...d, introBody: e.target.value }))} />
+        </label>
+        <label className="field">
+          Start button label
+          <input value={doc.startLabel} onChange={(e) => patch((d) => ({ ...d, startLabel: e.target.value }))} />
+        </label>
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <HexField
+            label="Headline hex"
+            value={doc.introHeadlineHex}
+            onChange={(v) => patch((d) => ({ ...d, introHeadlineHex: v }))}
+          />
+          <HexField
+            label="Body hex"
+            value={doc.introBodyHex}
+            onChange={(v) => patch((d) => ({ ...d, introBodyHex: v }))}
+          />
+          <HexField
+            label="Button hex"
+            value={doc.introButtonHex}
+            onChange={(v) => patch((d) => ({ ...d, introButtonHex: v }))}
+          />
+          <HexField
+            label="Button text hex"
+            value={doc.introButtonTextHex}
+            onChange={(v) => patch((d) => ({ ...d, introButtonTextHex: v }))}
+          />
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <CollapsibleSection title="End screen" summary={doc.endScreen.headline.trim() || "Default headline"}>
+          <label className="field">Logo</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const { url } = await uploadFile(f);
+              patch((d) => ({ ...d, endScreen: { ...d.endScreen, logoUrl: url } }));
+            }}
+          />
+          {doc.endScreen.logoUrl ? <span className="muted"> ✓</span> : null}
+          <label className="field" style={{ marginTop: 12 }}>
+            Headline
+          </label>
+          <input
+            value={doc.endScreen.headline}
+            onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headline: e.target.value } }))}
+          />
+          <label className="field">Subhead</label>
+          <input
+            value={doc.endScreen.subhead}
+            onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subhead: e.target.value } }))}
+          />
+          <label className="field">Score prefix</label>
+          <input
+            value={doc.endScreen.scorePrefix}
+            onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, scorePrefix: e.target.value } }))}
+          />
+          <label className="field">Play again label</label>
+          <input
+            value={doc.endScreen.playAgainLabel}
+            onChange={(e) =>
+              patch((d) => ({ ...d, endScreen: { ...d.endScreen, playAgainLabel: e.target.value } }))
+            }
+          />
+          <div className="grid2" style={{ marginTop: 12 }}>
+            <HexField
+              label="Headline hex"
+              value={doc.endScreen.headlineHex}
+              onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headlineHex: v } }))}
+            />
+            <HexField
+              label="Subhead hex"
+              value={doc.endScreen.subheadHex}
+              onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subheadHex: v } }))}
+            />
+            <HexField
+              label="Text hex"
+              value={doc.endScreen.textHex}
+              onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, textHex: v } }))}
+            />
+            <HexField
+              label="Button hex"
+              value={doc.endScreen.buttonHex}
+              onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonHex: v } }))}
+            />
+            <HexField
+              label="Button text hex"
+              value={doc.endScreen.buttonTextHex}
+              onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonTextHex: v } }))}
+            />
+          </div>
+        </CollapsibleSection>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -502,7 +948,7 @@ export default function MatchingEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Branding &amp; copy</h3>
+        <h3 style={{ marginTop: 0 }}>Branding &amp; backgrounds</h3>
         <HexField
           label="Page background"
           value={doc.backgroundHex}
@@ -526,38 +972,6 @@ export default function MatchingEditor() {
           value={doc.backgrounds.mobile}
           onUploaded={(url) => patch((d) => ({ ...d, backgrounds: { ...d.backgrounds, mobile: url } }))}
         />
-        <label className="field">
-          Logo
-          <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const { url } = await uploadFile(f);
-              patch((d) => ({ ...d, logoUrl: url }));
-            }}
-          />
-        </label>
-        <label className="field">
-          Intro headline
-          <input value={doc.introHeadline} onChange={(e) => patch((d) => ({ ...d, introHeadline: e.target.value }))} />
-        </label>
-        <label className="field">
-          Intro body
-          <textarea rows={2} value={doc.introBody} onChange={(e) => patch((d) => ({ ...d, introBody: e.target.value }))} />
-        </label>
-        <label className="field">
-          Start button
-          <input value={doc.startLabel} onChange={(e) => patch((d) => ({ ...d, startLabel: e.target.value }))} />
-        </label>
-        <label className="field">
-          End headline
-          <input
-            value={doc.endScreen.headline}
-            onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headline: e.target.value } }))}
-          />
-        </label>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -589,6 +1003,9 @@ export default function MatchingEditor() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 40 }}>
         <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
           {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="btn" disabled={saving} onClick={() => void saveWithThumbnail()}>
+          Save + thumbnail
         </button>
         <a className="btn" href={publicUrl(doc.slug)} target="_blank" rel="noreferrer">
           Open public game

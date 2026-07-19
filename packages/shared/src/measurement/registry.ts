@@ -98,6 +98,7 @@ export const COMPONENT_METADATA_REGISTRY: Record<string, ComponentMetadataContra
     [
       { id: "matchedPairs", label: "Matched pairs", dataClass: "behavioural", defaultCollect: true, defaultReport: true },
       { id: "moves", label: "Moves", dataClass: "behavioural", defaultCollect: true, defaultReport: true },
+      { id: "score", label: "Score", dataClass: "behavioural", defaultCollect: true, defaultReport: true },
     ],
     ["matching.round_start", "matching.pair_matched", "matching.round_end"],
   ),

@@ -55,6 +55,7 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
       { id: "matchedPairs", label: "Matched pairs", outcomeKey: "matching.matchedPairs", valueType: "number" },
       { id: "moves", label: "Moves", outcomeKey: "matching.moves", valueType: "number" },
       { id: "playMode", label: "Play mode", outcomeKey: "matching.playMode", valueType: "string" },
+      { id: "score", label: "Score", outcomeKey: "matching.score", valueType: "number" },
     ],
   },
   {
