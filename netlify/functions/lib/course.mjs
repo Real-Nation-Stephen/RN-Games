@@ -52,7 +52,15 @@ export function defaultCourseSettings() {
       "I understand my email will be used only to send my learning link and reconnect my progress — not for marketing unless I opt in elsewhere.",
     learningLinkPrivacyUrl: "",
     enrollmentMode: "open",
-    profilePanel: { enabled: false },
+    profilePanel: {
+      enabled: false,
+      accumulateScores: true,
+      scoreMode: "bestPerItem",
+      showAccumulatedScore: true,
+      showItemsCompleted: true,
+      showDisplayName: true,
+      showCourseStartDate: true,
+    },
   };
 }
 
@@ -160,7 +168,13 @@ function normalizeSettings(raw) {
     profilePanel: {
       enabled: !!profile.enabled,
       showDisplayName: profile.showDisplayName !== false,
-      showCourseStartDate: !!profile.showCourseStartDate,
+      showCourseStartDate: profile.showCourseStartDate !== false,
+      showItemsCompleted: profile.showItemsCompleted !== false,
+      showAccumulatedScore: profile.showAccumulatedScore !== false,
+      accumulateScores: profile.accumulateScores !== false,
+      scoreMode: profile.scoreMode === "latest" ? "latest" : "bestPerItem",
+      completionBonusEnabled: !!profile.completionBonusEnabled,
+      completionBonusPoints: Math.max(0, Math.min(9999, Number(profile.completionBonusPoints) || 0)),
       showCourseDeadline: !!profile.showCourseDeadline,
       showLastQuizScore: !!profile.showLastQuizScore,
       showAvgQuizScore: !!profile.showAvgQuizScore,

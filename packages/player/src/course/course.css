@@ -121,6 +121,56 @@ body {
   margin-top: 20px;
 }
 
+.course-profile {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--course-card) 88%, transparent);
+  border: 1px solid var(--course-border);
+}
+
+.course-profile__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: flex-end;
+}
+
+.course-profile__name {
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--course-body);
+  min-width: min(220px, 100%);
+}
+
+.course-profile__name input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--course-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--course-headline, #fff);
+  font: inherit;
+}
+
+.course-profile__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.course-profile__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--course-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--course-accent) 35%, transparent);
+  color: var(--course-headline, #fff);
+}
+
 .course-progress-bar {
   height: 10px;
   border-radius: 999px;

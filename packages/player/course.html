@@ -60,6 +60,15 @@
             <div id="course-logo" class="course-logo" hidden></div>
             <h1 id="course-title"></h1>
             <p id="course-description" class="course-muted"></p>
+            <section id="course-profile" class="course-profile" hidden>
+              <div class="course-profile__row">
+                <label id="course-profile-name-wrap" class="course-profile__name" hidden>
+                  <span>Name</span>
+                  <input id="course-profile-name" type="text" maxlength="40" autocomplete="nickname" placeholder="Your name" />
+                </label>
+                <div id="course-profile-stats" class="course-profile__stats"></div>
+              </div>
+            </section>
             <div class="course-progress-wrap">
               <div class="course-progress-bar"><div id="course-progress-fill"></div></div>
               <span id="course-progress-label" class="course-muted"></span>

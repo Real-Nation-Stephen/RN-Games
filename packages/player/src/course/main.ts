@@ -1,5 +1,6 @@
 import {
   appendCourseQuery,
+  courseAccumulatedScore,
   courseCompletionPercent,
   isExperienceCompleteMessage,
   isExperienceContentReadyMessage,
@@ -42,6 +43,10 @@ const els = {
   logo: document.getElementById("course-logo")!,
   title: document.getElementById("course-title")!,
   description: document.getElementById("course-description")!,
+  profile: document.getElementById("course-profile")!,
+  profileNameWrap: document.getElementById("course-profile-name-wrap")!,
+  profileName: document.getElementById("course-profile-name") as HTMLInputElement,
+  profileStats: document.getElementById("course-profile-stats")!,
   progressFill: document.getElementById("course-progress-fill")!,
   progressLabel: document.getElementById("course-progress-label")!,
   sections: document.getElementById("course-sections")!,
@@ -601,6 +606,75 @@ function renderStartScreen(message = "") {
   }
 }
 
+function displayNameKey() {
+  return `rngames:course-display-name:${slug}`;
+}
+
+function loadDisplayName(): string {
+  try {
+    return (localStorage.getItem(displayNameKey()) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function saveDisplayName(name: string) {
+  try {
+    localStorage.setItem(displayNameKey(), name.trim().slice(0, 40));
+  } catch {
+    /* ignore */
+  }
+}
+
+function formatCourseDate(iso: string | undefined | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function renderProfilePanel() {
+  if (!course || !session || !els.profile) return;
+  const panel = course.settings?.profilePanel;
+  if (!panel?.enabled) {
+    els.profile.hidden = true;
+    return;
+  }
+  els.profile.hidden = false;
+  const showName = panel.showDisplayName !== false;
+  els.profileNameWrap.hidden = !showName;
+  if (showName) {
+    els.profileName.value = loadDisplayName();
+  }
+
+  const chips: string[] = [];
+  if (panel.showCourseStartDate !== false) {
+    chips.push(`Started ${formatCourseDate(session.startedAt)}`);
+  }
+  if (panel.showItemsCompleted !== false) {
+    chips.push(`${session.completedItemIds.length} / ${course.itemCount} items`);
+  }
+  if (panel.showAccumulatedScore !== false) {
+    const score = courseAccumulatedScore(session, panel);
+    chips.push(`Score ${score}`);
+  }
+  if (panel.showLatestGameScore) {
+    const latest = session.outcomes || {};
+    const keys = Object.keys(latest).filter((k) => /\.score$/i.test(k));
+    if (keys.length) {
+      const lastKey = keys[keys.length - 1];
+      chips.push(`Latest ${Number(latest[lastKey]) || 0}`);
+    }
+  }
+  els.profileStats.innerHTML = chips.map((c) => `<span class="course-profile__chip">${escapeHtml(c)}</span>`).join("");
+}
+
 async function renderHome() {
   if (!course || !session) return;
   await refreshSessionFromServer();
@@ -617,6 +691,8 @@ async function renderHome() {
   els.title.textContent = course.title;
   els.description.textContent = course.description || "";
   els.description.style.whiteSpace = "pre-wrap";
+
+  renderProfilePanel();
 
   const pct = courseCompletionPercent(session, course.itemCount);
   els.progressFill.style.width = `${pct}%`;
@@ -934,6 +1010,8 @@ els.copyLink.addEventListener("click", () => void copyResumeLink());
 els.startNew.addEventListener("click", () => void handleStartNew());
 els.resumeSubmit.addEventListener("click", () => void handleResumeSubmit());
 els.classSubmit.addEventListener("click", () => void handleClassSubmit());
+els.profileName?.addEventListener("change", () => saveDisplayName(els.profileName.value));
+els.profileName?.addEventListener("blur", () => saveDisplayName(els.profileName.value));
 els.resumeInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void handleResumeSubmit();
 });

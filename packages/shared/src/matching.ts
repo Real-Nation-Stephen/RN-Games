@@ -39,7 +39,10 @@ export interface MatchingLayout {
   columns: number | "auto";
   gapPx: number;
   tileMinPx: number;
+  /** Soft max; desktop play sizes up to available viewport first. */
   tileMaxPx: number;
+  /** How card art fills the tile. */
+  imageFit: "contain" | "cover" | "fill";
 }
 
 export interface MatchingCardChrome {
@@ -233,7 +236,8 @@ export function emptyMatching(partial: { id: string; slug: string }): MatchingRe
       columns: "auto",
       gapPx: 12,
       tileMinPx: 96,
-      tileMaxPx: 360,
+      tileMaxPx: 720,
+      imageFit: "cover",
     },
     cardChrome: {
       enabled: false,
@@ -344,7 +348,11 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
       columns,
       gapPx: Math.max(4, Math.min(48, Number(doc.layout?.gapPx) || base.layout.gapPx)),
       tileMinPx: Math.max(40, Math.min(240, Number(doc.layout?.tileMinPx) || base.layout.tileMinPx)),
-      tileMaxPx: Math.max(80, Math.min(560, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      tileMaxPx: Math.max(80, Math.min(960, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      imageFit:
+        doc.layout?.imageFit === "contain" || doc.layout?.imageFit === "fill"
+          ? doc.layout.imageFit
+          : "cover",
     },
     cardChrome: {
       enabled: doc.cardChrome?.enabled === true,

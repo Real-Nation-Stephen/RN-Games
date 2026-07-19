@@ -324,6 +324,101 @@ export default function CourseEditor() {
             />
           </label>
         </CollapsibleSection>
+        <CollapsibleSection title="Learner panel & score" summary="Name, start date, accumulated score">
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!s.profilePanel?.enabled}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: {
+                    ...c.settings,
+                    profilePanel: { ...(c.settings.profilePanel || {}), enabled: e.target.checked },
+                  },
+                }))
+              }
+            />
+            Show learner panel on course home
+          </label>
+          <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
+            Display name is stored locally in the browser (not tracked). Accumulated score sums game outcomes
+            like <code>catch.score</code>, <code>runner.score</code>, <code>matching.score</code>.
+          </p>
+          {(
+            [
+              ["showDisplayName", "Show display name", true],
+              ["showCourseStartDate", "Show course start date", true],
+              ["showItemsCompleted", "Show items completed", true],
+              ["showAccumulatedScore", "Show accumulated score", true],
+              ["accumulateScores", "Accumulate scores from game items", true],
+              ["completionBonusEnabled", "Award bonus points per completed item", false],
+            ] as const
+          ).map(([key, label, defaultOn]) => (
+            <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={
+                  defaultOn
+                    ? s.profilePanel?.[key] !== false
+                    : !!s.profilePanel?.[key]
+                }
+                onChange={(e) =>
+                  patch((c) => ({
+                    ...c,
+                    settings: {
+                      ...c.settings,
+                      profilePanel: { ...(c.settings.profilePanel || {}), [key]: e.target.checked },
+                    },
+                  }))
+                }
+              />
+              {label}
+            </label>
+          ))}
+          <label className="field" style={{ marginTop: 10 }}>
+            Score mode
+            <select
+              value={s.profilePanel?.scoreMode === "latest" ? "latest" : "bestPerItem"}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: {
+                    ...c.settings,
+                    profilePanel: {
+                      ...(c.settings.profilePanel || {}),
+                      scoreMode: e.target.value as "bestPerItem" | "latest",
+                    },
+                  },
+                }))
+              }
+            >
+              <option value="bestPerItem">Best score per item, then sum</option>
+              <option value="latest">Latest session score bag</option>
+            </select>
+          </label>
+          <label className="field">
+            Completion bonus points (per item)
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={s.profilePanel?.completionBonusPoints || 0}
+              onChange={(e) =>
+                patch((c) => ({
+                  ...c,
+                  settings: {
+                    ...c.settings,
+                    profilePanel: {
+                      ...(c.settings.profilePanel || {}),
+                      completionBonusPoints: Number(e.target.value) || 0,
+                    },
+                  },
+                }))
+              }
+            />
+          </label>
+        </CollapsibleSection>
       </div>
 
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginBottom: 16 }}>

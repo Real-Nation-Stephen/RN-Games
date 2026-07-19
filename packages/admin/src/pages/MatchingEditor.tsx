@@ -948,6 +948,32 @@ export default function MatchingEditor() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Card image fit</h3>
+        <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
+          How uploaded card art fills each tile. Cover/Fill removes letterbox gaps.
+        </p>
+        <label className="field">
+          Image fit
+          <select
+            value={doc.layout.imageFit || "cover"}
+            onChange={(e) =>
+              patch((d) => ({
+                ...d,
+                layout: {
+                  ...d.layout,
+                  imageFit: e.target.value as "contain" | "cover" | "fill",
+                },
+              }))
+            }
+          >
+            <option value="cover">Scale to fill (cover — may crop)</option>
+            <option value="contain">Scale to fit (contain — may letterbox)</option>
+            <option value="fill">Stretch to fill</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Branding &amp; backgrounds</h3>
         <HexField
           label="Page background"

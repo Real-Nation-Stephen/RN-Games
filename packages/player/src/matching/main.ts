@@ -132,6 +132,7 @@ function applyTheme(c: MatchingRecord) {
   root.style.setProperty("--match-gap", `${c.layout.gapPx}px`);
   root.style.setProperty("--match-tile-min", `${c.layout.tileMinPx}px`);
   root.style.setProperty("--match-tile-max", `${c.layout.tileMaxPx}px`);
+  root.style.setProperty("--match-image-fit", c.layout.imageFit || "cover");
   root.style.setProperty("--match-pad", c.cardChrome.enabled ? `${c.cardChrome.paddingPx}px` : "0px");
   root.style.setProperty("--match-chrome-bg", c.cardChrome.backgroundHex);
   root.style.setProperty("--match-chrome-border", c.cardChrome.borderHex);
@@ -356,29 +357,39 @@ function fitTileSizes(tileCount: number, cols: number) {
   if (!config) return;
   const rows = Math.max(1, Math.ceil(tileCount / cols));
   const gap = config.layout.gapPx;
-  const hudH = els.hud.hidden ? 0 : els.hud.getBoundingClientRect().height;
-  const bannerH = els.banner.hidden ? 0 : els.banner.getBoundingClientRect().height;
-  const pad = 28;
-  const availW = Math.max(160, els.app.clientWidth - pad);
+  const hudH = els.hud.hidden ? 0 : els.hud.offsetHeight;
+  const bannerH = els.banner.hidden ? 0 : els.banner.offsetHeight;
+  const padX = 20;
+  const padY = 16;
+  const bp = matchingBreakpoint();
+  // Use the full viewport so desktop cards grow with available space.
+  const availW = Math.max(160, Math.min(els.app.clientWidth || window.innerWidth, window.innerWidth) - padX);
   const availH = Math.max(
     180,
-    window.innerHeight - hudH - bannerH - pad - (isPreview() ? 20 : 40),
+    window.innerHeight - hudH - bannerH - padY - (isPreview() ? 48 : 12),
   );
   const cellW = Math.floor((availW - gap * (cols - 1)) / cols);
   const cellH = Math.floor((availH - gap * (rows - 1)) / rows);
-  const max = config.layout.tileMaxPx;
   const min = config.layout.tileMinPx;
   const aspect = imageAspect > 0.2 ? imageAspect : 0.75;
+  // Mobile keeps a soft cap; desktop/tablet fill the cell (legibility first).
+  const softMax =
+    bp === "mobile"
+      ? Math.min(config.layout.tileMaxPx || 720, cellW, Math.round(cellH * aspect))
+      : Math.max(cellW, Math.round(cellH * aspect), config.layout.tileMaxPx || 720);
 
-  // Fit largest tile that preserves uploaded card aspect ratio.
-  let tileW = Math.min(cellW, max);
+  let tileW = Math.min(cellW, softMax);
   let tileH = Math.round(tileW / aspect);
   if (tileH > cellH) {
-    tileH = Math.min(cellH, max);
+    tileH = cellH;
     tileW = Math.round(tileH * aspect);
+    if (tileW > cellW) {
+      tileW = cellW;
+      tileH = Math.round(tileW / aspect);
+    }
   }
-  tileW = Math.max(min, Math.min(tileW, max, cellW));
-  tileH = Math.max(min, Math.min(Math.round(tileW / aspect), max, cellH));
+  tileW = Math.max(min, Math.min(tileW, cellW));
+  tileH = Math.max(min, Math.min(tileH, cellH));
 
   els.board.style.setProperty("--match-tile-w", `${tileW}px`);
   els.board.style.setProperty("--match-tile-h", `${tileH}px`);

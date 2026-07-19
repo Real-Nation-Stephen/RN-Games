@@ -60,7 +60,7 @@ export function emptyMatchingRecord(id, slug) {
       },
     ],
     sharedBack: { enabled: false, face: emptyFace("image") },
-    layout: { columns: "auto", gapPx: 12, tileMinPx: 96, tileMaxPx: 360 },
+    layout: { columns: "auto", gapPx: 12, tileMinPx: 96, tileMaxPx: 720, imageFit: "cover" },
     cardChrome: {
       enabled: false,
       backgroundHex: "#ffffff",
@@ -154,7 +154,11 @@ export function normalizeMatchingRecord(doc) {
       columns,
       gapPx: Math.max(4, Math.min(48, Number(doc.layout?.gapPx) || base.layout.gapPx)),
       tileMinPx: Math.max(40, Math.min(240, Number(doc.layout?.tileMinPx) || base.layout.tileMinPx)),
-      tileMaxPx: Math.max(80, Math.min(560, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      tileMaxPx: Math.max(80, Math.min(960, Number(doc.layout?.tileMaxPx) || base.layout.tileMaxPx)),
+      imageFit:
+        doc.layout?.imageFit === "contain" || doc.layout?.imageFit === "fill"
+          ? doc.layout.imageFit
+          : "cover",
     },
     cardChrome: {
       enabled: doc.cardChrome?.enabled === true,

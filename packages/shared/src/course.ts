@@ -53,11 +53,21 @@ export interface CourseSettings {
   profilePanel?: CourseProfilePanelSettings;
 }
 
-/** Parked — configurable stats on course home (not yet rendered). */
+/** Parked / learner chrome on course home. */
 export interface CourseProfilePanelSettings {
   enabled?: boolean;
+  /** Local-only display name (not sent to analytics by default). */
   showDisplayName?: boolean;
   showCourseStartDate?: boolean;
+  showItemsCompleted?: boolean;
+  showAccumulatedScore?: boolean;
+  /** Sum game scores from completed items into a course total. */
+  accumulateScores?: boolean;
+  /** bestPerItem = max score per item, then sum. latest = last score written to session.outcomes. */
+  scoreMode?: "bestPerItem" | "latest";
+  /** Optional flat bonus each time an item is completed (first completion only via completedItemIds). */
+  completionBonusEnabled?: boolean;
+  completionBonusPoints?: number;
   showCourseDeadline?: boolean;
   showLastQuizScore?: boolean;
   showAvgQuizScore?: boolean;
@@ -236,7 +246,7 @@ export function defaultCourseSettings(): CourseSettings {
       "I understand my email will be used only to send my learning link and reconnect my progress — not for marketing unless I opt in elsewhere.",
     learningLinkPrivacyUrl: "",
     enrollmentMode: "open",
-    profilePanel: { enabled: false },
+    profilePanel: { enabled: false, accumulateScores: true, scoreMode: "bestPerItem", showAccumulatedScore: true, showItemsCompleted: true, showDisplayName: true, showCourseStartDate: true },
   };
 }
 
@@ -280,6 +290,52 @@ export function courseCompletionPercent(session: Pick<CourseSession, "completedI
   if (!itemCount) return 0;
   const done = new Set(session.completedItemIds || []).size;
   return Math.round((done / itemCount) * 100);
+}
+
+const SCORE_OUTCOME_RE = /(^|\.)score$/i;
+
+/** Best numeric score found in an outcomes bag (catch.score, matching.score, quiz.score, …). */
+export function extractScoreFromOutcomes(outcomes: Record<string, unknown> | undefined | null): number | null {
+  if (!outcomes || typeof outcomes !== "object") return null;
+  let best: number | null = null;
+  for (const [key, value] of Object.entries(outcomes)) {
+    if (!SCORE_OUTCOME_RE.test(key)) continue;
+    const n = Number(value);
+    if (!Number.isFinite(n)) continue;
+    best = best == null ? n : Math.max(best, n);
+  }
+  return best;
+}
+
+/**
+ * Course accumulated score from per-item outcomes.
+ * bestPerItem: for each item, take its best score, then sum.
+ * latest: use the latest global session.outcomes score keys only (sum of distinct keys).
+ */
+export function courseAccumulatedScore(
+  session: Pick<CourseSession, "itemOutcomes" | "outcomes" | "completedItemIds">,
+  profile: CourseProfilePanelSettings | undefined,
+): number {
+  const panel = profile || {};
+  if (panel.accumulateScores === false && panel.showAccumulatedScore === false) return 0;
+
+  let total = 0;
+  if (panel.scoreMode === "latest") {
+    const s = extractScoreFromOutcomes(session.outcomes);
+    total = s ?? 0;
+  } else {
+    const map = session.itemOutcomes || {};
+    for (const outcomes of Object.values(map)) {
+      const s = extractScoreFromOutcomes(outcomes);
+      if (s != null) total += s;
+    }
+  }
+
+  if (panel.completionBonusEnabled) {
+    const n = (session.completedItemIds || []).length;
+    total += n * Math.max(0, Number(panel.completionBonusPoints) || 0);
+  }
+  return Math.round(total);
 }
 
 export function coursePublicPath(slug: string, resumeToken?: string): string {
@@ -371,7 +427,13 @@ function normalizeSettings(raw: Partial<CourseSettings> | undefined): CourseSett
     profilePanel: {
       enabled: !!profile.enabled,
       showDisplayName: profile.showDisplayName !== false,
-      showCourseStartDate: !!profile.showCourseStartDate,
+      showCourseStartDate: profile.showCourseStartDate !== false,
+      showItemsCompleted: profile.showItemsCompleted !== false,
+      showAccumulatedScore: profile.showAccumulatedScore !== false,
+      accumulateScores: profile.accumulateScores !== false,
+      scoreMode: profile.scoreMode === "latest" ? "latest" : "bestPerItem",
+      completionBonusEnabled: !!profile.completionBonusEnabled,
+      completionBonusPoints: Math.max(0, Math.min(9999, Number(profile.completionBonusPoints) || 0)),
       showCourseDeadline: !!profile.showCourseDeadline,
       showLastQuizScore: !!profile.showLastQuizScore,
       showAvgQuizScore: !!profile.showAvgQuizScore,

@@ -136,6 +136,8 @@ export {
   resolvePublicCourseItems,
   coursePublicPath,
   courseCompletionPercent,
+  courseAccumulatedScore,
+  extractScoreFromOutcomes,
   newCourseId,
   defaultCoursePresentation,
   defaultCourseSettings,
