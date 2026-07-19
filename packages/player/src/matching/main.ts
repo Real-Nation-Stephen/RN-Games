@@ -815,9 +815,8 @@ function finish(won: boolean) {
       pairsDealt: roundPairCount,
     },
   });
-  if (won) {
-    emitStepComplete(stepOutcomes());
-  }
+  // In flow/course, wait for the Continue button (like catch/runner) so the end
+  // overlay is visible and the shell can override chrome. Standalone has no step bridge.
   notifyEndScreenReady();
 }
 
