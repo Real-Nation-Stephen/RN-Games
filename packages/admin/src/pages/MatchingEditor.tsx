@@ -21,10 +21,13 @@ type LeaderboardOption = { id: string; slug: string; title: string; gameType?: s
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
-const GRID3_STYLE: React.CSSProperties = {
+/** Secondary settings only — pairs and preview stay full width. */
+const SETTINGS_GRID: React.CSSProperties = {
   display: "grid",
   gap: 16,
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  marginBottom: 16,
+  alignItems: "start",
 };
 
 function publicUrl(slug: string) {
@@ -173,7 +176,13 @@ function PairEditor({
 }) {
   return (
     <CollapsibleSection title={`Pair ${index + 1}`} summary={`${pair.faceA.kind} ↔ ${pair.faceB.kind}`} defaultOpen={index === 0}>
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 10,
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        }}
+      >
         <FaceEditor label="Side A" face={pair.faceA} onChange={(faceA) => onChange({ ...pair, faceA })} />
         <FaceEditor label="Side B" face={pair.faceB} onChange={(faceB) => onChange({ ...pair, faceB })} />
       </div>
@@ -380,7 +389,7 @@ export default function MatchingEditor() {
           Public URL: <code>{publicUrl(doc.slug)}</code>
         </p>
         <label className="field" style={{ marginTop: 12 }}>
-          Tab icon
+          Tab icon (favicon)
         </label>
         <input
           type="file"
@@ -392,7 +401,16 @@ export default function MatchingEditor() {
             patch((d) => ({ ...d, faviconUrl: url }));
           }}
         />
-        {doc.faviconUrl ? <span className="muted"> ✓</span> : null}
+        {doc.faviconUrl ? (
+          <>
+            <span className="muted"> ✓</span>
+            <img
+              src={doc.faviconUrl}
+              alt=""
+              style={{ width: 24, height: 24, marginLeft: 8, verticalAlign: "middle", objectFit: "contain" }}
+            />
+          </>
+        ) : null}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
           <input
             type="checkbox"
@@ -403,10 +421,8 @@ export default function MatchingEditor() {
         </label>
       </div>
 
-      <div style={GRID3_STYLE}>
-        {/* Column 1 — play structure */}
-        <div>
-          <CollapsibleSection
+      <div style={{ marginBottom: 16 }}>
+        <CollapsibleSection
             title="Play mode"
             summary={doc.playMode === "memory" ? "Memory (face-down flip)" : "Match (A → B)"}
             defaultOpen
@@ -427,8 +443,10 @@ export default function MatchingEditor() {
               Same pairing model for both. Match shows faces up; Memory hides them until flipped.
             </p>
           </CollapsibleSection>
+      </div>
 
-          <CollapsibleSection
+      <div style={{ marginBottom: 16 }}>
+        <CollapsibleSection
             title="Pairs"
             summary={`${doc.pairs.length} pair${doc.pairs.length === 1 ? "" : "s"}${pairWarn ? " · large deck" : ""}`}
             defaultOpen
@@ -500,8 +518,11 @@ export default function MatchingEditor() {
               </div>
             ) : null}
           </CollapsibleSection>
+      </div>
 
-          <CollapsibleSection
+      <div style={SETTINGS_GRID}>
+        <div>
+<CollapsibleSection
             title="Round deal"
             summary={`D${doc.gameplay.pairsDealt} / T${doc.gameplay.pairsDealtTablet} / M${doc.gameplay.pairsDealtMobile}${doc.gameplay.globalShuffle ? " · shuffled" : ""}`}
           >
@@ -678,10 +699,149 @@ export default function MatchingEditor() {
               </>
             ) : null}
           </CollapsibleSection>
+
+
+          <CollapsibleSection title="Intro screen" summary={doc.introHeadline.trim() || "Untitled"}>
+            <label className="field">
+              Headline
+              <input
+                value={doc.introHeadline}
+                onChange={(e) => patch((d) => ({ ...d, introHeadline: e.target.value }))}
+              />
+            </label>
+            <label className="field" style={{ marginTop: 12 }}>
+              Body
+              <textarea
+                rows={2}
+                value={doc.introBody}
+                onChange={(e) => patch((d) => ({ ...d, introBody: e.target.value }))}
+              />
+            </label>
+            <label className="field" style={{ marginTop: 12 }}>
+              Start button label
+              <input value={doc.startLabel} onChange={(e) => patch((d) => ({ ...d, startLabel: e.target.value }))} />
+            </label>
+            <div style={{ marginTop: 12 }}>
+              <HexField
+                label="Headline hex"
+                value={doc.introHeadlineHex}
+                onChange={(v) => patch((d) => ({ ...d, introHeadlineHex: v }))}
+              />
+              <HexField
+                label="Body hex"
+                value={doc.introBodyHex}
+                onChange={(v) => patch((d) => ({ ...d, introBodyHex: v }))}
+              />
+              <HexField
+                label="Button hex"
+                value={doc.introButtonHex}
+                onChange={(v) => patch((d) => ({ ...d, introButtonHex: v }))}
+              />
+              <HexField
+                label="Button text hex"
+                value={doc.introButtonTextHex}
+                onChange={(v) => patch((d) => ({ ...d, introButtonTextHex: v }))}
+              />
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="End screen" summary={doc.endScreen.headline.trim() || "Default headline"}>
+            <label className="field">Logo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const { url } = await uploadFile(f);
+                patch((d) => ({ ...d, endScreen: { ...d.endScreen, logoUrl: url } }));
+              }}
+            />
+            {doc.endScreen.logoUrl ? <span className="muted"> ✓</span> : null}
+            <label className="field" style={{ marginTop: 12 }}>
+              Headline
+            </label>
+            <input
+              value={doc.endScreen.headline}
+              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headline: e.target.value } }))}
+            />
+            <label className="field" style={{ marginTop: 12 }}>
+              Subhead
+            </label>
+            <input
+              value={doc.endScreen.subhead}
+              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subhead: e.target.value } }))}
+            />
+            <label className="field" style={{ marginTop: 12 }}>
+              Score prefix
+            </label>
+            <input
+              value={doc.endScreen.scorePrefix}
+              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, scorePrefix: e.target.value } }))}
+            />
+            <label className="field" style={{ marginTop: 12 }}>
+              Play again label
+            </label>
+            <input
+              value={doc.endScreen.playAgainLabel}
+              onChange={(e) =>
+                patch((d) => ({ ...d, endScreen: { ...d.endScreen, playAgainLabel: e.target.value } }))
+              }
+            />
+            <div style={{ marginTop: 12 }}>
+              <HexField
+                label="Headline hex"
+                value={doc.endScreen.headlineHex}
+                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headlineHex: v } }))}
+              />
+              <HexField
+                label="Subhead hex"
+                value={doc.endScreen.subheadHex}
+                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subheadHex: v } }))}
+              />
+              <HexField
+                label="Text hex"
+                value={doc.endScreen.textHex}
+                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, textHex: v } }))}
+              />
+              <HexField
+                label="Button hex"
+                value={doc.endScreen.buttonHex}
+                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonHex: v } }))}
+              />
+              <HexField
+                label="Button text hex"
+                value={doc.endScreen.buttonTextHex}
+                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonTextHex: v } }))}
+              />
+            </div>
+            <label className="field" style={{ marginTop: 12 }}>
+              Overlay colour (CSS)
+            </label>
+            <input
+              value={doc.endScreen.overlayHex}
+              placeholder="rgba(8, 14, 22, 0.88)"
+              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, overlayHex: e.target.value } }))}
+            />
+            <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0" }}>
+              Scrim behind the end card — accepts hex or rgba().
+            </p>
+          </CollapsibleSection>
+
+<div style={{ border: "1px solid var(--rn-border)", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={doc.showFullscreenButton !== false}
+                onChange={(e) => patch((d) => ({ ...d, showFullscreenButton: e.target.checked }))}
+              />
+              Show fullscreen button
+            </label>
+          </div>
         </div>
 
-        {/* Column 2 — branding, audio, HUD, scoring */}
         <div>
+
           <CollapsibleSection
             title="Logo"
             summary={doc.logoUrl ? `Uploaded · ${doc.logoAlign}` : `No logo · ${doc.logoAlign}`}
@@ -936,8 +1096,11 @@ export default function MatchingEditor() {
                 checked={doc.highScore.enabled}
                 onChange={(e) => patch((d) => ({ ...d, highScore: { ...d.highScore, enabled: e.target.checked } }))}
               />
-              Collect player name before play (for leaderboard)
+              Collect player name on end screen (for leaderboard)
             </label>
+            <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+              Only shown when scoring is on and a leaderboard is linked. Save after changing.
+            </p>
             <label className="field" style={{ marginTop: 12 }}>
               Name character limit
             </label>
@@ -954,149 +1117,12 @@ export default function MatchingEditor() {
               }
             />
           </CollapsibleSection>
+        
         </div>
+      </div>
 
-        {/* Column 3 — copy, end screen, preview & embed */}
-        <div>
-          <CollapsibleSection title="Intro screen" summary={doc.introHeadline.trim() || "Untitled"}>
-            <label className="field">
-              Headline
-              <input
-                value={doc.introHeadline}
-                onChange={(e) => patch((d) => ({ ...d, introHeadline: e.target.value }))}
-              />
-            </label>
-            <label className="field" style={{ marginTop: 12 }}>
-              Body
-              <textarea
-                rows={2}
-                value={doc.introBody}
-                onChange={(e) => patch((d) => ({ ...d, introBody: e.target.value }))}
-              />
-            </label>
-            <label className="field" style={{ marginTop: 12 }}>
-              Start button label
-              <input value={doc.startLabel} onChange={(e) => patch((d) => ({ ...d, startLabel: e.target.value }))} />
-            </label>
-            <div style={{ marginTop: 12 }}>
-              <HexField
-                label="Headline hex"
-                value={doc.introHeadlineHex}
-                onChange={(v) => patch((d) => ({ ...d, introHeadlineHex: v }))}
-              />
-              <HexField
-                label="Body hex"
-                value={doc.introBodyHex}
-                onChange={(v) => patch((d) => ({ ...d, introBodyHex: v }))}
-              />
-              <HexField
-                label="Button hex"
-                value={doc.introButtonHex}
-                onChange={(v) => patch((d) => ({ ...d, introButtonHex: v }))}
-              />
-              <HexField
-                label="Button text hex"
-                value={doc.introButtonTextHex}
-                onChange={(v) => patch((d) => ({ ...d, introButtonTextHex: v }))}
-              />
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection title="End screen" summary={doc.endScreen.headline.trim() || "Default headline"}>
-            <label className="field">Logo</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                const { url } = await uploadFile(f);
-                patch((d) => ({ ...d, endScreen: { ...d.endScreen, logoUrl: url } }));
-              }}
-            />
-            {doc.endScreen.logoUrl ? <span className="muted"> ✓</span> : null}
-            <label className="field" style={{ marginTop: 12 }}>
-              Headline
-            </label>
-            <input
-              value={doc.endScreen.headline}
-              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headline: e.target.value } }))}
-            />
-            <label className="field" style={{ marginTop: 12 }}>
-              Subhead
-            </label>
-            <input
-              value={doc.endScreen.subhead}
-              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subhead: e.target.value } }))}
-            />
-            <label className="field" style={{ marginTop: 12 }}>
-              Score prefix
-            </label>
-            <input
-              value={doc.endScreen.scorePrefix}
-              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, scorePrefix: e.target.value } }))}
-            />
-            <label className="field" style={{ marginTop: 12 }}>
-              Play again label
-            </label>
-            <input
-              value={doc.endScreen.playAgainLabel}
-              onChange={(e) =>
-                patch((d) => ({ ...d, endScreen: { ...d.endScreen, playAgainLabel: e.target.value } }))
-              }
-            />
-            <div style={{ marginTop: 12 }}>
-              <HexField
-                label="Headline hex"
-                value={doc.endScreen.headlineHex}
-                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, headlineHex: v } }))}
-              />
-              <HexField
-                label="Subhead hex"
-                value={doc.endScreen.subheadHex}
-                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, subheadHex: v } }))}
-              />
-              <HexField
-                label="Text hex"
-                value={doc.endScreen.textHex}
-                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, textHex: v } }))}
-              />
-              <HexField
-                label="Button hex"
-                value={doc.endScreen.buttonHex}
-                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonHex: v } }))}
-              />
-              <HexField
-                label="Button text hex"
-                value={doc.endScreen.buttonTextHex}
-                onChange={(v) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, buttonTextHex: v } }))}
-              />
-            </div>
-            <label className="field" style={{ marginTop: 12 }}>
-              Overlay colour (CSS)
-            </label>
-            <input
-              value={doc.endScreen.overlayHex}
-              placeholder="rgba(8, 14, 22, 0.88)"
-              onChange={(e) => patch((d) => ({ ...d, endScreen: { ...d.endScreen, overlayHex: e.target.value } }))}
-            />
-            <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0" }}>
-              Scrim behind the end card — accepts hex or rgba().
-            </p>
-          </CollapsibleSection>
-
-          <div style={{ border: "1px solid var(--rn-border)", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={doc.showFullscreenButton !== false}
-                onChange={(e) => patch((d) => ({ ...d, showFullscreenButton: e.target.checked }))}
-              />
-              Show fullscreen button
-            </label>
-          </div>
-
-          <CollapsibleSection title="Live preview" summary="Refresh to sync unsaved changes" defaultOpen>
+      <div style={{ marginBottom: 16 }}>
+        <CollapsibleSection title="Live preview" summary="Refresh to sync unsaved changes" defaultOpen>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
               <button type="button" className="btn btn-primary" onClick={() => pushPreview()}>
                 Refresh preview
@@ -1116,7 +1142,7 @@ export default function MatchingEditor() {
               ref={iframeRef}
               title="Matching preview"
               src="/play/matching.html?preview=1"
-              style={{ width: "100%", height: 420, border: "1px solid var(--rn-border)", borderRadius: 8 }}
+              style={{ width: "100%", height: 520, border: "1px solid var(--rn-border)", borderRadius: 8 }}
               onLoad={() => pushPreview()}
             />
           </CollapsibleSection>
@@ -1133,7 +1159,6 @@ export default function MatchingEditor() {
               onFocus={(e) => e.target.select()}
             />
           </CollapsibleSection>
-        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 40 }}>

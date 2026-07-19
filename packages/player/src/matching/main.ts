@@ -195,7 +195,19 @@ function toggleFullscreen() {
   }
 }
 
+function applyFavicon(url?: string) {
+  if (!url) return;
+  let link = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
+}
+
 function applyTheme(c: MatchingRecord) {
+  applyFavicon(c.faviconUrl);
   const root = document.documentElement;
   ensureFontFace("heading", c.fontUploads.heading);
   ensureFontFace("body", c.fontUploads.body);
@@ -795,7 +807,10 @@ function finish(won: boolean) {
     els.endLogo.hidden = true;
   }
   els.again.textContent = flowMode ? flowNextLabel() : config.endScreen.playAgainLabel;
-  const needsName = !!config.linkedLeaderboardSlug && config.highScore.enabled !== false;
+  const needsName =
+    !!config.linkedLeaderboardSlug &&
+    config.gameplay.scoreEnabled &&
+    config.highScore.enabled !== false;
   els.endNameWrap.hidden = !needsName;
   if (needsName) {
     els.endName.maxLength = config.highScore.nameMaxLength || 16;

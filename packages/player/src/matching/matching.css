@@ -254,6 +254,11 @@ html:-webkit-full-screen body.matching-game {
   font-size: 0.9rem;
 }
 
+/* Author `display: grid` would otherwise override the HTML hidden attribute. */
+.match-end-name[hidden] {
+  display: none;
+}
+
 .match-end-name input {
   padding: 10px 12px;
   border-radius: 8px;
