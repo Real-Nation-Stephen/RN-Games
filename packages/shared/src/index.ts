@@ -282,6 +282,7 @@ export {
   type MatchingPlayMode,
   type MatchingRecord,
   type MatchingSharedBack,
+  type MatchingSounds,
 } from "./matching.js";
 
 export const RESERVED_SLUGS = new Set([

@@ -633,6 +633,8 @@ export const handler = async (event, context) => {
           "introButtonHex",
           "introButtonTextHex",
           "endScreen",
+          "sounds",
+          "showFullscreenButton",
           "highScore",
           "linkedLeaderboardSlug",
         ];

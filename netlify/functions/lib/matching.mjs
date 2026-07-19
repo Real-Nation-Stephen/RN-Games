@@ -118,7 +118,10 @@ export function emptyMatchingRecord(id, slug) {
       headlineHex: "#ffffff",
       subheadHex: "#c8d4e0",
       textHex: "#eef2f7",
+      overlayHex: "rgba(8, 14, 22, 0.88)",
     },
+    sounds: { pairMatch: null, roundComplete: null },
+    showFullscreenButton: true,
     highScore: { enabled: true, nameMaxLength: 16 },
     linkedLeaderboardSlug: "",
   };
@@ -236,7 +239,13 @@ export function normalizeMatchingRecord(doc) {
       subhead: String(doc.endScreen?.subhead || base.endScreen.subhead),
       scorePrefix: String(doc.endScreen?.scorePrefix || base.endScreen.scorePrefix),
       playAgainLabel: String(doc.endScreen?.playAgainLabel || base.endScreen.playAgainLabel),
+      overlayHex: String(doc.endScreen?.overlayHex || base.endScreen.overlayHex),
     },
+    sounds: {
+      pairMatch: doc.sounds?.pairMatch ? String(doc.sounds.pairMatch) : null,
+      roundComplete: doc.sounds?.roundComplete ? String(doc.sounds.roundComplete) : null,
+    },
+    showFullscreenButton: doc.showFullscreenButton !== false,
     highScore: {
       enabled: doc.highScore?.enabled !== false,
       nameMaxLength: Math.max(2, Math.min(32, Number(doc.highScore?.nameMaxLength) || 16)),

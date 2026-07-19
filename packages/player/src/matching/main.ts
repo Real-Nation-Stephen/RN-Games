@@ -1,4 +1,7 @@
 import {
+  emitStepComplete,
+  emitStepEngaged,
+  isEmbeddedShellActive,
   matchingBreakpoint,
   normalizeMatching,
   pairsDealtForBreakpoint,
@@ -8,8 +11,8 @@ import {
   type MatchingRecord,
 } from "@rngames/shared";
 import { track } from "@rngames/shared/track";
-import { emitStepComplete, emitStepEngaged, isEmbeddedShellActive } from "@rngames/shared";
 import { submitLinkedScore } from "../leaderboard/api";
+import { notifyEndScreenReady } from "../page-module/shared";
 import "./matching.css";
 
 type Tile = {
@@ -21,9 +24,13 @@ type Tile = {
   matched: boolean;
 };
 
+const ICON_FS_ENTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+const ICON_FS_EXIT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"/><path d="M20 8V4h-4"/><path d="M4 16v4h4"/><path d="M20 16v4h-4"/></svg>`;
+
 const els = {
   app: document.getElementById("match-app")!,
   bg: document.getElementById("match-bg")!,
+  top: document.getElementById("match-top")!,
   banner: document.getElementById("match-banner")!,
   logo: document.getElementById("match-logo") as HTMLImageElement,
   hud: document.getElementById("match-hud")!,
@@ -45,9 +52,10 @@ const els = {
   endNameWrap: document.getElementById("match-end-name-wrap")!,
   endName: document.getElementById("match-end-name") as HTMLInputElement,
   again: document.getElementById("match-again") as HTMLButtonElement,
-  flowContinue: document.getElementById("match-flow-continue") as HTMLButtonElement,
   error: document.getElementById("match-error")!,
   poweredBy: document.getElementById("powered-by-rn")!,
+  fullscreenBtn: document.getElementById("match-fullscreen") as HTMLButtonElement,
+  fullscreenIcon: document.querySelector(".match-fullscreen__icon") as HTMLElement,
 };
 
 let config: MatchingRecord | null = null;
@@ -65,7 +73,10 @@ let dragId: string | null = null;
 let finished = false;
 let imageAspect = 0.75;
 const revealedTemp = new Set<string>();
+
 const isPreview = () => params().get("preview") === "1";
+const flowMode = isEmbeddedShellActive();
+const flowNextLabel = () => params().get("nextStepLabel")?.trim() || "Continue";
 
 function params() {
   return new URLSearchParams(window.location.search);
@@ -116,6 +127,74 @@ function ensureFontFace(role: string, upload?: { url?: string; family?: string }
   document.head.appendChild(style);
 }
 
+function hudHasContent(c: MatchingRecord): boolean {
+  return c.hud.showMoves || (c.gameplay.scoreEnabled && c.hud.showScore) || !!c.gameplay.timerSec;
+}
+
+function updateTopVisibility() {
+  if (!config) return;
+  const playing = els.app.classList.contains("match-app--playing");
+  const hasBanner = !els.banner.hidden;
+  const hasHud = !els.hud.hidden && hudHasContent(config);
+  els.top.hidden = !playing || (!hasBanner && !hasHud);
+}
+
+function playSound(url: string | null | undefined) {
+  if (!url) return;
+  try {
+    const audio = new Audio(url);
+    void audio.play().catch(() => undefined);
+  } catch {
+    /* ignore */
+  }
+}
+
+function getFullscreenElement() {
+  return (
+    document.fullscreenElement ||
+    (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement ||
+    null
+  );
+}
+
+function fullscreenSupported() {
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || (el as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen);
+}
+
+function updateFullscreenButtonUi() {
+  if (!els.fullscreenBtn || !els.fullscreenIcon) return;
+  const active = !!getFullscreenElement();
+  const allowed = fullscreenSupported() && !isPreview() && config?.showFullscreenButton !== false;
+  els.fullscreenBtn.hidden = !allowed;
+  els.fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
+  els.fullscreenBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  els.fullscreenBtn.title = active ? "Exit fullscreen" : "Fullscreen";
+  els.fullscreenIcon.innerHTML = active ? ICON_FS_EXIT : ICON_FS_ENTER;
+}
+
+function toggleFullscreen() {
+  const cur = getFullscreenElement();
+  const docEl = document.documentElement as HTMLElement & {
+    requestFullscreen?: () => Promise<void>;
+    webkitRequestFullscreen?: () => void;
+  };
+  try {
+    if (cur) {
+      if (document.exitFullscreen) void document.exitFullscreen();
+      else if ((document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen) {
+        void (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
+      }
+    } else if (docEl.requestFullscreen) {
+      void docEl.requestFullscreen();
+    } else if (docEl.webkitRequestFullscreen) {
+      docEl.webkitRequestFullscreen();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function applyTheme(c: MatchingRecord) {
   const root = document.documentElement;
   ensureFontFace("heading", c.fontUploads.heading);
@@ -150,20 +229,25 @@ function applyTheme(c: MatchingRecord) {
   root.style.setProperty("--match-end-headline", c.endScreen.headlineHex);
   root.style.setProperty("--match-end-subhead", c.endScreen.subheadHex);
   root.style.setProperty("--match-end-text", c.endScreen.textHex);
+  root.style.setProperty("--match-end-overlay", c.endScreen.overlayHex || "rgba(8, 14, 22, 0.88)");
   root.style.setProperty("--match-hud-moves", c.hud.movesHex);
   root.style.setProperty("--match-hud-score", c.hud.scoreHex);
   root.style.setProperty("--match-hud-timer", c.hud.timerHex);
   root.style.setProperty("--match-hud-label", c.hud.labelHex);
 
+  els.top.className = `match-top match-top--${c.logoAlign}`;
   if (c.logoUrl) {
     els.banner.hidden = false;
-    els.banner.className = `match-banner match-banner--${c.logoAlign}`;
+    els.banner.className = "match-banner";
     els.logo.src = c.logoUrl;
     els.logo.hidden = false;
   } else {
     els.banner.hidden = true;
+    els.logo.hidden = true;
   }
   els.poweredBy.hidden = c.showPoweredBy === false;
+  updateFullscreenButtonUi();
+  updateTopVisibility();
 }
 
 function faceContent(face: MatchFace, faceDown: boolean): string {
@@ -259,6 +343,16 @@ function dealPairsForRound(c: MatchingRecord): MatchPair[] {
   return dealtIds.map((id) => byId.get(id)!).filter(Boolean);
 }
 
+/** Nudges a column pairing apart when independent shuffles happen to align a pair on the same row. */
+function avoidRowCollisions(colA: Tile[], colB: Tile[]) {
+  for (let i = 0; i < colA.length; i++) {
+    if (colA[i].pairId !== colB[i].pairId) continue;
+    const swapWith = (i + 1) % colB.length;
+    if (swapWith === i) break;
+    [colB[i], colB[swapWith]] = [colB[swapWith], colB[i]];
+  }
+}
+
 function buildTiles(c: MatchingRecord, pairs: MatchPair[]): Tile[] {
   const orderedPairs = shuffle(pairs);
   const out: Tile[] = [];
@@ -286,9 +380,11 @@ function buildTiles(c: MatchingRecord, pairs: MatchPair[]): Tile[] {
     return shuffle(out);
   }
 
-  // Side A left column, Side B right — pair rows share shuffled vertical order.
-  const colA = out.filter((t) => t.side === "a");
-  const colB = out.filter((t) => t.side === "b");
+  // Side A left column, Side B right — shuffle each column independently so
+  // matching pairs don't land on the same row (side-by-side).
+  const colA = shuffle(out.filter((t) => t.side === "a"));
+  const colB = shuffle(out.filter((t) => t.side === "b"));
+  avoidRowCollisions(colA, colB);
   const interleaved: Tile[] = [];
   for (let i = 0; i < colA.length; i++) {
     interleaved.push(colA[i], colB[i]);
@@ -357,8 +453,7 @@ function fitTileSizes(tileCount: number, cols: number) {
   if (!config) return;
   const rows = Math.max(1, Math.ceil(tileCount / cols));
   const gap = config.layout.gapPx;
-  const hudH = els.hud.hidden ? 0 : els.hud.offsetHeight;
-  const bannerH = els.banner.hidden ? 0 : els.banner.offsetHeight;
+  const topH = els.top.hidden ? 0 : els.top.offsetHeight;
   const padX = 20;
   const padY = 16;
   const bp = matchingBreakpoint();
@@ -366,7 +461,7 @@ function fitTileSizes(tileCount: number, cols: number) {
   const availW = Math.max(160, Math.min(els.app.clientWidth || window.innerWidth, window.innerWidth) - padX);
   const availH = Math.max(
     180,
-    window.innerHeight - hudH - bannerH - padY - (isPreview() ? 48 : 12),
+    window.innerHeight - topH - padY - (isPreview() ? 48 : 12),
   );
   const cellW = Math.floor((availW - gap * (cols - 1)) / cols);
   const cellH = Math.floor((availH - gap * (rows - 1)) / rows);
@@ -425,11 +520,7 @@ function renderBoard() {
     if (tile.matched) {
       btn.disabled = true;
     } else {
-      btn.addEventListener("click", () => onSelect(tile.id));
-      btn.addEventListener("keydown", (e) => onKey(e, tile.id));
-      if (config.gameplay.inputModes.includes("drag")) {
-        wireDrag(btn, tile.id);
-      }
+      wireTile(btn, tile);
     }
     els.board.appendChild(btn);
   }
@@ -493,6 +584,7 @@ function onSelect(tileId: string) {
     }
     updateHud();
     setStatus("Match!");
+    playSound(config.sounds.pairMatch);
     track({
       type: "matching.pair_matched",
       gameId: config.id,
@@ -533,17 +625,42 @@ function onKey(e: KeyboardEvent, tileId: string) {
   }
 }
 
-function wireDrag(btn: HTMLButtonElement, tileId: string) {
+function selectFromTo(fromId: string, toId: string) {
+  selectedId = fromId;
+  onSelect(toId);
+}
+
+function wireTile(btn: HTMLButtonElement, tile: Tile) {
+  btn.addEventListener("click", (e) => {
+    if (btn.dataset.suppressClick === "1") {
+      delete btn.dataset.suppressClick;
+      e.preventDefault();
+      return;
+    }
+    onSelect(tile.id);
+  });
+  btn.addEventListener("keydown", (e) => onKey(e, tile.id));
+
+  if (!config?.gameplay.inputModes.includes("drag")) return;
+  wireDragAndDrop(btn, tile);
+}
+
+/**
+ * Mobile-first drag: pointer capture drives a manual drag/tap detection so
+ * touch input doesn't need to rely on (largely absent) HTML5 drag-and-drop.
+ * Native HTML5 DnD is kept as an additive path for desktop mouse users.
+ */
+function wireDragAndDrop(btn: HTMLButtonElement, tile: Tile) {
   btn.draggable = true;
   btn.addEventListener("dragstart", (e) => {
     if (locked) {
       e.preventDefault();
       return;
     }
-    dragId = tileId;
+    dragId = tile.id;
     btn.classList.add("is-dragging");
-    e.dataTransfer?.setData("text/plain", tileId);
-    e.dataTransfer!.effectAllowed = "move";
+    e.dataTransfer?.setData("text/plain", tile.id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
   });
   btn.addEventListener("dragend", () => {
     dragId = null;
@@ -552,36 +669,68 @@ function wireDrag(btn: HTMLButtonElement, tileId: string) {
   });
   btn.addEventListener("dragover", (e) => {
     e.preventDefault();
-    if (dragId && dragId !== tileId) btn.classList.add("is-drop-target");
+    if (dragId && dragId !== tile.id) btn.classList.add("is-drop-target");
   });
   btn.addEventListener("dragleave", () => btn.classList.remove("is-drop-target"));
   btn.addEventListener("drop", (e) => {
     e.preventDefault();
     btn.classList.remove("is-drop-target");
     const from = e.dataTransfer?.getData("text/plain") || dragId;
-    if (!from || from === tileId) return;
-    selectedId = from;
-    onSelect(tileId);
+    if (!from || from === tile.id) return;
+    selectFromTo(from, tile.id);
   });
 
-  let pointing = false;
+  let start: { x: number; y: number } | null = null;
+  let isDragging = false;
+
   btn.addEventListener("pointerdown", (e) => {
+    if (locked) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    pointing = true;
-    dragId = tileId;
-    btn.setPointerCapture(e.pointerId);
-  });
-  btn.addEventListener("pointerup", (e) => {
-    if (!pointing) return;
-    pointing = false;
-    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    const target = el?.closest(".match-tile") as HTMLElement | null;
-    const toId = target?.dataset.tileId;
-    if (dragId && toId && dragId !== toId) {
-      selectedId = dragId;
-      onSelect(toId);
+    start = { x: e.clientX, y: e.clientY };
+    isDragging = false;
+    dragId = tile.id;
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
     }
+  });
+
+  btn.addEventListener("pointermove", (e) => {
+    if (!start || dragId !== tile.id) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!isDragging && Math.hypot(dx, dy) > 10) {
+      isDragging = true;
+      btn.classList.add("is-dragging");
+    }
+  });
+
+  btn.addEventListener("pointerup", (e) => {
+    if (dragId !== tile.id) return;
+    const wasDragging = isDragging;
+    btn.classList.remove("is-dragging");
+    start = null;
+    isDragging = false;
     dragId = null;
+    // Suppress the synthetic click that follows pointerup so tap/drag
+    // handling here is the single source of truth for selection.
+    btn.dataset.suppressClick = "1";
+    if (wasDragging) {
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const target = el?.closest<HTMLElement>(".match-tile");
+      const toId = target?.dataset.tileId;
+      if (toId && toId !== tile.id) selectFromTo(tile.id, toId);
+    } else {
+      onSelect(tile.id);
+    }
+  });
+
+  btn.addEventListener("pointercancel", () => {
+    if (dragId === tile.id) dragId = null;
+    start = null;
+    isDragging = false;
+    btn.classList.remove("is-dragging");
   });
 }
 
@@ -605,18 +754,30 @@ async function submitToLeaderboard() {
   }
 }
 
+function stepOutcomes(): Record<string, unknown> {
+  return {
+    completed: true,
+    "matching.matchedPairs": matchedPairs,
+    "matching.moves": moves,
+    "matching.playMode": config?.playMode || "match",
+    "matching.score": score,
+  };
+}
+
 function finish(won: boolean) {
-  if (finished) return;
+  if (finished || !config) return;
   finished = true;
+  locked = true;
   if (timerId) {
     window.clearInterval(timerId);
     timerId = null;
   }
-  if (!config) return;
   els.app.classList.remove("match-app--playing");
   els.app.classList.add("match-app--end");
-  els.board.hidden = true;
   els.hud.hidden = true;
+  updateTopVisibility();
+  // The end overlay sits above the board (see .match-overlay--end); the
+  // board itself stays mounted rather than being hidden.
   els.end.hidden = false;
   els.endHeadline.textContent = won ? config.endScreen.headline : "Time's up";
   els.endSubhead.textContent = won ? config.endScreen.subhead : "You can try again.";
@@ -633,18 +794,14 @@ function finish(won: boolean) {
   } else {
     els.endLogo.hidden = true;
   }
-  els.again.textContent = config.endScreen.playAgainLabel;
+  els.again.textContent = flowMode ? flowNextLabel() : config.endScreen.playAgainLabel;
   const needsName = !!config.linkedLeaderboardSlug && config.highScore.enabled !== false;
   els.endNameWrap.hidden = !needsName;
   if (needsName) {
     els.endName.maxLength = config.highScore.nameMaxLength || 16;
     els.endName.value = getPlayerName() === "Player" ? "" : getPlayerName();
   }
-  const embedded = isEmbeddedShellActive();
-  els.flowContinue.hidden = !embedded;
-  if (embedded) {
-    els.flowContinue.textContent = params().get("nextStepLabel") || "Continue";
-  }
+  playSound(config.sounds.roundComplete);
   void submitToLeaderboard();
   track({
     type: "matching.round_end",
@@ -659,14 +816,9 @@ function finish(won: boolean) {
     },
   });
   if (won) {
-    emitStepComplete({
-      completed: true,
-      "matching.matchedPairs": matchedPairs,
-      "matching.moves": moves,
-      "matching.playMode": config.playMode,
-      "matching.score": score,
-    });
+    emitStepComplete(stepOutcomes());
   }
+  notifyEndScreenReady();
 }
 
 async function startRound() {
@@ -689,6 +841,7 @@ async function startRound() {
   els.end.hidden = true;
   els.board.hidden = false;
   els.hud.hidden = false;
+  updateTopVisibility();
   updateHud();
   setStatus("");
   renderBoard();
@@ -721,6 +874,7 @@ function showIntro(c: MatchingRecord) {
   els.board.hidden = true;
   els.end.hidden = true;
   els.hud.hidden = true;
+  updateTopVisibility();
   els.app.hidden = false;
   els.error.hidden = true;
 }
@@ -752,26 +906,28 @@ async function fetchPublicConfig(): Promise<MatchingRecord> {
 }
 
 els.start.addEventListener("click", () => void startRound());
-els.again.addEventListener("click", () => void startRound());
-els.flowContinue.addEventListener("click", () => {
+els.again.addEventListener("click", () => {
   if (els.endName.value.trim()) setPlayerName(els.endName.value);
-  emitStepComplete({
-    completed: true,
-    "matching.matchedPairs": matchedPairs,
-    "matching.moves": moves,
-    "matching.playMode": config?.playMode || "match",
-    "matching.score": score,
-  });
+  if (flowMode) {
+    emitStepComplete(stepOutcomes());
+    return;
+  }
+  void startRound();
 });
 els.endName.addEventListener("change", () => {
   if (els.endName.value.trim()) setPlayerName(els.endName.value);
 });
+els.fullscreenBtn.addEventListener("click", () => toggleFullscreen());
+document.addEventListener("fullscreenchange", updateFullscreenButtonUi);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButtonUi);
 
 window.addEventListener("resize", () => {
   if (!config || els.board.hidden) return;
   const cols = colsFor(tiles.length, config);
   fitTileSizes(tiles.length, cols);
 });
+
+updateFullscreenButtonUi();
 
 void (async () => {
   try {
