@@ -613,6 +613,7 @@ function onSelect(tileId: string) {
     }
     updateHud();
     setStatus("Try again");
+    playSound(config.sounds.mismatch);
     window.setTimeout(() => {
       selectedId = null;
       revealedTemp.clear();

@@ -114,6 +114,8 @@ export interface MatchingEndScreen {
 
 export interface MatchingSounds {
   pairMatch: string | null;
+  /** Played when two selected tiles are not a pair. */
+  mismatch: string | null;
   roundComplete: string | null;
 }
 
@@ -309,6 +311,7 @@ export function emptyMatching(partial: { id: string; slug: string }): MatchingRe
     },
     sounds: {
       pairMatch: null,
+      mismatch: null,
       roundComplete: null,
     },
     showFullscreenButton: true,
@@ -448,6 +451,7 @@ export function normalizeMatching(doc: Partial<MatchingRecord> & { id: string; s
     },
     sounds: {
       pairMatch: doc.sounds?.pairMatch ? String(doc.sounds.pairMatch) : null,
+      mismatch: doc.sounds?.mismatch ? String(doc.sounds.mismatch) : null,
       roundComplete: doc.sounds?.roundComplete ? String(doc.sounds.roundComplete) : null,
     },
     showFullscreenButton: doc.showFullscreenButton !== false,

@@ -672,7 +672,9 @@ function renderProfilePanel() {
       chips.push(`Latest ${Number(latest[lastKey]) || 0}`);
     }
   }
-  els.profileStats.innerHTML = chips.map((c) => `<span class="course-profile__chip">${escapeHtml(c)}</span>`).join("");
+  els.profileStats.innerHTML = chips.length
+    ? chips.map((c) => `<span class="course-profile__chip">${escapeHtml(c)}</span>`).join("")
+    : `<span class="course-muted">Progress updates as you complete items.</span>`;
 }
 
 async function renderHome() {

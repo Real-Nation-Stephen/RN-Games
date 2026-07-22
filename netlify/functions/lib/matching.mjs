@@ -120,7 +120,7 @@ export function emptyMatchingRecord(id, slug) {
       textHex: "#eef2f7",
       overlayHex: "rgba(8, 14, 22, 0.88)",
     },
-    sounds: { pairMatch: null, roundComplete: null },
+    sounds: { pairMatch: null, mismatch: null, roundComplete: null },
     showFullscreenButton: true,
     highScore: { enabled: true, nameMaxLength: 16 },
     linkedLeaderboardSlug: "",
@@ -243,6 +243,7 @@ export function normalizeMatchingRecord(doc) {
     },
     sounds: {
       pairMatch: doc.sounds?.pairMatch ? String(doc.sounds.pairMatch) : null,
+      mismatch: doc.sounds?.mismatch ? String(doc.sounds.mismatch) : null,
       roundComplete: doc.sounds?.roundComplete ? String(doc.sounds.roundComplete) : null,
     },
     showFullscreenButton: doc.showFullscreenButton !== false,

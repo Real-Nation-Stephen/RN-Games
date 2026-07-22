@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CourseItem, CourseRecord, CourseSection } from "@rngames/shared";
-import { defaultCoursePresentation, defaultCourseSettings, defaultDeploymentMeasurement, newCourseId } from "@rngames/shared";
+import {
+  defaultCoursePresentation,
+  defaultCourseSettings,
+  defaultDeploymentMeasurement,
+  newCourseId,
+  normalizeCourse,
+} from "@rngames/shared";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { BgUploadRow } from "../components/BgUploadRow";
 import { CollapsibleSection } from "../components/CollapsibleSection";
@@ -15,12 +21,12 @@ function newSection(): CourseSection {
 }
 
 function ensureCourseDefaults(doc: CourseRecord): CourseRecord {
-  return {
+  return normalizeCourse({
     ...doc,
     presentation: doc.presentation || defaultCoursePresentation(),
     settings: doc.settings || defaultCourseSettings(),
     measurement: doc.measurement || defaultDeploymentMeasurement(),
-  };
+  });
 }
 
 export default function CourseEditor() {
@@ -334,7 +340,11 @@ export default function CourseEditor() {
                   ...c,
                   settings: {
                     ...c.settings,
-                    profilePanel: { ...(c.settings.profilePanel || {}), enabled: e.target.checked },
+                    profilePanel: {
+                      ...(defaultCourseSettings().profilePanel || {}),
+                      ...(c.settings.profilePanel || {}),
+                      enabled: e.target.checked,
+                    },
                   },
                 }))
               }
@@ -343,7 +353,8 @@ export default function CourseEditor() {
           </label>
           <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
             Display name is stored locally in the browser (not tracked). Accumulated score sums game outcomes
-            like <code>catch.score</code>, <code>runner.score</code>, <code>matching.score</code>.
+            like <code>catch.score</code>, <code>runner.score</code>, <code>matching.score</code>. Save the course,
+            then open the course home (after Start / Resume) to see the panel.
           </p>
           {(
             [
@@ -352,6 +363,7 @@ export default function CourseEditor() {
               ["showItemsCompleted", "Show items completed", true],
               ["showAccumulatedScore", "Show accumulated score", true],
               ["accumulateScores", "Accumulate scores from game items", true],
+              ["showLatestGameScore", "Show latest game score chip", false],
               ["completionBonusEnabled", "Award bonus points per completed item", false],
             ] as const
           ).map(([key, label, defaultOn]) => (

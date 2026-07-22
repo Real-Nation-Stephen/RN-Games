@@ -44,6 +44,12 @@ html:-webkit-full-screen body.matching-game {
   flex-direction: column;
   gap: 10px;
   overflow-x: clip;
+  /* Own background so html2canvas (and Catch-style thumbs) capture the scene,
+     not a transparent shell over the sibling #match-bg layer. */
+  background-color: var(--match-bg-solid, #0f1a24);
+  background-image: var(--match-bg-image, none);
+  background-size: cover;
+  background-position: center;
 }
 
 #match-app.match-app--playing {
@@ -161,7 +167,8 @@ html:-webkit-full-screen body.matching-game {
 }
 
 .match-overlay {
-  position: fixed;
+  /* Absolute inside #match-app (like Catch) — fixed overlays break html2canvas thumbs. */
+  position: absolute;
   inset: 0;
   z-index: 20;
   display: flex;

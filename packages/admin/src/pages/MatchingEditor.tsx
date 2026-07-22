@@ -49,13 +49,22 @@ function getMatchingHtml2CanvasOptions(iframe: HTMLIFrameElement) {
     onclone: (doc: Document) => {
       const app = doc.getElementById("match-app");
       if (!app) return;
-      (app as HTMLElement).style.backgroundColor = bgSolid;
+      const el = app as HTMLElement;
+      el.style.backgroundColor = bgSolid;
+      el.style.minHeight = "420px";
       if (bgImage && bgImage !== "none") {
-        (app as HTMLElement).style.backgroundImage = bgImage;
-        (app as HTMLElement).style.backgroundSize = "auto 100%";
-        (app as HTMLElement).style.backgroundPosition = "center";
-        (app as HTMLElement).style.backgroundRepeat = "no-repeat";
+        el.style.backgroundImage = bgImage;
+        el.style.backgroundSize = "cover";
+        el.style.backgroundPosition = "center";
+        el.style.backgroundRepeat = "no-repeat";
       }
+      // Keep intro visible for thumbs; force absolute positioning in the clone.
+      for (const overlay of Array.from(doc.querySelectorAll<HTMLElement>(".match-overlay"))) {
+        overlay.style.position = "absolute";
+        overlay.style.inset = "0";
+      }
+      const end = doc.getElementById("match-end");
+      if (end) end.style.display = "none";
     },
   };
 }
@@ -286,7 +295,7 @@ export default function MatchingEditor() {
     if (!doc) return;
     await save();
     pushPreview();
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 700));
     const iframe = iframeRef.current;
     const stage = iframe?.contentDocument?.getElementById("match-app");
     if (!stage || !doc || !iframe) return;
@@ -296,7 +305,8 @@ export default function MatchingEditor() {
       if (!blob) return;
       const file = new File([blob], `thumb-${doc.id}.jpg`, { type: "image/jpeg" });
       const { url } = await uploadFile(file);
-      const res = await apiSend("/api/wheels", "PUT", { ...doc, thumbnailUrl: url });
+      const latest = doc;
+      const res = await apiSend("/api/wheels", "PUT", { ...latest, thumbnailUrl: url });
       if (res?.wheel) setDoc(normalizeMatching(res.wheel as MatchingRecord));
     } catch {
       /* optional */
@@ -345,7 +355,7 @@ export default function MatchingEditor() {
   const embedCode = `<iframe src="${siteUrl}/play/matching.html?slug=${encodeURIComponent(doc.slug)}" title="${(doc.title || "Matching game").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;" loading="lazy"></iframe>`;
 
   const fontsConfigured = (["heading", "body", "hud"] as const).filter((r) => doc.fontUploads[r]?.url).length;
-  const soundsConfigured = [doc.sounds.pairMatch, doc.sounds.roundComplete].filter(Boolean).length;
+  const soundsConfigured = [doc.sounds.pairMatch, doc.sounds.mismatch, doc.sounds.roundComplete].filter(Boolean).length;
   const backgroundsConfigured = [doc.backgrounds.desktop, doc.backgrounds.tablet, doc.backgrounds.mobile].filter(
     Boolean,
   ).length;
@@ -923,7 +933,7 @@ export default function MatchingEditor() {
             ))}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Sounds" summary={`${soundsConfigured} of 2 uploaded`}>
+          <CollapsibleSection title="Sounds" summary={`${soundsConfigured} of 3 uploaded`}>
             <label className="field">Pair matched</label>
             <input
               type="file"
@@ -936,6 +946,20 @@ export default function MatchingEditor() {
               }}
             />
             {doc.sounds.pairMatch ? <span className="muted"> ✓</span> : null}
+            <label className="field" style={{ marginTop: 12 }}>
+              Non-match
+            </label>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const { url } = await uploadFile(f);
+                patch((d) => ({ ...d, sounds: { ...d.sounds, mismatch: url } }));
+              }}
+            />
+            {doc.sounds.mismatch ? <span className="muted"> ✓</span> : null}
             <label className="field" style={{ marginTop: 12 }}>
               Round complete
             </label>
