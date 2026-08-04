@@ -173,6 +173,7 @@ export function emptyPageModuleRecord(id, slug, gameType) {
           contentOffsetYPercent: 50,
           entranceAnimation: true,
           logoMatchPageAlign: true,
+          showBackButton: false,
         },
       };
   }
@@ -626,6 +627,7 @@ export function normalizePageModule(doc) {
       contentOffsetYPercent: Math.max(0, Math.min(100, Number(doc.pageSettings?.contentOffsetYPercent ?? 50))),
       entranceAnimation: doc.pageSettings?.entranceAnimation !== false,
       logoMatchPageAlign: doc.pageSettings?.logoMatchPageAlign !== false,
+      showBackButton: !!doc.pageSettings?.showBackButton,
     },
   };
 }

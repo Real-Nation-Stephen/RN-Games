@@ -195,6 +195,11 @@ export interface LandingPageSettings {
   entranceAnimation: boolean;
   /** When true, logo horizontal alignment follows page contentAlign. */
   logoMatchPageAlign: boolean;
+  /**
+   * When true, a Back button appears beside Continue / page-nav buttons
+   * after the visitor has moved to another screen.
+   */
+  showBackButton?: boolean;
 }
 
 export interface LandingScreen {
@@ -283,6 +288,7 @@ export function defaultLandingPageSettings(): LandingPageSettings {
     contentOffsetYPercent: 50,
     entranceAnimation: true,
     logoMatchPageAlign: true,
+    showBackButton: false,
   };
 }
 
@@ -1008,6 +1014,7 @@ function normalizeLandingPageSettings(raw?: Partial<LandingPageSettings>): Landi
     contentOffsetYPercent: Math.max(0, Math.min(100, Number(raw.contentOffsetYPercent) ?? d.contentOffsetYPercent)),
     entranceAnimation: raw.entranceAnimation !== false,
     logoMatchPageAlign: raw.logoMatchPageAlign !== false,
+    showBackButton: !!raw.showBackButton,
   };
 }
 

@@ -78,6 +78,7 @@ type FlipCardGame = {
   showPoweredBy?: boolean;
   selectionHeading: string;
   embedHideHeading?: boolean;
+  embedTransparentBackground?: boolean;
   deckSize: number;
   cardsDealt: number;
   maxColumns: number;
@@ -124,6 +125,7 @@ function publicFlipPayload(g: FlipCardGame) {
     showPoweredBy: g.showPoweredBy !== false,
     selectionHeading: g.selectionHeading || "",
     embedHideHeading: !!g.embedHideHeading,
+    embedTransparentBackground: !!g.embedTransparentBackground,
     deckSize: n,
     cardsDealt: dealt,
     maxColumns: maxCol,
@@ -370,8 +372,9 @@ export default function FlipCardEditor() {
   }
 
   const embedQuery = new URLSearchParams({ slug: game.slug });
-  if (game.embedHideHeading) embedQuery.set("embed", "1");
-  const embedCode = `<iframe src="${siteUrl}/play/flip-cards.html?${embedQuery.toString()}" title="${(game.title || "Flip cards").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;" loading="lazy"></iframe>`;
+  if (game.embedHideHeading || game.embedTransparentBackground) embedQuery.set("embed", "1");
+  const embedBgStyle = game.embedTransparentBackground ? "background:transparent;" : "";
+  const embedCode = `<iframe src="${siteUrl}/play/flip-cards.html?${embedQuery.toString()}" title="${(game.title || "Flip cards").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;${embedBgStyle}" loading="lazy" allowtransparency="true"></iframe>`;
 
   const n = game.deckSize;
 
@@ -509,6 +512,19 @@ export default function FlipCardEditor() {
         <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
           When embedded (e.g. in a landing page), hide the selection heading so cards can use more space. Standalone
           and experience/course shells keep the heading.
+        </p>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!game.embedTransparentBackground}
+            onChange={(e) => setGame({ ...game, embedTransparentBackground: e.target.checked })}
+          />
+          Transparent background on embed
+        </label>
+        <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+          When embedded, suppress the page background colour/image so the host page shows through. Cards and controls
+          stay as normal.
         </p>
 
         <label className="field" style={{ marginTop: 12 }}>

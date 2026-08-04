@@ -54,6 +54,7 @@ function toPublicFlipCard(f) {
     showPoweredBy: f.showPoweredBy !== false,
     selectionHeading: f.selectionHeading || "",
     embedHideHeading: !!f.embedHideHeading,
+    embedTransparentBackground: !!f.embedTransparentBackground,
     deckSize: n,
     cardsDealt: dealt,
     maxColumns: maxCol,

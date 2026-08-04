@@ -17,6 +17,16 @@ body.flip-cards-game.flip-embed-compact .shuffle-bar {
   padding-top: clamp(6px, 1.2vh, 12px);
 }
 
+/* Embedded: see-through page background so the host page shows through */
+html.flip-cards-root.flip-embed-transparent,
+html.flip-cards-root.flip-embed-transparent body.flip-cards-game.flip-embed-transparent {
+  background: transparent !important;
+}
+
+body.flip-cards-game.flip-embed-transparent::before {
+  display: none !important;
+}
+
 /* Fullscreen: html is the fullscreen element — % height fills reliably; 100dvh can mismatch and break flex + grid sizing */
 html:fullscreen,
 html:-webkit-full-screen {

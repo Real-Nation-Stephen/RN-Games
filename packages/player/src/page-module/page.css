@@ -246,9 +246,16 @@ html.page-bg-scroll::before {
 .landing-embed {
   position: relative;
   width: 100%;
-  background: #000;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.landing-video {
+  background: #000;
+}
+
+.landing-embed {
+  background: transparent;
 }
 
 .landing-video--16-9 {
@@ -272,8 +279,27 @@ html.page-bg-scroll::before {
   display: block;
 }
 
+.landing-embed iframe {
+  background: transparent;
+}
+
 .landing-button-wrap {
   width: 100%;
+}
+
+.landing-cta-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.landing-cta-row.is-full-width {
+  width: 100%;
+}
+
+.landing-back-btn {
+  flex-shrink: 0;
 }
 
 .landing-divider-wrap {

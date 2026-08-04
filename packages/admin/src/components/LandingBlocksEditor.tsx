@@ -834,6 +834,18 @@ export function LandingBlocksEditor({ doc, onScreensChange, onPageSettings }: Pr
           />
           Entrance animation
         </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+          <input
+            type="checkbox"
+            checked={!!doc.pageSettings.showBackButton}
+            onChange={(e) => onPageSettings({ showBackButton: e.target.checked })}
+          />
+          Show back button next to Continue
+        </label>
+        <p className="muted" style={{ fontSize: "0.82rem", margin: 0, gridColumn: "1 / -1" }}>
+          After a visitor moves to another page, a Back button appears beside the Continue / page-nav button so they can
+          return.
+        </p>
       </div>
 
       {blocks.map((block, i) => (

@@ -648,6 +648,11 @@ export interface FlipCardRecord {
    * and give the card grid more vertical space. Standalone / flow / course keep the heading.
    */
   embedHideHeading?: boolean;
+  /**
+   * When true, embedded iframes use a transparent page background so the host page shows through.
+   * Cards and controls stay opaque. Standalone / flow / course keep the normal background.
+   */
+  embedTransparentBackground?: boolean;
   /** Cards in the full deck (1–15) */
   deckSize: number;
   /** How many cards to deal at random per session (≤ deckSize) */
@@ -968,6 +973,7 @@ export function emptyFlipCard(partial: { id: string; slug: string }): FlipCardRe
     showPoweredBy: true,
     selectionHeading: "Tap a card to learn more",
     embedHideHeading: false,
+    embedTransparentBackground: false,
     deckSize: n,
     cardsDealt: 2,
     maxColumns: 4,

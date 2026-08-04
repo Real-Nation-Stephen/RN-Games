@@ -538,16 +538,26 @@ function applyTheme(cfg) {
   document.body.classList.add("flip-cards-game");
 
   const hex = cfg.backgroundColor || "#ffffff";
-  document.documentElement.style.setProperty("--dada-bg", hex);
-  document.documentElement.style.setProperty("--flip-bg-solid", hex);
   const bg = (cfg.backgroundImage || "").trim();
-  document.documentElement.style.setProperty("--flip-bg-image", bg ? `url('${bg}')` : "none");
+  const embedLayoutActive = embedParam || (inIframe && !flowMode && !previewMode);
+  const hideHeadingOnEmbed = !!cfg.embedHideHeading && embedLayoutActive;
+  const transparentOnEmbed = !!cfg.embedTransparentBackground && embedLayoutActive;
+
+  document.body.classList.toggle("flip-embed-compact", hideHeadingOnEmbed);
+  document.body.classList.toggle("flip-embed-transparent", transparentOnEmbed);
+  document.documentElement.classList.toggle("flip-embed-transparent", transparentOnEmbed);
+
+  if (transparentOnEmbed) {
+    document.documentElement.style.setProperty("--dada-bg", "transparent");
+    document.documentElement.style.setProperty("--flip-bg-solid", "transparent");
+    document.documentElement.style.setProperty("--flip-bg-image", "none");
+  } else {
+    document.documentElement.style.setProperty("--dada-bg", hex);
+    document.documentElement.style.setProperty("--flip-bg-solid", hex);
+    document.documentElement.style.setProperty("--flip-bg-image", bg ? `url('${bg}')` : "none");
+  }
 
   document.body.dataset.brandCorner = cfg.brandLogoCorner || "bl";
-
-  const hideHeadingOnEmbed =
-    !!cfg.embedHideHeading && (embedParam || (inIframe && !flowMode && !previewMode));
-  document.body.classList.toggle("flip-embed-compact", hideHeadingOnEmbed);
 
   const selectionHeader = document.querySelector(".selection-header");
   if (selectionHeader instanceof HTMLElement) {

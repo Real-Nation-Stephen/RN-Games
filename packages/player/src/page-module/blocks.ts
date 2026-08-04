@@ -11,6 +11,10 @@ export type LandingMountOptions = {
   onEngage: () => void;
   onScreenNavigate?: (screenId: string) => void;
   deferEntranceAnimation?: boolean;
+  /** Show Back beside the first Continue / page-nav button when history exists */
+  showBackButton?: boolean;
+  canGoBack?: boolean;
+  onBack?: () => void;
 };
 
 function alignStyle(align: string): string {
@@ -177,11 +181,16 @@ function renderButtonBlock(
   block: Extract<LandingBlock, { type: "button" }>,
   pageAlign: string,
   opts: LandingMountOptions,
+  withBack: boolean,
 ): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "landing-button-wrap";
   wrap.style.display = "flex";
   wrap.style.justifyContent = alignStyle(resolveBlockAlign(block.align, pageAlign));
+
+  const action =
+    block.action ??
+    (block.targetScreenId ? "screen" : block.isPrimary ? "primary" : block.url ? "link" : "primary");
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -189,13 +198,10 @@ function renderButtonBlock(
   btn.textContent = block.label;
   btn.style.background = block.backgroundHex;
   btn.style.color = block.textHex;
-  if (block.fullWidth) btn.style.width = "100%";
+  if (block.fullWidth && !withBack) btn.style.width = "100%";
 
   btn.addEventListener("click", () => {
     opts.onEngage();
-    const action =
-      block.action ??
-      (block.targetScreenId ? "screen" : block.isPrimary ? "primary" : block.url ? "link" : "primary");
     if (action === "screen" && block.targetScreenId && opts.onScreenNavigate) {
       opts.onScreenNavigate(block.targetScreenId);
       return;
@@ -208,7 +214,23 @@ function renderButtonBlock(
     else if (block.url) window.location.href = block.url;
   });
 
-  wrap.appendChild(btn);
+  if (withBack && opts.onBack) {
+    const row = document.createElement("div");
+    row.className = "landing-cta-row";
+    if (block.fullWidth) row.classList.add("is-full-width");
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "page-btn page-btn-secondary landing-back-btn";
+    back.textContent = "Back";
+    back.addEventListener("click", () => opts.onBack?.());
+
+    if (block.fullWidth) btn.style.flex = "1";
+    row.append(back, btn);
+    wrap.appendChild(row);
+  } else {
+    wrap.appendChild(btn);
+  }
   return wrap;
 }
 
@@ -221,6 +243,8 @@ function renderEmbedBlock(block: Extract<LandingBlock, { type: "embed" }>): HTML
   iframe.src = block.url;
   iframe.title = block.title || "Embedded content";
   iframe.loading = "lazy";
+  iframe.style.background = "transparent";
+  iframe.setAttribute("allowtransparency", "true");
   iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
   wrap.appendChild(iframe);
   return wrap;
@@ -503,6 +527,7 @@ export function renderLandingBlocks(
   applyLandingPageLayout(cfg);
 
   let hasPrimary = false;
+  let backAttached = false;
   for (const block of cfg.blocks) {
     let el: HTMLElement | null = null;
     switch (block.type) {
@@ -541,10 +566,18 @@ export function renderLandingBlocks(
         el.appendChild(line);
         break;
       }
-      case "button":
+      case "button": {
         if (block.isPrimary) hasPrimary = true;
-        el = renderButtonBlock(block, pageAlign, opts);
+        const action =
+          block.action ??
+          (block.targetScreenId ? "screen" : block.isPrimary ? "primary" : block.url ? "link" : "primary");
+        const isForwardCta = action === "primary" || action === "screen" || !!block.isPrimary;
+        const withBack =
+          !!opts.showBackButton && !!opts.canGoBack && !!opts.onBack && isForwardCta && !backAttached;
+        if (withBack) backAttached = true;
+        el = renderButtonBlock(block, pageAlign, opts, withBack);
         break;
+      }
       case "embed":
         el = renderEmbedBlock(block);
         break;

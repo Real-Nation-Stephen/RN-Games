@@ -227,12 +227,20 @@ function mountLanding(cfg: LandingRecord) {
   const screens = getVisibleLandingScreens(cfg, flowMode);
   let activeScreenId = screens[0]?.id || "";
   let moduleCompleteView = false;
+  const screenHistory: string[] = [];
 
   window.addEventListener("message", (ev) => {
     if (ev.data?.type === FLOW_CONTENT_REVEAL) revealContent();
   });
 
   if (window.parent === window) revealContent();
+
+  function goBack() {
+    const prev = screenHistory.pop();
+    if (!prev || !screens.some((s) => s.id === prev)) return;
+    activeScreenId = prev;
+    renderScreen();
+  }
 
   function renderScreen() {
     resetLandingScroll();
@@ -246,21 +254,28 @@ function mountLanding(cfg: LandingRecord) {
       blocks: blocksForScreen(screen, flowMode, moduleCompleteView),
     };
 
+    const onOverride = resolveOverrideState(screen, flowMode, moduleCompleteView);
+    const showBack =
+      !!cfg.pageSettings.showBackButton && screenHistory.length > 0 && !onOverride && !moduleCompleteView;
+
     const hasPrimary = renderLandingBlocks(els.blocks, screenCfg, {
       flowMode,
       flowNextLabel: flowNextLabel(),
       deferEntranceAnimation: cfg.pageSettings.entranceAnimation !== false && !contentRevealed,
+      showBackButton: showBack,
+      canGoBack: showBack,
+      onBack: goBack,
       onEngage: () => engageStep(),
       onPrimaryAction: (label) => {
         const currentScreen = screens.find((s) => s.id === activeScreenId) || screens[0];
-        const onOverride = resolveOverrideState(currentScreen, flowMode, moduleCompleteView);
+        const onOverrideNow = resolveOverrideState(currentScreen, flowMode, moduleCompleteView);
 
-        if (onOverride && shouldFinishAsCourseItem(currentScreen, flowMode, moduleCompleteView)) {
+        if (onOverrideNow && shouldFinishAsCourseItem(currentScreen, flowMode, moduleCompleteView)) {
           flowDebugPanel("landing", `finish course item: ${label}`);
           finishCourseOverride(cfg, label);
           return;
         }
-        if (onOverride) {
+        if (onOverrideNow) {
           onContinue(cfg, label);
           return;
         }
@@ -291,6 +306,8 @@ function mountLanding(cfg: LandingRecord) {
       },
       onScreenNavigate: (screenId) => {
         if (!screens.some((s) => s.id === screenId)) return;
+        if (screenId === activeScreenId) return;
+        screenHistory.push(activeScreenId);
         activeScreenId = screenId;
         engageStep();
         renderScreen();
