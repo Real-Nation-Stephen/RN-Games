@@ -349,15 +349,22 @@ function normalizeLandingBlock(raw, index) {
             { id: `opt-${index}-a`, label: "Option A" },
             { id: `opt-${index}-b`, label: "Option B" },
           ];
-    const correctOptionId = resolved.some((o) => o.id === raw.correctOptionId)
-      ? String(raw.correctOptionId)
-      : resolved[0].id;
+    const optionIds = new Set(resolved.map((o) => o.id));
+    const fromArray = Array.isArray(raw.correctOptionIds)
+      ? raw.correctOptionIds.map(String).filter((id) => optionIds.has(id))
+      : [];
+    const fromLegacy =
+      raw.correctOptionId && optionIds.has(String(raw.correctOptionId))
+        ? [String(raw.correctOptionId)]
+        : [];
+    const correctOptionIds = fromArray.length ? fromArray : fromLegacy.length ? fromLegacy : [resolved[0].id];
     return {
       id,
       type: "question",
       question: String(raw.question || "Question"),
       options: resolved,
-      correctOptionId,
+      correctOptionIds,
+      selectionMode: raw.selectionMode === "all" ? "all" : "single",
       explainer: String(raw.explainer || ""),
     };
   }

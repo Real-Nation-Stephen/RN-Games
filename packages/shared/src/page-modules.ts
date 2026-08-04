@@ -167,8 +167,13 @@ export interface LandingQuestionBlock extends LandingBlockBase {
   type: "question";
   question: string;
   options: LandingPollOption[];
-  /** Option id marked as the correct answer */
-  correctOptionId: string;
+  /** Option ids marked as correct (one or more) */
+  correctOptionIds: string[];
+  /**
+   * single — visitor picks one answer; any marked-correct option counts as correct.
+   * all — visitor selects all that apply; scored N/N against the correct set.
+   */
+  selectionMode: "single" | "all";
   /** Shown after the visitor answers */
   explainer: string;
 }
@@ -366,7 +371,8 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
         type,
         question: "What is the correct answer?",
         options: [optA, optB],
-        correctOptionId: optA.id,
+        correctOptionIds: [optA.id],
+        selectionMode: "single",
         explainer: "Here’s why that’s the right answer.",
       };
     }
@@ -924,7 +930,7 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
       };
     }
     case "question": {
-      const rawQ = raw as LandingQuestionBlock;
+      const rawQ = raw as LandingQuestionBlock & { correctOptionId?: string };
       const options = Array.isArray(rawQ.options)
         ? rawQ.options.slice(0, 6).map((opt, i) => ({
             id: String(opt.id || `opt-${i}`),
@@ -938,15 +944,22 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
               { id: newLandingBlockId(), label: "Option A" },
               { id: newLandingBlockId(), label: "Option B" },
             ];
-      const correctOptionId = resolved.some((o) => o.id === rawQ.correctOptionId)
-        ? String(rawQ.correctOptionId)
-        : resolved[0].id;
+      const optionIds = new Set(resolved.map((o) => o.id));
+      const fromArray = Array.isArray(rawQ.correctOptionIds)
+        ? rawQ.correctOptionIds.map(String).filter((id) => optionIds.has(id))
+        : [];
+      const fromLegacy =
+        rawQ.correctOptionId && optionIds.has(String(rawQ.correctOptionId))
+          ? [String(rawQ.correctOptionId)]
+          : [];
+      const correctOptionIds = fromArray.length ? fromArray : fromLegacy.length ? fromLegacy : [resolved[0].id];
       return {
         id,
         type: "question",
         question: String(rawQ.question || "Question"),
         options: resolved,
-        correctOptionId,
+        correctOptionIds,
+        selectionMode: rawQ.selectionMode === "all" ? "all" : "single",
         explainer: String(rawQ.explainer || ""),
       };
     }

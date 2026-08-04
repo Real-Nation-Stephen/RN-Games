@@ -380,17 +380,71 @@ function questionAnswerKey(landingSlug: string, blockId: string): string {
   return `rngames:question-answer:${landingSlug}:${blockId}`;
 }
 
+function questionCorrectIds(block: Extract<LandingBlock, { type: "question" }>): Set<string> {
+  return new Set(block.correctOptionIds || []);
+}
+
+function readStoredQuestionIds(storageKey: string): string[] {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    if (raw.startsWith("{") || raw.startsWith("[")) {
+      const parsed = JSON.parse(raw) as { ids?: string[] } | string[];
+      if (Array.isArray(parsed)) return parsed.map(String);
+      if (parsed && Array.isArray(parsed.ids)) return parsed.ids.map(String);
+    }
+    return [raw];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredQuestionIds(storageKey: string, ids: string[]) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ ids }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function scoreQuestionSelection(
+  block: Extract<LandingBlock, { type: "question" }>,
+  selectedIds: string[],
+): { perfect: boolean; matched: number; needed: number } {
+  const correct = questionCorrectIds(block);
+  const selected = new Set(selectedIds);
+  const needed = Math.max(1, correct.size);
+  let matched = 0;
+  for (const id of correct) {
+    if (selected.has(id)) matched += 1;
+  }
+  const perfect =
+    block.selectionMode === "all"
+      ? matched === needed && selected.size === correct.size && [...selected].every((id) => correct.has(id))
+      : selectedIds.length === 1 && correct.has(selectedIds[0]);
+  return { perfect, matched, needed };
+}
+
 function renderQuestionFeedback(
   block: Extract<LandingBlock, { type: "question" }>,
-  selectedOptionId: string,
+  selectedIds: string[],
 ): HTMLElement {
-  const correct = selectedOptionId === block.correctOptionId;
+  const correct = questionCorrectIds(block);
+  const selected = new Set(selectedIds);
+  const { perfect, matched, needed } = scoreQuestionSelection(block, selectedIds);
+
   const feedback = document.createElement("div");
-  feedback.className = `landing-question-feedback ${correct ? "is-correct" : "is-incorrect"}`;
+  feedback.className = `landing-question-feedback ${perfect ? "is-correct" : "is-incorrect"}`;
 
   const verdict = document.createElement("p");
   verdict.className = "landing-question-verdict";
-  verdict.textContent = correct ? "Correct" : "Incorrect";
+  if (perfect) {
+    verdict.textContent = block.selectionMode === "all" ? `Correct — ${matched}/${needed}` : "Correct";
+  } else if (block.selectionMode === "all") {
+    verdict.textContent = `${matched}/${needed}`;
+  } else {
+    verdict.textContent = "Incorrect";
+  }
   feedback.appendChild(verdict);
 
   const options = document.createElement("div");
@@ -398,8 +452,9 @@ function renderQuestionFeedback(
   for (const opt of block.options) {
     const row = document.createElement("div");
     row.className = "landing-question-review-option";
-    if (opt.id === block.correctOptionId) row.classList.add("is-correct-answer");
-    if (opt.id === selectedOptionId) row.classList.add("is-selected");
+    if (correct.has(opt.id)) row.classList.add("is-correct-answer");
+    else row.classList.add("is-incorrect-answer");
+    if (selected.has(opt.id)) row.classList.add("is-selected");
     row.textContent = opt.label;
     options.appendChild(row);
   }
@@ -426,45 +481,89 @@ function mountQuestionBlock(
   question.textContent = block.question;
   wrap.appendChild(question);
 
+  if (block.selectionMode === "all") {
+    const hint = document.createElement("p");
+    hint.className = "landing-question-hint";
+    hint.textContent = "Select all that apply";
+    wrap.appendChild(hint);
+  }
+
   const body = document.createElement("div");
   body.className = "landing-question-body";
   wrap.appendChild(body);
 
   const storageKey = questionAnswerKey(landingSlug, block.id);
-  let priorId = "";
-  try {
-    priorId = localStorage.getItem(storageKey) || "";
-  } catch {
-    /* ignore */
-  }
+  const priorIds = readStoredQuestionIds(storageKey).filter((id) =>
+    block.options.some((o) => o.id === id),
+  );
 
-  if (priorId && block.options.some((o) => o.id === priorId)) {
-    body.appendChild(renderQuestionFeedback(block, priorId));
+  if (priorIds.length) {
+    body.appendChild(renderQuestionFeedback(block, priorIds));
     return;
   }
 
+  const multi = block.selectionMode === "all";
+  const selected = new Set<string>();
+
   const options = document.createElement("div");
   options.className = "landing-question-options";
+
+  const syncOptionUi = () => {
+    for (const child of Array.from(options.querySelectorAll("button.landing-question-option"))) {
+      const btn = child as HTMLButtonElement;
+      const id = btn.dataset.optionId || "";
+      btn.classList.toggle("is-picked", selected.has(id));
+      btn.setAttribute("aria-pressed", selected.has(id) ? "true" : "false");
+    }
+    if (checkBtn) checkBtn.disabled = selected.size === 0;
+  };
+
+  let checkBtn: HTMLButtonElement | null = null;
+
+  const finish = (ids: string[]) => {
+    writeStoredQuestionIds(storageKey, ids);
+    onEngage();
+    body.replaceChildren(renderQuestionFeedback(block, ids));
+  };
+
   for (const opt of block.options) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "page-btn landing-question-option";
+    btn.dataset.optionId = opt.id;
     btn.textContent = opt.label;
     btn.addEventListener("click", () => {
+      if (multi) {
+        if (selected.has(opt.id)) selected.delete(opt.id);
+        else selected.add(opt.id);
+        syncOptionUi();
+        return;
+      }
       for (const child of Array.from(options.querySelectorAll("button"))) {
         (child as HTMLButtonElement).disabled = true;
       }
-      try {
-        localStorage.setItem(storageKey, opt.id);
-      } catch {
-        /* ignore */
-      }
-      onEngage();
-      body.replaceChildren(renderQuestionFeedback(block, opt.id));
+      finish([opt.id]);
     });
     options.appendChild(btn);
   }
   body.appendChild(options);
+
+  if (multi) {
+    checkBtn = document.createElement("button");
+    checkBtn.type = "button";
+    checkBtn.className = "page-btn landing-question-check";
+    checkBtn.textContent = "Check answer";
+    checkBtn.disabled = true;
+    checkBtn.addEventListener("click", () => {
+      if (!selected.size) return;
+      checkBtn!.disabled = true;
+      for (const child of Array.from(options.querySelectorAll("button"))) {
+        (child as HTMLButtonElement).disabled = true;
+      }
+      finish([...selected]);
+    });
+    body.appendChild(checkBtn);
+  }
 }
 
 function renderQuestionBlock(

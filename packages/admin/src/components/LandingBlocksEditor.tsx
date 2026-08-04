@@ -569,7 +569,8 @@ function BlockEditor({
             <PollResultsTools landingSlug={landingSlug} blockId={block.id} />
           </>
         );
-      case "question":
+      case "question": {
+        const correctIds = new Set(block.correctOptionIds || []);
         return (
           <>
             <label className="field">
@@ -579,16 +580,39 @@ function BlockEditor({
                 onChange={(e) => onChange({ ...block, question: e.target.value })}
               />
             </label>
+            <label className="field">
+              Answer mode
+              <select
+                value={block.selectionMode || "single"}
+                onChange={(e) =>
+                  onChange({
+                    ...block,
+                    selectionMode: e.target.value === "all" ? "all" : "single",
+                  })
+                }
+              >
+                <option value="single">Single answer (pick one)</option>
+                <option value="all">Select all that apply (scored N/N)</option>
+              </select>
+            </label>
             <p className="muted" style={{ fontSize: "0.85rem" }}>
-              Answer choices (select the correct one; visitors see feedback after answering)
+              Tick every correct answer.{" "}
+              {block.selectionMode === "all"
+                ? "Visitors must select all of them (and none of the wrong ones) for full marks."
+                : "Visitors pick one; any ticked option counts as correct."}
             </p>
             {block.options.map((opt, i) => (
               <div key={opt.id} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
                 <input
-                  type="radio"
-                  name={`correct-${block.id}`}
-                  checked={block.correctOptionId === opt.id}
-                  onChange={() => onChange({ ...block, correctOptionId: opt.id })}
+                  type="checkbox"
+                  checked={correctIds.has(opt.id)}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                      ? [...correctIds, opt.id]
+                      : [...correctIds].filter((id) => id !== opt.id);
+                    const correctOptionIds = next.length ? next : [opt.id];
+                    onChange({ ...block, correctOptionIds });
+                  }}
                   title="Mark as correct"
                   aria-label={`Mark option ${i + 1} as correct`}
                 />
@@ -607,9 +631,9 @@ function BlockEditor({
                   disabled={block.options.length <= 2}
                   onClick={() => {
                     const options = block.options.filter((o) => o.id !== opt.id);
-                    const correctOptionId =
-                      block.correctOptionId === opt.id ? options[0]?.id || "" : block.correctOptionId;
-                    onChange({ ...block, options, correctOptionId });
+                    let correctOptionIds = (block.correctOptionIds || []).filter((id) => id !== opt.id);
+                    if (!correctOptionIds.length && options[0]) correctOptionIds = [options[0].id];
+                    onChange({ ...block, options, correctOptionIds });
                   }}
                 >
                   Remove
@@ -639,6 +663,7 @@ function BlockEditor({
             </label>
           </>
         );
+      }
     }
   })();
 
