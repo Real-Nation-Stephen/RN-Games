@@ -352,6 +352,108 @@ function renderPollBlock(
   return wrap;
 }
 
+function questionAnswerKey(landingSlug: string, blockId: string): string {
+  return `rngames:question-answer:${landingSlug}:${blockId}`;
+}
+
+function renderQuestionFeedback(
+  block: Extract<LandingBlock, { type: "question" }>,
+  selectedOptionId: string,
+): HTMLElement {
+  const correct = selectedOptionId === block.correctOptionId;
+  const feedback = document.createElement("div");
+  feedback.className = `landing-question-feedback ${correct ? "is-correct" : "is-incorrect"}`;
+
+  const verdict = document.createElement("p");
+  verdict.className = "landing-question-verdict";
+  verdict.textContent = correct ? "Correct" : "Incorrect";
+  feedback.appendChild(verdict);
+
+  const options = document.createElement("div");
+  options.className = "landing-question-review";
+  for (const opt of block.options) {
+    const row = document.createElement("div");
+    row.className = "landing-question-review-option";
+    if (opt.id === block.correctOptionId) row.classList.add("is-correct-answer");
+    if (opt.id === selectedOptionId) row.classList.add("is-selected");
+    row.textContent = opt.label;
+    options.appendChild(row);
+  }
+  feedback.appendChild(options);
+
+  if (block.explainer.trim()) {
+    const explainer = document.createElement("p");
+    explainer.className = "landing-question-explainer";
+    explainer.textContent = block.explainer;
+    feedback.appendChild(explainer);
+  }
+
+  return feedback;
+}
+
+function mountQuestionBlock(
+  wrap: HTMLElement,
+  block: Extract<LandingBlock, { type: "question" }>,
+  landingSlug: string,
+  onEngage: () => void,
+) {
+  const question = document.createElement("p");
+  question.className = "landing-question-prompt";
+  question.textContent = block.question;
+  wrap.appendChild(question);
+
+  const body = document.createElement("div");
+  body.className = "landing-question-body";
+  wrap.appendChild(body);
+
+  const storageKey = questionAnswerKey(landingSlug, block.id);
+  let priorId = "";
+  try {
+    priorId = localStorage.getItem(storageKey) || "";
+  } catch {
+    /* ignore */
+  }
+
+  if (priorId && block.options.some((o) => o.id === priorId)) {
+    body.appendChild(renderQuestionFeedback(block, priorId));
+    return;
+  }
+
+  const options = document.createElement("div");
+  options.className = "landing-question-options";
+  for (const opt of block.options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "page-btn landing-question-option";
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => {
+      for (const child of Array.from(options.querySelectorAll("button"))) {
+        (child as HTMLButtonElement).disabled = true;
+      }
+      try {
+        localStorage.setItem(storageKey, opt.id);
+      } catch {
+        /* ignore */
+      }
+      onEngage();
+      body.replaceChildren(renderQuestionFeedback(block, opt.id));
+    });
+    options.appendChild(btn);
+  }
+  body.appendChild(options);
+}
+
+function renderQuestionBlock(
+  block: Extract<LandingBlock, { type: "question" }>,
+  landingSlug: string,
+  onEngage: () => void,
+): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "landing-question";
+  mountQuestionBlock(wrap, block, landingSlug, onEngage);
+  return wrap;
+}
+
 /** Sync logo column width/alignment with landing page settings. */
 export function applyLandingPageLayout(cfg: LandingRecord) {
   const settings = cfg.pageSettings;
@@ -448,6 +550,9 @@ export function renderLandingBlocks(
         break;
       case "poll":
         el = renderPollBlock(block, cfg.slug, opts.onEngage);
+        break;
+      case "question":
+        el = renderQuestionBlock(block, cfg.slug, opts.onEngage);
         break;
     }
     if (el) container.appendChild(el);

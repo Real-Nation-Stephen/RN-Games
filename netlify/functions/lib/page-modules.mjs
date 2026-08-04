@@ -334,6 +334,32 @@ function normalizeLandingBlock(raw, index) {
           ],
     };
   }
+  if (type === "question") {
+    const options = Array.isArray(raw.options)
+      ? raw.options.slice(0, 6).map((opt, i) => ({
+          id: String(opt.id || `opt-${i}`),
+          label: String(opt.label || `Option ${i + 1}`),
+        }))
+      : [];
+    const resolved =
+      options.length >= 2
+        ? options
+        : [
+            { id: `opt-${index}-a`, label: "Option A" },
+            { id: `opt-${index}-b`, label: "Option B" },
+          ];
+    const correctOptionId = resolved.some((o) => o.id === raw.correctOptionId)
+      ? String(raw.correctOptionId)
+      : resolved[0].id;
+    return {
+      id,
+      type: "question",
+      question: String(raw.question || "Question"),
+      options: resolved,
+      correctOptionId,
+      explainer: String(raw.explainer || ""),
+    };
+  }
   return {
     id,
     type: "text",

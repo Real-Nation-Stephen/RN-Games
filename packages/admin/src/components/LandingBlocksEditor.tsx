@@ -53,6 +53,8 @@ function blockSummary(block: LandingBlock): string {
       return block.url ? "Embed set" : "No embed URL";
     case "poll":
       return block.question.slice(0, 40) || "Poll";
+    case "question":
+      return block.question.slice(0, 40) || "Question";
   }
 }
 
@@ -565,6 +567,76 @@ function BlockEditor({
               Add option
             </button>
             <PollResultsTools landingSlug={landingSlug} blockId={block.id} />
+          </>
+        );
+      case "question":
+        return (
+          <>
+            <label className="field">
+              Question
+              <input
+                value={block.question}
+                onChange={(e) => onChange({ ...block, question: e.target.value })}
+              />
+            </label>
+            <p className="muted" style={{ fontSize: "0.85rem" }}>
+              Answer choices (select the correct one; visitors see feedback after answering)
+            </p>
+            {block.options.map((opt, i) => (
+              <div key={opt.id} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                <input
+                  type="radio"
+                  name={`correct-${block.id}`}
+                  checked={block.correctOptionId === opt.id}
+                  onChange={() => onChange({ ...block, correctOptionId: opt.id })}
+                  title="Mark as correct"
+                  aria-label={`Mark option ${i + 1} as correct`}
+                />
+                <input
+                  value={opt.label}
+                  onChange={(e) => {
+                    const options = block.options.map((o, j) => (j === i ? { ...o, label: e.target.value } : o));
+                    onChange({ ...block, options });
+                  }}
+                  placeholder={`Option ${i + 1}`}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={block.options.length <= 2}
+                  onClick={() => {
+                    const options = block.options.filter((o) => o.id !== opt.id);
+                    const correctOptionId =
+                      block.correctOptionId === opt.id ? options[0]?.id || "" : block.correctOptionId;
+                    onChange({ ...block, options, correctOptionId });
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn"
+              disabled={block.options.length >= 6}
+              onClick={() =>
+                onChange({
+                  ...block,
+                  options: [...block.options, { id: newLandingBlockId(), label: `Option ${block.options.length + 1}` }],
+                })
+              }
+            >
+              Add option
+            </button>
+            <label className="field" style={{ marginTop: 12 }}>
+              Explainer (shown after answering)
+              <input
+                value={block.explainer}
+                onChange={(e) => onChange({ ...block, explainer: e.target.value })}
+                placeholder="Brief explanation of the correct answer"
+              />
+            </label>
           </>
         );
     }

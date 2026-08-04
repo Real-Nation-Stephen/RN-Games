@@ -6,8 +6,18 @@ import { isEmbeddedShellActive, emitStepComplete, emitStepEngaged } from "@rngam
 
 const API_BASE = "/api";
 const flowMode = isEmbeddedShellActive();
+const urlParams = new URLSearchParams(window.location.search);
+const embedParam = urlParams.get("embed") === "1";
+const previewMode = urlParams.get("preview") === "1";
+const inIframe = (() => {
+  try {
+    return window.parent !== window;
+  } catch {
+    return true;
+  }
+})();
 const flowNextLabel = () =>
-  new URLSearchParams(window.location.search).get("nextStepLabel")?.trim() || "Next Activity";
+  urlParams.get("nextStepLabel")?.trim() || "Next Activity";
 let flowEngaged = false;
 /** @type {HTMLButtonElement | null} */
 let nextStepBtn = null;
@@ -535,6 +545,15 @@ function applyTheme(cfg) {
 
   document.body.dataset.brandCorner = cfg.brandLogoCorner || "bl";
 
+  const hideHeadingOnEmbed =
+    !!cfg.embedHideHeading && (embedParam || (inIframe && !flowMode && !previewMode));
+  document.body.classList.toggle("flip-embed-compact", hideHeadingOnEmbed);
+
+  const selectionHeader = document.querySelector(".selection-header");
+  if (selectionHeader instanceof HTMLElement) {
+    selectionHeader.hidden = hideHeadingOnEmbed;
+  }
+
   if (selectionTitleEl) selectionTitleEl.textContent = cfg.selectionHeading || "Tap a card";
 
   if (brandMarkEl) {
@@ -597,6 +616,8 @@ function applyTheme(cfg) {
   if (cfg.title) document.title = cfg.title;
 
   maybeStartMusic(cfg);
+
+  requestAnimationFrame(() => fitCardGrid());
 }
 
 function maybeStartMusic(cfg) {

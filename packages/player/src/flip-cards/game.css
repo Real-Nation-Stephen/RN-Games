@@ -1,5 +1,22 @@
 @import "./dada-test.css";
 
+/* Embedded landing / iframe compact layout: reclaim heading space for cards */
+body.flip-cards-game.flip-embed-compact .selection-header {
+  display: none !important;
+}
+
+body.flip-cards-game.flip-embed-compact #app {
+  padding-top: max(4px, env(safe-area-inset-top));
+}
+
+body.flip-cards-game.flip-embed-compact .selection-main {
+  padding-top: clamp(4px, 1vh, 12px);
+}
+
+body.flip-cards-game.flip-embed-compact .shuffle-bar {
+  padding-top: clamp(6px, 1.2vh, 12px);
+}
+
 /* Fullscreen: html is the fullscreen element — % height fills reliably; 100dvh can mismatch and break flex + grid sizing */
 html:fullscreen,
 html:-webkit-full-screen {

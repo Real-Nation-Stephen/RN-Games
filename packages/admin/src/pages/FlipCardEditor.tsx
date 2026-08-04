@@ -77,6 +77,7 @@ type FlipCardGame = {
   faviconUrl?: string;
   showPoweredBy?: boolean;
   selectionHeading: string;
+  embedHideHeading?: boolean;
   deckSize: number;
   cardsDealt: number;
   maxColumns: number;
@@ -122,6 +123,7 @@ function publicFlipPayload(g: FlipCardGame) {
     faviconUrl: g.faviconUrl || "",
     showPoweredBy: g.showPoweredBy !== false,
     selectionHeading: g.selectionHeading || "",
+    embedHideHeading: !!g.embedHideHeading,
     deckSize: n,
     cardsDealt: dealt,
     maxColumns: maxCol,
@@ -367,7 +369,9 @@ export default function FlipCardEditor() {
     return err ? <p className="muted">{err}</p> : <p className="muted">Loading…</p>;
   }
 
-  const embedCode = `<iframe src="${siteUrl}/play/flip-cards.html?slug=${encodeURIComponent(game.slug)}" title="${(game.title || "Flip cards").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;" loading="lazy"></iframe>`;
+  const embedQuery = new URLSearchParams({ slug: game.slug });
+  if (game.embedHideHeading) embedQuery.set("embed", "1");
+  const embedCode = `<iframe src="${siteUrl}/play/flip-cards.html?${embedQuery.toString()}" title="${(game.title || "Flip cards").replace(/"/g, "&quot;")}" style="border:0;width:100%;height:min(92dvh,720px);display:block;" loading="lazy"></iframe>`;
 
   const n = game.deckSize;
 
@@ -493,6 +497,19 @@ export default function FlipCardEditor() {
           value={game.selectionHeading}
           onChange={(e) => setGame({ ...game, selectionHeading: e.target.value })}
         />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!game.embedHideHeading}
+            onChange={(e) => setGame({ ...game, embedHideHeading: e.target.checked })}
+          />
+          Disable heading and adjust layout on embed
+        </label>
+        <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
+          When embedded (e.g. in a landing page), hide the selection heading so cards can use more space. Standalone
+          and experience/course shells keep the heading.
+        </p>
 
         <label className="field" style={{ marginTop: 12 }}>
           Brand logo corner (public page)
@@ -972,9 +989,8 @@ export default function FlipCardEditor() {
       </div>
 
       <p className="muted" style={{ marginTop: 24, fontSize: "0.85rem" }}>
-        <strong>Not in v1 (flagged for later):</strong> per-game reporting tab / Sheets for flip sessions, ZIP template
-        downloads, and embed-only “chromeless” variant. Wheel-style prize schema locking when reporting is on does not
-        apply to flip cards yet.
+        <strong>Not in v1 (flagged for later):</strong> per-game reporting tab / Sheets for flip sessions, and ZIP
+        template downloads. Wheel-style prize schema locking when reporting is on does not apply to flip cards yet.
       </p>
     </div>
   );

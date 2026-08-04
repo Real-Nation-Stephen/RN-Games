@@ -53,6 +53,7 @@ function toPublicFlipCard(f) {
     faviconUrl: f.faviconUrl || "",
     showPoweredBy: f.showPoweredBy !== false,
     selectionHeading: f.selectionHeading || "",
+    embedHideHeading: !!f.embedHideHeading,
     deckSize: n,
     cardsDealt: dealt,
     maxColumns: maxCol,

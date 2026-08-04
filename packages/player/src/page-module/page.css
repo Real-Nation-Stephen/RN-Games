@@ -564,6 +564,80 @@ html.page-bg-scroll::before {
   opacity: 0.75;
 }
 
+.landing-question {
+  width: 100%;
+  text-align: left;
+}
+
+.landing-question-prompt {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.landing-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-question-option {
+  width: 100%;
+  text-align: left;
+}
+
+.landing-question-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.landing-question-verdict {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.landing-question-feedback.is-correct .landing-question-verdict {
+  color: #6dcf8a;
+}
+
+.landing-question-feedback.is-incorrect .landing-question-verdict {
+  color: #f0a0a0;
+}
+
+.landing-question-review {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.landing-question-review-option {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+  opacity: 0.7;
+}
+
+.landing-question-review-option.is-correct-answer {
+  background: rgba(109, 207, 138, 0.22);
+  opacity: 1;
+  font-weight: 600;
+}
+
+.landing-question-review-option.is-selected:not(.is-correct-answer) {
+  background: rgba(240, 160, 160, 0.2);
+  opacity: 1;
+}
+
+.landing-question-explainer {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  opacity: 0.9;
+}
+
 .embedded-flow-footer {
   position: fixed;
   left: 0;

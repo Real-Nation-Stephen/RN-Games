@@ -643,6 +643,11 @@ export interface FlipCardRecord {
   showPoweredBy?: boolean;
   /** Main heading above the card grid */
   selectionHeading: string;
+  /**
+   * When true, embedded iframes (e.g. landing pages) hide the selection heading
+   * and give the card grid more vertical space. Standalone / flow / course keep the heading.
+   */
+  embedHideHeading?: boolean;
   /** Cards in the full deck (1–15) */
   deckSize: number;
   /** How many cards to deal at random per session (≤ deckSize) */
@@ -962,6 +967,7 @@ export function emptyFlipCard(partial: { id: string; slug: string }): FlipCardRe
     reportingSheetTab: "",
     showPoweredBy: true,
     selectionHeading: "Tap a card to learn more",
+    embedHideHeading: false,
     deckSize: n,
     cardsDealt: 2,
     maxColumns: 4,

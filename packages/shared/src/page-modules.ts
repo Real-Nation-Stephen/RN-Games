@@ -55,7 +55,8 @@ export type LandingBlockType =
   | "divider"
   | "button"
   | "embed"
-  | "poll";
+  | "poll"
+  | "question";
 
 export interface LandingBlockBase {
   id: string;
@@ -162,6 +163,16 @@ export interface LandingPollBlock extends LandingBlockBase {
   options: LandingPollOption[];
 }
 
+export interface LandingQuestionBlock extends LandingBlockBase {
+  type: "question";
+  question: string;
+  options: LandingPollOption[];
+  /** Option id marked as the correct answer */
+  correctOptionId: string;
+  /** Shown after the visitor answers */
+  explainer: string;
+}
+
 export type LandingBlock =
   | LandingTextBlock
   | LandingImageBlock
@@ -172,7 +183,8 @@ export type LandingBlock =
   | LandingDividerBlock
   | LandingButtonBlock
   | LandingEmbedBlock
-  | LandingPollBlock;
+  | LandingPollBlock
+  | LandingQuestionBlock;
 
 export interface LandingPageSettings {
   maxWidthPx: number;
@@ -251,6 +263,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   button: "Button",
   embed: "Embed / iframe",
   poll: "Mini poll",
+  question: "Question",
 };
 
 export function newLandingBlockId(): string {
@@ -339,6 +352,18 @@ export function createDefaultLandingBlock(type: LandingBlockType): LandingBlock 
           { id: newLandingBlockId(), label: "Option B" },
         ],
       };
+    case "question": {
+      const optA = { id: newLandingBlockId(), label: "Option A" };
+      const optB = { id: newLandingBlockId(), label: "Option B" };
+      return {
+        id,
+        type,
+        question: "What is the correct answer?",
+        options: [optA, optB],
+        correctOptionId: optA.id,
+        explainer: "Here’s why that’s the right answer.",
+      };
+    }
   }
 }
 
@@ -890,6 +915,33 @@ function normalizeLandingBlock(raw: Partial<LandingBlock> & { type?: string }, i
               { id: newLandingBlockId(), label: "Option A" },
               { id: newLandingBlockId(), label: "Option B" },
             ],
+      };
+    }
+    case "question": {
+      const rawQ = raw as LandingQuestionBlock;
+      const options = Array.isArray(rawQ.options)
+        ? rawQ.options.slice(0, 6).map((opt, i) => ({
+            id: String(opt.id || `opt-${i}`),
+            label: String(opt.label || `Option ${i + 1}`),
+          }))
+        : [];
+      const resolved =
+        options.length >= 2
+          ? options
+          : [
+              { id: newLandingBlockId(), label: "Option A" },
+              { id: newLandingBlockId(), label: "Option B" },
+            ];
+      const correctOptionId = resolved.some((o) => o.id === rawQ.correctOptionId)
+        ? String(rawQ.correctOptionId)
+        : resolved[0].id;
+      return {
+        id,
+        type: "question",
+        question: String(rawQ.question || "Question"),
+        options: resolved,
+        correctOptionId,
+        explainer: String(rawQ.explainer || ""),
       };
     }
     case "text":
