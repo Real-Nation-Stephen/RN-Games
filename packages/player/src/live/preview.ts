@@ -22,7 +22,7 @@ function phoneShell(html: string): HTMLElement {
 
 function applyChrome(cfg: AnyRec, surface: "presenter" | "phone") {
   document.body.classList.toggle("is-phone-preview", surface === "phone");
-  applyJoinTheme({}, (cfg.branding || {}) as AnyRec, { surface });
+  applyJoinTheme({}, cfg.branding as AnyRec, { surface, component: cfg });
   const fav = String(cfg.faviconUrl || "");
   if (fav) {
     let el = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;

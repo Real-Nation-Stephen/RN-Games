@@ -51,6 +51,111 @@ export function mergeLiveFontUploads(raw: unknown): LiveFontUploads {
   return out;
 }
 
+export type LiveAlignX = "left" | "center" | "right";
+export type LiveAlignY = "top" | "middle" | "bottom";
+
+/** Per-surface layout for Presenter and phone. 0 size = responsive auto. */
+export interface LivePaneLayout {
+  alignX: LiveAlignX;
+  alignY: LiveAlignY;
+  paddingPx: number;
+  contentMaxWidthPx: number;
+  gapPx: number;
+  headingSizePx: number;
+  bodySizePx: number;
+}
+
+export interface LiveSurfaceLayouts {
+  presenter: LivePaneLayout;
+  phone: LivePaneLayout;
+}
+
+export function defaultLivePaneLayout(surface: "presenter" | "phone"): LivePaneLayout {
+  if (surface === "presenter") {
+    return {
+      alignX: "center",
+      alignY: "middle",
+      paddingPx: 32,
+      contentMaxWidthPx: 1100,
+      gapPx: 20,
+      headingSizePx: 0,
+      bodySizePx: 0,
+    };
+  }
+  return {
+    alignX: "center",
+    alignY: "top",
+    paddingPx: 20,
+    contentMaxWidthPx: 420,
+    gapPx: 14,
+    headingSizePx: 0,
+    bodySizePx: 0,
+  };
+}
+
+export function defaultLiveSurfaceLayouts(): LiveSurfaceLayouts {
+  return {
+    presenter: defaultLivePaneLayout("presenter"),
+    phone: defaultLivePaneLayout("phone"),
+  };
+}
+
+function clampLayoutInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+export function normalizeLivePaneLayout(raw: unknown, surface: "presenter" | "phone"): LivePaneLayout {
+  const d = defaultLivePaneLayout(surface);
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const alignX: LiveAlignX =
+    src.alignX === "left" || src.alignX === "right" || src.alignX === "center" ? src.alignX : d.alignX;
+  const alignY: LiveAlignY =
+    src.alignY === "top" || src.alignY === "bottom" || src.alignY === "middle" ? src.alignY : d.alignY;
+  return {
+    alignX,
+    alignY,
+    paddingPx: clampLayoutInt(src.paddingPx, 0, 160, d.paddingPx),
+    contentMaxWidthPx: clampLayoutInt(src.contentMaxWidthPx, 240, 1920, d.contentMaxWidthPx),
+    gapPx: clampLayoutInt(src.gapPx, 0, 80, d.gapPx),
+    headingSizePx: clampLayoutInt(src.headingSizePx, 0, 120, d.headingSizePx),
+    bodySizePx: clampLayoutInt(src.bodySizePx, 0, 64, d.bodySizePx),
+  };
+}
+
+export function normalizeLiveSurfaceLayouts(raw: unknown): LiveSurfaceLayouts {
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    presenter: normalizeLivePaneLayout(src.presenter, "presenter"),
+    phone: normalizeLivePaneLayout(src.phone, "phone"),
+  };
+}
+
+export type LiveLayoutMode = "inherit" | "custom";
+
+/**
+ * Live layout: component custom override > Flow joinScreen.layout > responsive defaults.
+ * `inherit` (default) uses the flow. Saved `layout` without a mode counts as custom
+ * so poll/fill editor controls affect the real live game.
+ */
+export function componentLayoutMode(branding: unknown): LiveLayoutMode {
+  const extra = branding && typeof branding === "object" ? (branding as Record<string, unknown>) : {};
+  if (extra.layoutMode === "inherit") return "inherit";
+  if (extra.layoutMode === "custom") return "custom";
+  return extra.layout != null ? "custom" : "inherit";
+}
+
+export function resolveLiveSurfaceLayouts(flowLayout: unknown, componentBranding?: unknown): LiveSurfaceLayouts {
+  const flow = normalizeLiveSurfaceLayouts(flowLayout);
+  if (componentLayoutMode(componentBranding) !== "custom") return flow;
+  const extra = (componentBranding && typeof componentBranding === "object"
+    ? (componentBranding as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  if (extra.layout == null) return flow;
+  return normalizeLiveSurfaceLayouts(extra.layout);
+}
+
 /** Opening / join / closing screen branding on the Flow (not a component). */
 export interface LiveJoinScreen {
   logoUrl: string;
@@ -72,6 +177,7 @@ export interface LiveJoinScreen {
   fontUploads: LiveFontUploads;
   closingHeadline: string;
   closingBody: string;
+  layout: LiveSurfaceLayouts;
 }
 
 export function defaultLiveJoinScreen(): LiveJoinScreen {
@@ -95,6 +201,7 @@ export function defaultLiveJoinScreen(): LiveJoinScreen {
     fontUploads: {},
     closingHeadline: "Thanks for playing",
     closingBody: "That's the end of this live run.",
+    layout: defaultLiveSurfaceLayouts(),
   };
 }
 
@@ -125,6 +232,7 @@ export function normalizeLiveJoinScreen(raw: unknown): LiveJoinScreen {
     fontUploads: mergeLiveFontUploads(src.fontUploads),
     closingHeadline: str("closingHeadline") || d.closingHeadline,
     closingBody: str("closingBody") || d.closingBody,
+    layout: normalizeLiveSurfaceLayouts(src.layout),
   };
 }
 

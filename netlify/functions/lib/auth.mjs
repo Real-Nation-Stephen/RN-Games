@@ -1,3 +1,5 @@
+import { hostedRemoteContext } from "./blob-runtime.mjs";
+
 /**
  * Netlify Identity user from JWT (Authorization: Bearer) or context.clientContext
  * @param {import('@netlify/functions').HandlerEvent} event
@@ -48,8 +50,7 @@ function decodeBearer(event) {
 
 /** Unsigned JWTs are only accepted on local/dev functions, never hosted deploys. */
 export function isUnsignedDevAuthAllowed() {
-  const ctx = String(process.env.CONTEXT || "");
-  if (ctx === "production" || ctx === "deploy-preview" || ctx === "branch-deploy") return false;
+  if (hostedRemoteContext()) return false;
   return (
     process.env.LIVE_DEV_AUTH === "1" ||
     process.env.VITE_DEV_AUTH === "1" ||

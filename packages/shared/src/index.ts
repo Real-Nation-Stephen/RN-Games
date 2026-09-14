@@ -164,11 +164,22 @@ export {
   isLiveCapableType,
   defaultLiveJoinScreen,
   normalizeLiveJoinScreen,
+  defaultLiveSurfaceLayouts,
+  defaultLivePaneLayout,
+  normalizeLiveSurfaceLayouts,
+  normalizeLivePaneLayout,
+  componentLayoutMode,
+  resolveLiveSurfaceLayouts,
   mergeLiveFontUploads,
   type LiveCapableType,
   type LiveFontUpload,
   type LiveFontUploads,
   type LiveJoinScreen,
+  type LiveAlignX,
+  type LiveAlignY,
+  type LivePaneLayout,
+  type LiveSurfaceLayouts,
+  type LiveLayoutMode,
   type LiveRunStatus,
   type LiveSurfaceRole,
   type LiveNodeKind,
@@ -179,6 +190,9 @@ export {
 } from "./live.js";
 export {
   defaultLiveSurfaceBranding,
+  liveSurfaceBrandingFromComponent,
+  partialLiveBranding,
+  withLiveSurfaceBranding,
   emptyMiniPoll,
   normalizeMiniPoll,
   toPublicMiniPoll,
@@ -525,6 +539,8 @@ export interface ScratcherRecord {
   clearThreshold: number;
   /** 0–100; 100 or missing lose image ⇒ always win bottom */
   winChancePercent: number;
+  layoutMode?: import("./live.js").LiveLayoutMode;
+  layout?: import("./live.js").LiveSurfaceLayouts;
 }
 
 export interface WheelAssets {
@@ -589,6 +605,8 @@ export interface WheelRecord {
   reportingSheetTab?: string;
   /** Show “Powered by Real Nation” on the public game page (default true) */
   showPoweredBy?: boolean;
+  layoutMode?: import("./live.js").LiveLayoutMode;
+  layout?: import("./live.js").LiveSurfaceLayouts;
 }
 
 export type WheelListItem = Pick<
@@ -812,6 +830,8 @@ export interface PinboardRecord {
     rejectLabel: string;
   };
   stickies: PinboardStickyAsset[];
+  layoutMode?: import("./live.js").LiveLayoutMode;
+  layout?: import("./live.js").LiveSurfaceLayouts;
 }
 
 export type LeaderboardMode = "linked" | "manual";

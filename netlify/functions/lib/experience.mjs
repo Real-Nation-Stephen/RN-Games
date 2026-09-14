@@ -31,6 +31,26 @@ export function defaultExperienceFoundation() {
       fontUploads: {},
       closingHeadline: "Thanks for playing",
       closingBody: "That's the end of this live run.",
+      layout: {
+        presenter: {
+          alignX: "center",
+          alignY: "middle",
+          paddingPx: 32,
+          contentMaxWidthPx: 1100,
+          gapPx: 20,
+          headingSizePx: 0,
+          bodySizePx: 0,
+        },
+        phone: {
+          alignX: "center",
+          alignY: "top",
+          paddingPx: 20,
+          contentMaxWidthPx: 420,
+          gapPx: 14,
+          headingSizePx: 0,
+          bodySizePx: 0,
+        },
+      },
     },
   };
 }

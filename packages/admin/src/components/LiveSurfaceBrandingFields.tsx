@@ -1,7 +1,8 @@
-import type { LiveFontUploads, LiveSurfaceBranding } from "@rngames/shared";
+import type { LiveFontUploads, LiveLayoutMode, LiveSurfaceBranding, LiveSurfaceLayouts } from "@rngames/shared";
 import { BgUploadRow } from "./BgUploadRow";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { HexField } from "./HexField";
+import { LiveSurfaceLayoutFields } from "./LiveSurfaceLayoutFields";
 
 const FONT_ROLES = ["heading", "body", "button"] as const;
 
@@ -9,9 +10,10 @@ type Props = {
   branding: LiveSurfaceBranding;
   onChange: (next: LiveSurfaceBranding) => void;
   onUploadFont: (role: keyof LiveFontUploads, file: File) => void;
+  flowLayout?: LiveSurfaceLayouts;
 };
 
-export function LiveSurfaceBrandingFields({ branding, onChange, onUploadFont }: Props) {
+export function LiveSurfaceBrandingFields({ branding, onChange, onUploadFont, flowLayout }: Props) {
   const patch = (partial: Partial<LiveSurfaceBranding>) => onChange({ ...branding, ...partial });
 
   return (
@@ -42,6 +44,13 @@ export function LiveSurfaceBrandingFields({ branding, onChange, onUploadFont }: 
           onUploaded={(url) => patch({ presenterBackgroundImageUrl: url })}
         />
       </CollapsibleSection>
+      <LiveSurfaceLayoutFields
+        showInherit
+        flowLayout={flowLayout}
+        layout={branding.layout}
+        layoutMode={branding.layoutMode as LiveLayoutMode | undefined}
+        onChange={({ layoutMode, layout }) => patch({ layoutMode, layout })}
+      />
       <CollapsibleSection title="Custom fonts" summary="Heading, body, button">
         {FONT_ROLES.map((role) => (
           <div key={role} style={{ marginTop: 10 }}>
@@ -61,3 +70,4 @@ export function LiveSurfaceBrandingFields({ branding, onChange, onUploadFont }: 
     </>
   );
 }
+

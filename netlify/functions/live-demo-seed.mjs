@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { connectLambda } from "@netlify/blobs";
+import { hostedRemoteContext } from "./lib/blob-runtime.mjs";
 import { requireOperatorAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -84,8 +85,7 @@ export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
-  const ctx = String(process.env.CONTEXT || "");
-  if ((ctx === "production" || ctx === "deploy-preview" || ctx === "branch-deploy") && process.env.LIVE_ALLOW_SEED !== "1") {
+  if (hostedRemoteContext() && process.env.LIVE_ALLOW_SEED !== "1") {
     return { statusCode: 403, headers, body: JSON.stringify({ error: "Demo seed is disabled on hosted deploys" }) };
   }
   const operator = requireOperatorAuth(event, context);

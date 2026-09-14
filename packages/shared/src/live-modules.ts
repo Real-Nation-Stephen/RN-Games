@@ -3,7 +3,13 @@
  * Mini Poll and Fill Game are new library kinds; branding is fully configurable.
  */
 
-import { mergeLiveFontUploads, type LiveFontUploads } from "./live.js";
+import {
+  mergeLiveFontUploads,
+  normalizeLiveSurfaceLayouts,
+  type LiveFontUploads,
+  type LiveLayoutMode,
+  type LiveSurfaceLayouts,
+} from "./live.js";
 
 export type { LiveFontUpload, LiveFontUploads } from "./live.js";
 
@@ -21,6 +27,12 @@ export interface LiveSurfaceBranding {
   bodyFont: string;
   buttonFont: string;
   fontUploads: LiveFontUploads;
+  /**
+   * inherit = Flow joinScreen.layout (then responsive defaults).
+   * custom = this `layout` overrides the flow on live Presenter, phones, preview, and standalone.
+   */
+  layoutMode?: LiveLayoutMode;
+  layout?: LiveSurfaceLayouts;
 }
 
 export function defaultLiveSurfaceBranding(): LiveSurfaceBranding {
@@ -59,7 +71,175 @@ function mergeBranding(raw: unknown): LiveSurfaceBranding {
     bodyFont: typeof src.bodyFont === "string" && src.bodyFont ? src.bodyFont : d.bodyFont,
     buttonFont: typeof src.buttonFont === "string" && src.buttonFont ? src.buttonFont : d.buttonFont,
     fontUploads: mergeLiveFontUploads(src.fontUploads),
+    layoutMode:
+      src.layoutMode === "inherit"
+        ? "inherit"
+        : src.layoutMode === "custom" || src.layout != null
+          ? "custom"
+          : "inherit",
+    ...(src.layout != null ? { layout: normalizeLiveSurfaceLayouts(src.layout) } : {}),
   };
+}
+
+function bag(v: unknown): Record<string, unknown> {
+  return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+}
+
+function pickStr(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v : undefined;
+}
+
+function fontStackFromFamily(family: unknown): string | undefined {
+  const name = pickStr(family)?.replace(/['"\\<>]/g, "");
+  if (!name) return undefined;
+  return `'${name}', system-ui, sans-serif`;
+}
+
+function uploadFamily(raw: unknown): string | undefined {
+  const rec = bag(raw);
+  return pickStr(rec.family);
+}
+
+/** Only copy fields the editor actually set so Flow join-screen fonts/colours inherit. */
+export function partialLiveBranding(raw: unknown): Partial<LiveSurfaceBranding> {
+  const src = bag(raw);
+  const out: Partial<LiveSurfaceBranding> = {};
+  const strKeys: Array<keyof LiveSurfaceBranding> = [
+    "logoUrl",
+    "backgroundHex",
+    "backgroundImageUrl",
+    "presenterBackgroundImageUrl",
+    "headlineHex",
+    "bodyHex",
+    "accentHex",
+    "buttonHex",
+    "buttonTextHex",
+    "headingFont",
+    "bodyFont",
+    "buttonFont",
+  ];
+  for (const key of strKeys) {
+    const value = pickStr(src[key]);
+    if (value) (out as Record<string, string>)[key] = value;
+  }
+  const uploads = mergeLiveFontUploads(src.fontUploads);
+  if (Object.keys(uploads).length) out.fontUploads = uploads;
+  if (src.layout != null) {
+    out.layout = normalizeLiveSurfaceLayouts(src.layout);
+    out.layoutMode =
+      src.layoutMode === "inherit" ? "inherit" : src.layoutMode === "custom" || src.layout != null ? "custom" : "inherit";
+  } else if (src.layoutMode === "inherit" || src.layoutMode === "custom") {
+    out.layoutMode = src.layoutMode;
+  }
+  return out;
+}
+
+function attachComponentLayout(
+  branding: Partial<LiveSurfaceBranding>,
+  component: unknown,
+): Partial<LiveSurfaceBranding> {
+  const c = bag(component);
+  const fromBranding = bag(c.branding);
+  const extra = partialLiveBranding({
+    layoutMode: c.layoutMode ?? fromBranding.layoutMode,
+    layout: c.layout ?? fromBranding.layout,
+  });
+  return { ...branding, ...extra };
+}
+
+/** Map editor-native fields for all six live kinds onto the shared surface bag. */
+export function liveSurfaceBrandingFromComponent(component: unknown): Partial<LiveSurfaceBranding> {
+  const c = bag(component);
+  const kind = String(c.gameType || "");
+  if (kind === "mini-poll" || kind === "fill-game") {
+    return attachComponentLayout(partialLiveBranding(c.branding), c);
+  }
+  if (kind === "mini-quiz") {
+    const ty = bag(c.typography);
+    const fonts = bag(ty.fonts);
+    const bgs = bag(c.backgrounds);
+    const cta = bag(c.primaryCta);
+    const uploads = mergeLiveFontUploads(ty.fontUploads);
+    const headingFamily = pickStr(fonts.heading) || fontStackFromFamily(uploads.heading?.family);
+    const bodyFamily = pickStr(fonts.body) || fontStackFromFamily(uploads.body?.family);
+    const buttonFamily = pickStr(fonts.button) || fontStackFromFamily(uploads.button?.family);
+    return attachComponentLayout(partialLiveBranding({
+      logoUrl: c.logoUrl,
+      backgroundHex: c.backgroundHex,
+      backgroundImageUrl: bgs.mobile || c.backgroundImage,
+      presenterBackgroundImageUrl: bgs.desktop || bgs.tablet || c.backgroundImage,
+      headlineHex: ty.headlineHex,
+      bodyHex: ty.bodyHex || ty.subheadHex,
+      buttonHex: cta.backgroundHex,
+      buttonTextHex: cta.textHex,
+      headingFont: headingFamily,
+      bodyFont: bodyFamily,
+      buttonFont: buttonFamily,
+      fontUploads: uploads,
+    }), c);
+  }
+  if (kind === "pinboard") {
+    const board = bag(c.board);
+    const mobile = bag(c.mobile);
+    const boardFonts = bag(board.fonts);
+    const rawUploads = bag(board.fontUploads);
+    const headingUp = bag(rawUploads.heading);
+    const subUp = bag(rawUploads.subheading);
+    const bodyUp = Object.keys(subUp).length ? subUp : bag(rawUploads.body);
+    const headingFamily =
+      fontStackFromFamily(headingUp.family) || pickStr(boardFonts.heading) || fontStackFromFamily(uploadFamily(rawUploads.heading));
+    const bodyFamily =
+      fontStackFromFamily(bodyUp.family) || pickStr(boardFonts.subheading) || pickStr(boardFonts.body);
+    const presenterBg = board.useBackgroundImage ? board.backgroundImage || "" : "";
+    const phoneBg = mobile.useBackgroundImage ? mobile.backgroundImage || mobile.backgroundImageUrl || "" : "";
+    return attachComponentLayout(partialLiveBranding({
+      logoUrl: board.brandLogoUrl,
+      backgroundHex: board.backgroundHex || board.backgroundColor || mobile.backgroundHex,
+      backgroundImageUrl: phoneBg,
+      presenterBackgroundImageUrl: presenterBg,
+      headlineHex: board.headerHex || board.headerColor,
+      bodyHex: board.subheadHex || mobile.textHex,
+      accentHex: mobile.buttonHex,
+      buttonHex: mobile.buttonHex,
+      buttonTextHex: mobile.buttonTextHex,
+      headingFont: headingFamily,
+      bodyFont: bodyFamily,
+      fontUploads: {
+        heading: rawUploads.heading,
+        body: Object.keys(subUp).length ? rawUploads.subheading : rawUploads.body,
+        button: rawUploads.button,
+      },
+    }), c);
+  }
+  if (kind === "spinning-wheel") {
+    const assets = bag(c.assets);
+    return attachComponentLayout(
+      partialLiveBranding({
+        logoUrl: assets.logo,
+        backgroundImageUrl: assets.background,
+        presenterBackgroundImageUrl: assets.background,
+      }),
+      c,
+    );
+  }
+  if (kind === "scratcher") {
+    const assets = bag(c.assets);
+    return attachComponentLayout(
+      partialLiveBranding({
+        backgroundHex: c.backgroundColor || c.backgroundHex,
+        backgroundImageUrl: assets.backgroundImage,
+        presenterBackgroundImageUrl: assets.backgroundImage,
+      }),
+      c,
+    );
+  }
+  return attachComponentLayout(partialLiveBranding(c.branding), c);
+}
+
+export function withLiveSurfaceBranding<T extends Record<string, unknown>>(
+  pub: T,
+): T & { branding: Partial<LiveSurfaceBranding> } {
+  return { ...pub, branding: liveSurfaceBrandingFromComponent(pub) };
 }
 
 function newId(): string {

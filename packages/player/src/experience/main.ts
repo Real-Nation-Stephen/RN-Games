@@ -52,6 +52,7 @@ type PublicExperience = {
   steps: PublicStep[];
   stepCount: number;
   foundation?: {
+    interactive?: boolean;
     navigation?: {
       nextStepButtonLabel?: string;
     };
@@ -270,8 +271,12 @@ function loadSessionLocal(): { sessionId: string; participantId: string } | null
   }
 }
 
+function isInteractiveFlow() {
+  return !!experience?.foundation?.interactive;
+}
+
 function updateShellContinue() {
-  if (embeddedInCourse()) {
+  if (embeddedInCourse() || isInteractiveFlow()) {
     els.stepFooter.hidden = true;
     return;
   }
@@ -483,7 +488,7 @@ function renderStep() {
   els.complete.hidden = true;
   els.courseReturnWrap.hidden = true;
   els.fallback.hidden = true;
-  els.stepFooter.hidden = embeddedInCourse();
+  els.stepFooter.hidden = embeddedInCourse() || isInteractiveFlow();
   els.title.textContent = experience.title;
   els.progress.textContent = `Step ${session.currentStepIndex + 1} of ${experience.steps.length}`;
 
@@ -653,6 +658,12 @@ async function boot() {
   bindEvents();
   try {
     experience = await fetchExperience();
+    if (isInteractiveFlow() && !embeddedInCourse()) {
+      const next = new URL(window.location.href);
+      next.pathname = `/x/${encodeURIComponent(experience.slug)}/present`;
+      window.location.replace(`${next.pathname}${next.search}${next.hash}`);
+      return;
+    }
     if (!flowViewedEmitted) {
       flowViewedEmitted = true;
       track({

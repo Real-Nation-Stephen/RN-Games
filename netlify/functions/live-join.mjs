@@ -1,4 +1,4 @@
-import { connectLambda } from "@netlify/blobs";
+import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { getActiveRunCode, getLiveRunWithRetry, updateLiveRun, writePresence } from "./lib/live-store.mjs";
 import { heartbeat, joinParticipant, loadExperienceBySlug, projectRun } from "./lib/live-run.mjs";
 
@@ -10,11 +10,7 @@ const headers = {
 };
 
 function connect(event) {
-  try {
-    connectLambda(event);
-  } catch {
-    /* local/test store */
-  }
+  connectBlobs(event);
 }
 
 export const handler = async (event) => {

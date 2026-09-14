@@ -2,6 +2,8 @@
  * Wave 2 page-module shared types — landing, form, certificate, badge, consent, email-signup, redemption.
  */
 
+import { normalizeLiveSurfaceLayouts, type LiveLayoutMode, type LiveSurfaceLayouts } from "./live.js";
+
 export interface PageBreakpointBg {
   desktop?: string;
   tablet?: string;
@@ -548,6 +550,8 @@ export type MiniQuizRecord = PageModuleBase & {
   resultsHeadline: string;
   resultsBody: string;
   continueLabel: string;
+  layoutMode?: LiveLayoutMode;
+  layout?: LiveSurfaceLayouts;
 };
 
 export type PageModuleRecord =
@@ -1218,6 +1222,8 @@ export function normalizeMiniQuiz(
     resultsBody: String(doc.resultsBody || defaults.resultsBody),
     continueLabel: String(doc.continueLabel || defaults.continueLabel),
     questions,
+    ...(doc.layoutMode === "inherit" || doc.layoutMode === "custom" ? { layoutMode: doc.layoutMode } : {}),
+    ...(doc.layout != null ? { layout: normalizeLiveSurfaceLayouts(doc.layout) } : {}),
   };
 }
 

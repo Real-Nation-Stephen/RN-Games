@@ -12,6 +12,8 @@ import {
   toPublicFillGame,
   toPublicMiniPoll,
   toPublicMiniQuizLive,
+  withLiveSurfaceBranding,
+  normalizeLiveSurfaceLayouts,
 } from "./live-modules.mjs";
 import { makeId, makeRoomCode, makeSecret, nowIso, secretsEqual } from "./live-store.mjs";
 import { normalizePageModule } from "./page-modules.mjs";
@@ -49,6 +51,7 @@ function defaultJoinScreen() {
     fontUploads: {},
     closingHeadline: "Thanks for playing",
     closingBody: "That's the end of this live run.",
+    layout: normalizeLiveSurfaceLayouts(undefined),
   };
 }
 
@@ -172,15 +175,15 @@ function publicComponent(step, configs, secrets, node, role) {
   if (!step) return null;
   const cfg = configs[step.id];
   const kind = step.moduleType;
-  if (kind === "mini-poll") return toPublicMiniPoll(cfg);
-  if (kind === "fill-game") return toPublicFillGame(cfg);
+  if (kind === "mini-poll") return withLiveSurfaceBranding(toPublicMiniPoll(cfg));
+  if (kind === "fill-game") return withLiveSurfaceBranding(toPublicFillGame(cfg));
   if (kind === "mini-quiz") {
     const pub = toPublicMiniQuizLive(cfg);
     const qIndex = Number(node?.questionIndex || 0);
     const q = pub.questions[qIndex];
     const revealed = node?.phase === "revealed";
     const secretQ = (secrets[step.id]?.questions || [])[qIndex];
-    return {
+    return withLiveSurfaceBranding({
       ...pub,
       currentQuestion: q
         ? {
@@ -190,10 +193,10 @@ function publicComponent(step, configs, secrets, node, role) {
         : null,
       questionCount: pub.questions.length,
       questionIndex: qIndex,
-    };
+    });
   }
   if (kind === "pinboard") {
-    return {
+    return withLiveSurfaceBranding({
       gameType: "pinboard",
       id: cfg.id,
       title: cfg.title,
@@ -205,10 +208,12 @@ function publicComponent(step, configs, secrets, node, role) {
         stickyAssets: cfg.mobile?.stickyAssets || [],
       },
       moderator: cfg.moderator,
-    };
+      layoutMode: cfg.layoutMode,
+      layout: cfg.layout,
+    });
   }
   if (kind === "spinning-wheel") {
-    return {
+    return withLiveSurfaceBranding({
       gameType: "spinning-wheel",
       id: cfg.id,
       title: cfg.title,
@@ -217,10 +222,12 @@ function publicComponent(step, configs, secrets, node, role) {
       sounds: cfg.sounds || {},
       spin: cfg.spin || { durationMs: 6000, minFullRotations: 5, maxFullRotations: 8, easing: "cubic-bezier(0.15, 0.85, 0.2, 1)" },
       wheelRotationOffsetDeg: Number(cfg.wheelRotationOffsetDeg || 0),
-    };
+      layoutMode: cfg.layoutMode,
+      layout: cfg.layout,
+    });
   }
   if (kind === "scratcher") {
-    return {
+    return withLiveSurfaceBranding({
       gameType: "scratcher",
       id: cfg.id,
       title: cfg.title,
@@ -230,7 +237,9 @@ function publicComponent(step, configs, secrets, node, role) {
       backgroundColor: cfg.backgroundColor || "#07131f",
       scratcherFormat: cfg.scratcherFormat || "9x16",
       clearThreshold: Number(cfg.clearThreshold || 0.97),
-    };
+      layoutMode: cfg.layoutMode,
+      layout: cfg.layout,
+    });
   }
   return { gameType: kind, id: cfg?.id, title: cfg?.title, slug: cfg?.slug };
 }

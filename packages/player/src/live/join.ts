@@ -30,7 +30,7 @@ function saveCred(code: string, participantId: string, secret: string) {
   localStorage.setItem(`${STORE}:${code}`, JSON.stringify({ participantId, secret }));
 }
 
-let scratchHandle: { destroy: () => void } | null = null;
+let scratchHandle: { destroy: () => void; attach: (host: HTMLElement) => void } | null = null;
 let lastTicketKey = "";
 let lastState: AnyRec | null = null;
 
@@ -85,8 +85,9 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
   const activity = (state.activity || {}) as AnyRec;
   const component = (state.component || {}) as AnyRec;
   const kind = String(activity.kind || "lobby");
-  applyJoinTheme(state.joinScreen as Record<string, string>, (component.branding || {}) as Record<string, string>, {
+  applyJoinTheme(state.joinScreen as Record<string, unknown>, undefined, {
     surface: "phone",
+    component,
   });
 
   if (kind === "lobby") {
@@ -279,16 +280,21 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
     const shell = phoneShell(`<h1 class="live-headline">Scratch your ticket</h1><div id="scratch-host"></div>`);
     root.replaceChildren(shell);
     const key = `${state.roundAttemptId}:${me.participantId}`;
-    if (lastTicketKey !== key) {
+    const host = shell.querySelector("#scratch-host") as HTMLElement;
+    if (lastTicketKey === key && scratchHandle) {
+      scratchHandle.attach(host);
+    } else {
       scratchHandle?.destroy();
       lastTicketKey = key;
       const assets = (component.assets || {}) as AnyRec;
       scratchHandle = mountScratcher({
-        host: shell.querySelector("#scratch-host") as HTMLElement,
+        host,
         isWin: !!ticket.isWin,
         winSrc: String(assets.bottomWin || ""),
         loseSrc: String(assets.bottomLose || ""),
-        threshold: Number(component.clearThreshold || 0.45),
+        coverSrc: String(assets.top || ""),
+        formatId: String(component.scratcherFormat || "9x16"),
+        threshold: Number(component.clearThreshold ?? 0.97),
         onComplete: () => void act(code, "reveal-ticket", { ticketId: ticket.ticketId }),
       });
     }

@@ -49,6 +49,12 @@ export function experiencePublicUrl(slug: string, previewToken?: string) {
   return base;
 }
 
+export function experiencePresenterUrl(slug: string, previewToken?: string) {
+  const base = `${siteUrl}/x/${encodeURIComponent(slug)}/present`;
+  if (previewToken) return `${base}?previewToken=${encodeURIComponent(previewToken)}`;
+  return base;
+}
+
 export function coursePublicUrl(slug: string, previewToken?: string) {
   const base = `${siteUrl}/course/${encodeURIComponent(slug)}`;
   if (previewToken) return `${base}?previewToken=${encodeURIComponent(previewToken)}`;

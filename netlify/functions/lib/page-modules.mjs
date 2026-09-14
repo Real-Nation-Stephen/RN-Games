@@ -588,6 +588,8 @@ export function normalizePageModule(doc) {
       resultsBody: String(doc.resultsBody || defaults.resultsBody),
       continueLabel: String(doc.continueLabel || defaults.continueLabel),
       questions,
+      ...(doc.layoutMode === "inherit" || doc.layoutMode === "custom" ? { layoutMode: doc.layoutMode } : {}),
+      ...(doc.layout != null && typeof doc.layout === "object" ? { layout: doc.layout } : {}),
     };
   }
   return {

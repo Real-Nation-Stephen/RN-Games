@@ -1,6 +1,25 @@
+import {
+  liveSurfaceBrandingFromComponent,
+  resolveLiveSurfaceLayouts,
+  type LivePaneLayout,
+} from "@rngames/shared";
+
 type ThemeBag = Record<string, unknown>;
 
 type FontUpload = { url?: string; family?: string };
+
+const LAYOUT_VARS = [
+  "--live-align-x",
+  "--live-align-y",
+  "--live-text-align",
+  "--live-pad",
+  "--live-pad-bottom",
+  "--live-gap",
+  "--live-max",
+  "--live-heading-size",
+  "--live-body-size",
+  "--live-option-size",
+];
 
 function asStr(v: unknown, fallback = ""): string {
   return typeof v === "string" && v ? v : fallback;
@@ -27,23 +46,45 @@ export function applyUploadedFonts(uploads?: Record<string, FontUpload | undefin
   }
 }
 
+function applyLiveLayout(pane: LivePaneLayout, surface: "phone" | "presenter") {
+  const root = document.documentElement.style;
+  for (const name of LAYOUT_VARS) root.removeProperty(name);
+  const alignX = pane.alignX === "left" ? "flex-start" : pane.alignX === "right" ? "flex-end" : "center";
+  const alignY = pane.alignY === "top" ? "flex-start" : pane.alignY === "bottom" ? "flex-end" : "center";
+  const dockReserve = surface === "presenter" ? Math.max(96, pane.paddingPx + 72) : pane.paddingPx;
+  root.setProperty("--live-align-x", alignX);
+  root.setProperty("--live-align-y", alignY);
+  root.setProperty("--live-text-align", pane.alignX);
+  root.setProperty("--live-pad", `${pane.paddingPx}px`);
+  root.setProperty("--live-pad-bottom", `${dockReserve}px`);
+  root.setProperty("--live-gap", `${pane.gapPx}px`);
+  root.setProperty("--live-max", `${pane.contentMaxWidthPx}px`);
+  if (pane.headingSizePx > 0) root.setProperty("--live-heading-size", `${pane.headingSizePx}px`);
+  if (pane.bodySizePx > 0) root.setProperty("--live-body-size", `${pane.bodySizePx}px`);
+  document.body.dataset.liveSurface = surface;
+  document.querySelectorAll(".live-stage").forEach((el) => {
+    (el as HTMLElement).dataset.surface = surface;
+  });
+}
+
 export function applyJoinTheme(
   joinScreen: ThemeBag | undefined,
   extra?: ThemeBag,
-  opts?: { surface?: "phone" | "presenter" },
+  opts?: { surface?: "phone" | "presenter"; component?: ThemeBag },
 ) {
   const js = joinScreen || {};
-  const extraBag = extra || {};
+  const mapped = opts?.component ? liveSurfaceBrandingFromComponent(opts.component) : undefined;
+  const extraBag = { ...(mapped || {}), ...(extra || {}) } as ThemeBag;
+  const surface = opts?.surface === "phone" ? "phone" : "presenter";
   const root = document.documentElement.style;
   const bg = asStr(extraBag.backgroundHex, asStr(js.backgroundHex, "#07131f"));
   const joinImage =
-    opts?.surface === "presenter"
+    surface === "presenter"
       ? asStr(js.presenterBackgroundImageUrl, asStr(js.backgroundImageUrl))
       : asStr(js.backgroundImageUrl);
   const extraPhone = asStr(extraBag.backgroundImageUrl);
   const extraPresenter = asStr(extraBag.presenterBackgroundImageUrl);
-  const image =
-    opts?.surface === "presenter" ? extraPresenter || extraPhone || joinImage : extraPhone || joinImage;
+  const image = surface === "presenter" ? extraPresenter || extraPhone || joinImage : extraPhone || joinImage;
   root.setProperty("--live-bg", bg);
   root.setProperty("--live-bg-image", image ? `url("${image}")` : "none");
   root.setProperty("--live-headline", asStr(extraBag.headlineHex, asStr(js.headlineHex, "#fff")));
@@ -61,9 +102,13 @@ export function applyJoinTheme(
     "--live-button-font",
     asStr(extraBag.buttonFont, asStr(js.buttonFont, asStr(extraBag.headingFont, asStr(js.headingFont)))),
   );
+  const layouts = resolveLiveSurfaceLayouts(js.layout, extraBag);
+  applyLiveLayout(layouts[surface], surface);
   applyUploadedFonts(js.fontUploads);
   applyUploadedFonts(extraBag.fontUploads);
-  ensureFontLink(asStr(js.headingFontUrl, asStr(extraBag.headingFontUrl)));
+  const fontHref = asStr(extraBag.headingFontUrl, asStr(js.headingFontUrl));
+  if (fontHref) ensureFontLink(fontHref);
+  else removeFontLink();
 }
 
 function ensureFontLink(href?: string) {
@@ -77,6 +122,10 @@ function ensureFontLink(href?: string) {
     document.head.appendChild(el);
   }
   if (el.href !== href) el.href = href;
+}
+
+function removeFontLink() {
+  document.getElementById("live-font-link")?.remove();
 }
 
 export function cueProgress(cue: { startedAt: number; durationMs: number } | null, now = Date.now()): number {

@@ -303,13 +303,19 @@ export async function probeConditionalWrites(store) {
     const created = await store.setJSON(key, { n: 1 }, { onlyIfNew: true });
     if (!created || created.modified !== true) return { ok: false, reason: "onlyIfNew did not create" };
     const got = await store.getWithMetadata(key, { type: "json" });
-    if (!got?.etag) return { ok: false, reason: "getWithMetadata missing etag" };
+    if (!got || got.data?.n !== 1 || !got.etag) {
+      return { ok: false, reason: "read-after-write missed (strong getWithMetadata did not see the write)" };
+    }
     const denied = await store.setJSON(key, { n: 2 }, { onlyIfMatch: `"${randomUUID()}"` });
     if (!denied || denied.modified !== false) {
       return { ok: false, reason: "mismatched onlyIfMatch was accepted" };
     }
     const okWrite = await store.setJSON(key, { n: 3 }, { onlyIfMatch: got.etag });
     if (!okWrite || okWrite.modified !== true) return { ok: false, reason: "matching onlyIfMatch failed" };
+    const got2 = await store.getWithMetadata(key, { type: "json" });
+    if (!got2 || got2.data?.n !== 3) {
+      return { ok: false, reason: "strong read did not see matching write" };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) };
@@ -323,6 +329,14 @@ export async function probeConditionalWrites(store) {
 }
 
 export function defaultFileStoreDir() {
-  const here = path.dirname(fileURLToPath(import.meta.url));
+  const metaUrl = typeof import.meta === "object" ? import.meta.url : undefined;
+  if (typeof metaUrl !== "string" || !metaUrl) {
+    const err = new Error(
+      "File CAS directory is unavailable in this runtime. Hosted functions cannot use the file driver.",
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+  const here = path.dirname(fileURLToPath(metaUrl));
   return path.resolve(here, "../../../.netlify/live-cas");
 }

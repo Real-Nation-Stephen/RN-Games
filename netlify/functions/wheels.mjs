@@ -539,6 +539,8 @@ export const handler = async (event, context) => {
           "mobile",
           "moderator",
           "stickies",
+          "layoutMode",
+          "layout",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];
@@ -691,6 +693,8 @@ export const handler = async (event, context) => {
           "reportingEnabled",
           "faviconUrl",
           "showPoweredBy",
+          "layoutMode",
+          "layout",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];
@@ -711,6 +715,8 @@ export const handler = async (event, context) => {
           "hideWinButton",
           "clearThreshold",
           "winChancePercent",
+          "layoutMode",
+          "layout",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];

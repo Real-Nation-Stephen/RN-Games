@@ -55,12 +55,14 @@ export function renderClosing(state: AnyRec): HTMLElement {
 export function renderPollPresenter(state: AnyRec): HTMLElement {
   const activity = (state.activity || {}) as AnyRec;
   const component = (state.component || {}) as AnyRec;
+  const branding = (component.branding || {}) as AnyRec;
   const phase = String(activity.phase || "idle");
   const cue = state.cue as { startedAt: number; durationMs: number; kind: string } | null;
   const box = el(`<div class="live-stage-inner"></div>`);
+  const logo = renderLogo(String(branding.logoUrl || component.logoUrl || ""));
   if ((phase === "tallying" || (cue && cue.kind === "tally" && cueProgress(cue) < 1)) && phase !== "revealed") {
     box.innerHTML = `
-      ${renderLogo(component.branding ? (component.branding as AnyRec).logoUrl as string : "")}
+      ${logo}
       <p class="live-kicker">${escapeHtml(activity.responseCount || 0)} responses</p>
       <h1 class="live-headline">Results incoming</h1>
       <div class="live-anticipation" aria-hidden="true"></div>
@@ -77,6 +79,7 @@ export function renderPollPresenter(state: AnyRec): HTMLElement {
     const status =
       result === "zero" ? "No votes yet" : result === "tie" ? "It's a tie" : "";
     box.innerHTML = `
+      ${logo}
       <h1 class="live-headline">${escapeHtml(component.question || "Poll")}</h1>
       ${status ? `<p class="live-body">${status}</p>` : ""}
       <div class="live-options two"></div>
@@ -98,6 +101,7 @@ export function renderPollPresenter(state: AnyRec): HTMLElement {
   }
   const opts = (component.options || []) as AnyRec[];
   box.innerHTML = `
+    ${logo}
     <p class="live-kicker">${phase === "open" ? "Vote now" : phase === "closed" ? "Voting closed" : "Get ready"} · ${escapeHtml(activity.responseCount || 0)} in</p>
     <h1 class="live-headline">${escapeHtml(component.question || "Poll")}</h1>
     <div class="live-options two"></div>
@@ -192,6 +196,7 @@ export function renderFillPresenter(state: AnyRec, seenEvents: Set<string>): HTM
 export function renderQuizPresenter(state: AnyRec): HTMLElement {
   const activity = (state.activity || {}) as AnyRec;
   const component = (state.component || {}) as AnyRec;
+  const branding = (component.branding || {}) as AnyRec;
   const q = (component.currentQuestion || {}) as AnyRec;
   const box = el(`<div class="live-stage-inner"></div>`);
   const phase = String(activity.phase || "idle");
@@ -203,6 +208,7 @@ export function renderQuizPresenter(state: AnyRec): HTMLElement {
         : `${pct}% correct`
       : `${activity.responseCount || 0} answered`;
   box.innerHTML = `
+    ${renderLogo(String(branding.logoUrl || component.logoUrl || ""))}
     <p class="live-kicker">Q${Number(activity.questionIndex || 0) + 1} / ${escapeHtml(activity.questionCount || 0)} · ${escapeHtml(footer)}</p>
     <h1 class="live-headline">${escapeHtml(q.prompt || "Get ready")}</h1>
     <div class="live-options two"></div>
@@ -217,9 +223,12 @@ export function renderQuizPresenter(state: AnyRec): HTMLElement {
 
 export function renderPinboardPresenter(state: AnyRec): HTMLElement {
   const activity = (state.activity || {}) as AnyRec;
+  const component = (state.component || {}) as AnyRec;
+  const board = (component.board || {}) as AnyRec;
+  const branding = (component.branding || {}) as AnyRec;
   const box = el(`<div class="live-stage-inner"></div>`);
   const subs = (activity.submissions || []) as AnyRec[];
-  box.innerHTML = `<h1 class="live-headline">Pinboard</h1><div class="live-pin-grid"></div>`;
+  box.innerHTML = `${renderLogo(String(branding.logoUrl || board.brandLogoUrl || ""))}<h1 class="live-headline">${escapeHtml(board.header || component.title || "Pinboard")}</h1>${board.subhead ? `<p class="live-body">${escapeHtml(board.subhead)}</p>` : ""}<div class="live-pin-grid"></div>`;
   const grid = box.querySelector(".live-pin-grid") as HTMLElement;
   if (!subs.length) {
     grid.innerHTML = `<p class="live-body">Waiting for approved posts</p>`;

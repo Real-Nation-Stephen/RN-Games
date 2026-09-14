@@ -4,6 +4,8 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
+import { LiveSurfaceLayoutFields } from "../components/LiveSurfaceLayoutFields";
+import type { LiveLayoutMode, LiveSurfaceLayouts } from "@rngames/shared";
 
 type ScratcherFormatId = "16x9" | "1x1" | "9x16" | "4x3";
 
@@ -33,6 +35,8 @@ type Scratcher = {
   hideWinButton?: boolean;
   clearThreshold: number;
   winChancePercent: number;
+  layoutMode?: LiveLayoutMode;
+  layout?: LiveSurfaceLayouts;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -470,6 +474,17 @@ export default function ScratcherEditor() {
         <p className="muted" style={{ marginTop: 6, fontSize: "0.85rem" }}>
           When hidden, the reveal completes without a button. In flows, the step completes automatically after scratch-off.
         </p>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Live Presenter & phone layout</h3>
+        <p className="muted">Applies on the shared live Presenter and phones. Inherit uses the Flow join-screen layout.</p>
+        <LiveSurfaceLayoutFields
+          showInherit
+          layout={game.layout}
+          layoutMode={game.layoutMode}
+          onChange={({ layoutMode, layout }) => setGame({ ...game, layoutMode, layout })}
+        />
       </div>
 
       <div className="card">

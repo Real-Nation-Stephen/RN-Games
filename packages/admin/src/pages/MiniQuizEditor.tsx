@@ -12,6 +12,7 @@ import { BgUploadRow } from "../components/BgUploadRow";
 import { CollapsibleSection } from "../components/CollapsibleSection";
 import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
 import { HexField } from "../components/HexField";
+import { LiveSurfaceLayoutFields } from "../components/LiveSurfaceLayoutFields";
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
@@ -340,6 +341,12 @@ export default function MiniQuizEditor() {
             label="Button text"
             value={doc.primaryCta.textHex}
             onChange={(v) => patch((d) => ({ ...d, primaryCta: { ...d.primaryCta, textHex: v } }))}
+          />
+          <LiveSurfaceLayoutFields
+            showInherit
+            layout={doc.layout}
+            layoutMode={doc.layoutMode}
+            onChange={({ layoutMode, layout }) => patch((d) => ({ ...d, layoutMode, layout }))}
           />
         </div>
       </div>

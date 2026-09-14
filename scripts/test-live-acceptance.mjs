@@ -6,15 +6,26 @@
  *   LIVE_STORE_DRIVER=memory LIVE_DEV_AUTH=1 node scripts/test-live-acceptance.mjs
  */
 import { readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { createMemoryCasStore, wrapBlobsCasStore } from "../netlify/functions/lib/cas-store.mjs";
+import { createMemoryCasStore, probeConditionalWrites, wrapBlobsCasStore } from "../netlify/functions/lib/cas-store.mjs";
 import {
+  blobsHasUncachedEdge,
   blobsStoreOptions,
   blobsWrapOptions,
+  connectBlobs,
   getRuntimeStore,
+  hostedRemoteContext,
+  isolationDriver,
   LIVE_BLOBS_CONSISTENCY,
   liveStoreName,
+  resetRuntimeStores,
 } from "../netlify/functions/lib/blob-runtime.mjs";
+import { isUnsignedDevAuthAllowed } from "../netlify/functions/lib/auth.mjs";
 import { loadBinary, saveBinary } from "../netlify/functions/lib/files.mjs";
 import {
   createActivatedLiveRun,
@@ -33,7 +44,7 @@ import { handler as liveJoin } from "../netlify/functions/live-join.mjs";
 import { handler as liveControl } from "../netlify/functions/live-control.mjs";
 import { handler as liveAction } from "../netlify/functions/live-action.mjs";
 import { handler as liveSeed } from "../netlify/functions/live-demo-seed.mjs";
-import { normalizeMiniPollRecord, normalizeFillGameRecord } from "../netlify/functions/lib/live-modules.mjs";
+import { normalizeMiniPollRecord, normalizeFillGameRecord, liveSurfaceBrandingFromComponent, resolveLiveSurfaceLayouts } from "../netlify/functions/lib/live-modules.mjs";
 import { fillPinboardCard } from "./lib/fill-pinboard-card.mjs";
 
 const N = Number(process.env.LIVE_N || 15);
@@ -191,10 +202,28 @@ async function blobsAdapterBoundaryTests() {
   await liveWrapped.getWithMetadata("liverun:TEST01", { type: "json" });
   await liveWrapped.get("liverun:TEST01", { type: "json" });
   assert(
-    "live CAS reads request strong consistency",
-    liveFake.calls.getWithMetadata[0]?.opts?.consistency === "strong" &&
-      liveFake.calls.get[0]?.opts?.consistency === "strong",
+    "live wrap always requests strong consistency",
+    liveFake.calls.getWithMetadata[0]?.opts?.consistency === LIVE_BLOBS_CONSISTENCY &&
+      liveFake.calls.get[0]?.opts?.consistency === LIVE_BLOBS_CONSISTENCY,
     JSON.stringify({ get: liveFake.calls.get[0]?.opts, meta: liveFake.calls.getWithMetadata[0]?.opts }),
+  );
+
+  const staleProbe = {
+    async setJSON(_key, _data, opts = {}) {
+      if (opts.onlyIfNew) return { modified: true, etag: "etag-write" };
+      if (opts.onlyIfMatch) return { modified: opts.onlyIfMatch === "etag-write", etag: "etag-2" };
+      return { modified: true, etag: "etag-write" };
+    },
+    async getWithMetadata() {
+      return { data: { n: 99 }, etag: "etag-stale" };
+    },
+    async delete() {},
+  };
+  const stale = await probeConditionalWrites(staleProbe);
+  assert(
+    "CAS probe fails closed when strong read misses the write",
+    stale.ok === false && /read-after-write/i.test(stale.reason || ""),
+    stale.reason,
   );
 
   const platformFake = createFakeNetlifyBlobsAdapter();
@@ -205,6 +234,286 @@ async function blobsAdapterBoundaryTests() {
     platformFake.calls.get[0]?.opts?.consistency == null,
     JSON.stringify(platformFake.calls.get[0]?.opts),
   );
+}
+
+async function withEnv(patch, fn) {
+  const keys = Object.keys(patch);
+  const prev = {};
+  for (const key of keys) {
+    prev[key] = Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : undefined;
+    if (patch[key] === undefined) delete process.env[key];
+    else process.env[key] = patch[key];
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const key of keys) {
+      if (prev[key] === undefined) delete process.env[key];
+      else process.env[key] = prev[key];
+    }
+  }
+}
+
+async function hostedRuntimeTests() {
+  const eventBlobs = Buffer.from(
+    JSON.stringify({
+      url: "https://blobs-edge.example",
+      token: "blob-token",
+    }),
+  ).toString("base64");
+  const priorContext = Buffer.from(
+    JSON.stringify({
+      edgeURL: "https://blobs-edge-old.example",
+      token: "old-token",
+      siteID: "from-context",
+      uncachedEdgeURL: "https://blobs-uncached.example",
+    }),
+  ).toString("base64");
+  const guessedUncachedContext = Buffer.from(
+    JSON.stringify({
+      url: "https://blobs-edge.example",
+      token: "blob-token",
+      uncachedURL: "https://blobs-uncached.example",
+      uncached_url: "https://blobs-uncached.example",
+    }),
+  ).toString("base64");
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      LAMBDA_TASK_ROOT: "/var/task",
+      CONTEXT: undefined,
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_STORE_DRIVER: "file",
+      LIVE_DEV_AUTH: "1",
+      LIVE_BLOB_STORE: undefined,
+      NETLIFY_BLOBS_CONTEXT: undefined,
+    },
+    () => {
+      resetRuntimeStores();
+      assert("Lambda without CONTEXT is hosted", hostedRemoteContext() === true);
+      assert("hosted Lambda isolation driver is empty", isolationDriver() === "");
+      assert("unsigned JWT is refused on Lambda", isUnsignedDevAuthAllowed() === false);
+    },
+  );
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: undefined,
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_STORE_DRIVER: "file",
+      LIVE_BLOB_STORE: undefined,
+    },
+    async () => {
+      resetRuntimeStores();
+      setLiveTestHooks({});
+      try {
+        await getRuntimeStore("rngames-live");
+        fail("hosted Lambda file driver should be rejected");
+      } catch (e) {
+        assert(
+          "hosted Lambda refuses file driver even without CONTEXT",
+          /cannot be enabled on hosted/i.test(e.message || "") && !/Received undefined/i.test(e.message || ""),
+          e.message,
+        );
+      }
+    },
+  );
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: undefined,
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_BLOB_STORE: undefined,
+      LIVE_STORE_DRIVER: undefined,
+      NETLIFY_BLOBS_CONTEXT: priorContext,
+    },
+    () => {
+      connectBlobs({ blobs: { isolated: true }, headers: {} });
+      connectBlobs({
+        blobs: eventBlobs,
+        headers: { "X-Nf-Site-Id": "site-1", "x-nf-deploy-id": "d1" },
+      });
+      assert(
+        "connectBlobs restores prior EnvironmentContext.uncachedEdgeURL after event.blobs {token,url}",
+        blobsHasUncachedEdge() === true,
+      );
+      const liveOpts = blobsStoreOptions(liveStoreName());
+      assert(
+        "live Blobs store always requests strong consistency",
+        liveOpts.consistency === LIVE_BLOBS_CONSISTENCY && liveOpts.name === "rngames-live",
+        JSON.stringify(liveOpts),
+      );
+      assert("platform Blobs store stays eventual", blobsStoreOptions("rngames-platform").consistency == null);
+    },
+  );
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: undefined,
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_BLOB_STORE: undefined,
+      LIVE_STORE_DRIVER: undefined,
+      NETLIFY_BLOBS_CONTEXT: guessedUncachedContext,
+    },
+    async () => {
+      resetRuntimeStores();
+      setLiveTestHooks({});
+      connectBlobs({
+        blobs: Buffer.from(
+          JSON.stringify({
+            url: "https://blobs-edge.example",
+            token: "blob-token",
+            uncachedURL: "https://blobs-uncached.example",
+          }),
+        ).toString("base64"),
+        headers: {},
+      });
+      assert(
+        "connectBlobs ignores uncachedURL aliases; only uncachedEdgeURL counts",
+        blobsHasUncachedEdge() === false,
+      );
+      try {
+        await getRuntimeStore(liveStoreName());
+        fail("hosted Lambda without uncachedEdgeURL should fail closed");
+      } catch (e) {
+        const msg = String(e && e.message || e);
+        assert(
+          "hosted live store fails closed without uncachedEdgeURL (no eventual reads)",
+          Number(e.statusCode) === 503 &&
+            e.code === "live_blobs_strong_unavailable" &&
+            /uncachedEdgeURL/i.test(msg) &&
+            /strong consistency/i.test(msg) &&
+            /will not fall back to eventual reads/i.test(msg) &&
+            !/Received undefined/i.test(msg),
+          `${msg} status=${e.statusCode} code=${e.code}`,
+        );
+      }
+    },
+  );
+}
+
+async function hostedBundleTests() {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const dir = await mkdtemp(path.join(os.tmpdir(), "rn-hosted-bundle-"));
+  try {
+    const esbuild = await import("esbuild");
+    const casOut = path.join(dir, "cas-store.cjs");
+    const runtimeOut = path.join(dir, "blob-runtime.cjs");
+    await esbuild.build({
+      absWorkingDir: root,
+      entryPoints: [path.join(root, "netlify/functions/lib/cas-store.mjs")],
+      bundle: true,
+      format: "cjs",
+      platform: "node",
+      outfile: casOut,
+      define: { "import.meta.url": "undefined" },
+    });
+    await esbuild.build({
+      absWorkingDir: root,
+      entryPoints: [path.join(root, "netlify/functions/lib/blob-runtime.mjs")],
+      bundle: true,
+      format: "cjs",
+      platform: "node",
+      outfile: runtimeOut,
+      define: { "import.meta.url": "undefined" },
+    });
+
+    const bundled = readFileSync(runtimeOut, "utf8");
+    assert(
+      "CJS blob-runtime bundle inlines @netlify/blobs (no unresolved external require)",
+      !/require\(["']@netlify\/blobs["']\)/.test(bundled),
+      bundled.slice(0, 200),
+    );
+
+    const spawnCjs = (source) =>
+      spawnSync(process.execPath, ["-e", source], {
+        encoding: "utf8",
+        cwd: root,
+        env: { ...process.env, NODE_PATH: path.join(root, "node_modules") },
+      });
+
+    const cas = spawnCjs(
+      `const m = require(${JSON.stringify(casOut)});
+         try { m.defaultFileStoreDir(); process.exit(2); }
+         catch (e) {
+           const msg = String(e && e.message || e);
+           if (/Received undefined/.test(msg)) process.exit(3);
+           if (/File CAS|file driver|hosted/i.test(msg)) process.exit(0);
+           console.error(msg);
+           process.exit(4);
+         }`,
+    );
+    assert(
+      "CJS bundle defaultFileStoreDir does not call fileURLToPath(undefined)",
+      cas.status === 0,
+      cas.stderr || cas.stdout || `status=${cas.status}`,
+    );
+
+    const runtime = spawnCjs(
+      `process.env.AWS_LAMBDA_FUNCTION_NAME = "live-run";
+         delete process.env.CONTEXT;
+         delete process.env.NETLIFY_DEV;
+         delete process.env.RN_ISOLATED_QA;
+         process.env.LIVE_STORE_DRIVER = "file";
+         const m = require(${JSON.stringify(runtimeOut)});
+         (async () => {
+           try {
+             await m.getRuntimeStore(m.liveStoreName());
+             console.error("expected throw");
+             process.exit(2);
+           } catch (e) {
+             const msg = String(e && e.message || e);
+             if (/Received undefined/.test(msg)) process.exit(3);
+             if (/cannot be enabled on hosted|File CAS|unavailable/i.test(msg)) process.exit(0);
+             console.error(msg);
+             process.exit(4);
+           }
+         })();`,
+    );
+    assert(
+      "CJS hosted Lambda never falls back to fileURLToPath(undefined)",
+      runtime.status === 0,
+      runtime.stderr || runtime.stdout || `status=${runtime.status}`,
+    );
+
+    const runtimeStrong = spawnCjs(
+      `process.env.AWS_LAMBDA_FUNCTION_NAME = "live-run";
+         delete process.env.CONTEXT;
+         delete process.env.NETLIFY_DEV;
+         delete process.env.RN_ISOLATED_QA;
+         delete process.env.LIVE_STORE_DRIVER;
+         delete process.env.NETLIFY_BLOBS_CONTEXT;
+         const m = require(${JSON.stringify(runtimeOut)});
+         (async () => {
+           try {
+             await m.getRuntimeStore(m.liveStoreName());
+             console.error("expected throw");
+             process.exit(2);
+           } catch (e) {
+             const msg = String(e && e.message || e);
+             if (/Received undefined/.test(msg)) process.exit(3);
+             if (/uncachedEdgeURL/i.test(msg) && /will not fall back to eventual reads/i.test(msg) && e.statusCode === 503) process.exit(0);
+             console.error(msg);
+             process.exit(4);
+           }
+         })();`,
+    );
+    assert(
+      "CJS hosted Lambda without uncachedEdgeURL fails closed (no fileURLToPath)",
+      runtimeStrong.status === 0,
+      runtimeStrong.stderr || runtimeStrong.stdout || `status=${runtimeStrong.status}`,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 function demoExperience() {
@@ -922,6 +1231,190 @@ async function guardAndSeedTests() {
     "unsaved preview source never calls live run APIs",
     !/\/api\/live-(run|join|action|control)|liveEndpoint\(|liveJson\(/.test(previewSrc),
   );
+
+  const flowLayout = {
+    presenter: { alignX: "left", alignY: "top", paddingPx: 40, contentMaxWidthPx: 900, gapPx: 12, headingSizePx: 0, bodySizePx: 0 },
+    phone: { alignX: "center", alignY: "top", paddingPx: 16, contentMaxWidthPx: 400, gapPx: 10, headingSizePx: 0, bodySizePx: 0 },
+  };
+  const inherited = resolveLiveSurfaceLayouts(flowLayout, { layoutMode: "inherit" });
+  assert("inherit-flow layout uses joinScreen presenter align", inherited.presenter.alignX === "left" && inherited.presenter.paddingPx === 40);
+  const custom = resolveLiveSurfaceLayouts(flowLayout, {
+    layoutMode: "custom",
+    layout: {
+      presenter: { alignX: "right", alignY: "middle", paddingPx: 8, contentMaxWidthPx: 700, gapPx: 20, headingSizePx: 32, bodySizePx: 16 },
+      phone: { alignX: "left", alignY: "bottom", paddingPx: 24, contentMaxWidthPx: 360, gapPx: 8, headingSizePx: 0, bodySizePx: 0 },
+    },
+  });
+  assert(
+    "custom component layout overrides flow presenter",
+    custom.presenter.alignX === "right" && custom.presenter.headingSizePx === 32 && custom.phone.alignX === "left",
+  );
+  const implied = resolveLiveSurfaceLayouts(flowLayout, {
+    layout: { presenter: { alignX: "center" }, phone: {} },
+  });
+  assert("saved layout without mode still overrides flow (custom implied)", implied.presenter.alignX === "center");
+
+  const customPoll = normalizeMiniPollRecord({
+    id: "layout-poll",
+    slug: "layout-poll",
+    branding: {
+      layoutMode: "custom",
+      layout: {
+        presenter: { alignX: "right", paddingPx: 48, contentMaxWidthPx: 800, gapPx: 18, alignY: "middle", headingSizePx: 0, bodySizePx: 0 },
+        phone: { alignX: "center", alignY: "top", paddingPx: 12, contentMaxWidthPx: 380, gapPx: 8, headingSizePx: 0, bodySizePx: 0 },
+      },
+    },
+  });
+  assert(
+    "poll branding round-trips custom layoutMode",
+    customPoll.branding.layoutMode === "custom" && customPoll.branding.layout?.presenter.alignX === "right",
+  );
+
+  const wheelBrand = liveSurfaceBrandingFromComponent({
+    gameType: "spinning-wheel",
+    assets: { logo: "https://example.test/logo.png", background: "https://example.test/bg.png" },
+  });
+  assert(
+    "wheel mapping is partial (no default headingFont override)",
+    wheelBrand.logoUrl?.endsWith("logo.png") &&
+      wheelBrand.presenterBackgroundImageUrl?.endsWith("bg.png") &&
+      wheelBrand.headingFont == null &&
+      wheelBrand.bodyFont == null &&
+      wheelBrand.backgroundHex == null,
+  );
+  const scratchBrand = liveSurfaceBrandingFromComponent({
+    gameType: "scratcher",
+    backgroundColor: "#112233",
+    assets: { backgroundImage: "https://example.test/scratch-bg.png", top: "https://example.test/cover.png" },
+  });
+  assert(
+    "scratcher maps page background only, not default fonts",
+    scratchBrand.backgroundHex === "#112233" &&
+      scratchBrand.backgroundImageUrl?.endsWith("scratch-bg.png") &&
+      scratchBrand.headingFont == null,
+  );
+  const pinBrand = liveSurfaceBrandingFromComponent({
+    gameType: "pinboard",
+    board: {
+      header: "Wall",
+      brandLogoUrl: "https://example.test/pin-logo.png",
+      useBackgroundImage: true,
+      backgroundImage: "https://example.test/pin-bg.png",
+      headerHex: "#abcdef",
+      fontUploads: {
+        heading: { url: "https://example.test/pin-head.woff2", family: "PinHeading" },
+        subheading: { url: "https://example.test/pin-sub.woff2", family: "PinSubhead" },
+      },
+    },
+    mobile: { buttonHex: "#d93ddb", buttonTextHex: "#ffffff" },
+  });
+  assert(
+    "pinboard maps subheading upload to live body font",
+    pinBrand.headingFont?.includes("PinHeading") &&
+      pinBrand.bodyFont?.includes("PinSubhead") &&
+      pinBrand.fontUploads?.body?.family === "PinSubhead" &&
+      pinBrand.fontUploads?.heading?.family === "PinHeading" &&
+      pinBrand.logoUrl?.endsWith("pin-logo.png"),
+  );
+
+  const quizCustom = liveSurfaceBrandingFromComponent({
+    gameType: "mini-quiz",
+    layoutMode: "custom",
+    layout: {
+      presenter: { alignX: "right", paddingPx: 48, contentMaxWidthPx: 720, gapPx: 16, alignY: "middle", headingSizePx: 40, bodySizePx: 18 },
+      phone: { alignX: "left", alignY: "top", paddingPx: 12, contentMaxWidthPx: 360, gapPx: 8, headingSizePx: 0, bodySizePx: 0 },
+    },
+    typography: { fonts: { heading: "QuizHead" } },
+  });
+  const quizResolved = resolveLiveSurfaceLayouts(flowLayout, quizCustom);
+  assert(
+    "mini-quiz custom layout overrides flow and keeps native fonts",
+    quizCustom.layoutMode === "custom" &&
+      quizCustom.headingFont === "QuizHead" &&
+      quizResolved.presenter.alignX === "right" &&
+      quizResolved.presenter.headingSizePx === 40,
+  );
+  const quizInherit = liveSurfaceBrandingFromComponent({
+    gameType: "mini-quiz",
+    layoutMode: "inherit",
+    typography: { fonts: { heading: "QuizHead" } },
+  });
+  const quizInherited = resolveLiveSurfaceLayouts(flowLayout, quizInherit);
+  assert(
+    "mini-quiz inherit-flow uses joinScreen layout",
+    quizInherit.layoutMode === "inherit" &&
+      quizInherited.presenter.alignX === "left" &&
+      quizInherited.presenter.paddingPx === 40,
+  );
+  const scratchCustom = liveSurfaceBrandingFromComponent({
+    gameType: "scratcher",
+    backgroundColor: "#112233",
+    layoutMode: "custom",
+    layout: {
+      presenter: { alignX: "center", paddingPx: 24, contentMaxWidthPx: 640, gapPx: 12, alignY: "top", headingSizePx: 0, bodySizePx: 0 },
+      phone: { alignX: "center", alignY: "top", paddingPx: 16, contentMaxWidthPx: 400, gapPx: 10, headingSizePx: 0, bodySizePx: 0 },
+    },
+  });
+  assert(
+    "scratcher custom layout is mapped without default fonts",
+    scratchCustom.layoutMode === "custom" &&
+      scratchCustom.layout?.presenter.contentMaxWidthPx === 640 &&
+      scratchCustom.headingFont == null,
+  );
+  const pollPartial = liveSurfaceBrandingFromComponent({
+    gameType: "mini-poll",
+    branding: { layoutMode: "inherit", headlineHex: "#ff00aa" },
+  });
+  assert(
+    "poll inherit stays partial (flow fonts not replaced by Barlow defaults)",
+    pollPartial.layoutMode === "inherit" &&
+      pollPartial.headlineHex === "#ff00aa" &&
+      pollPartial.headingFont == null,
+  );
+
+  const expSrc = readFileSync(new URL("../packages/player/src/experience/main.ts", import.meta.url), "utf8");
+  assert(
+    "interactive /x shell redirects to shared Presenter",
+    /foundation\?\.interactive/.test(expSrc) && /\/present/.test(expSrc) && /stepFooter\.hidden = true/.test(expSrc),
+  );
+  const editorSrc = readFileSync(new URL("../packages/admin/src/pages/ExperienceEditor.tsx", import.meta.url), "utf8");
+  assert(
+    "interactive preview uses Presenter URL and opens Flow Master synchronously",
+    /experiencePresenterUrl/.test(editorSrc) &&
+      /openBlankWindow\(/.test(editorSrc) &&
+      /assignWindowLocation\(/.test(editorSrc) &&
+      !/window\.open\(`\$\{origin\}\/x\/\$\{game\.slug\}\/master/.test(editorSrc),
+  );
+  const scratchSrc = readFileSync(new URL("../packages/player/src/live/scratch.ts", import.meta.url), "utf8");
+  assert(
+    "scratch cover assigns img.src and paints an opaque placeholder before load",
+    /img\.src = src/.test(scratchSrc) &&
+      /paintOpaquePlaceholder/.test(scratchSrc) &&
+      /coverSrc/.test(scratchSrc) &&
+      /coverReady/.test(scratchSrc),
+  );
+  const liveCss = readFileSync(new URL("../packages/player/src/css/live.css", import.meta.url), "utf8");
+  assert(
+    "presenter option labels use a room-scale clamp above 1.35rem",
+    /3\.5rem/.test(liveCss) && /data-live-surface="presenter"/.test(liveCss) && /position:\s*fixed/.test(liveCss),
+  );
+  assert(
+    "#live-main is a flex child so Presenter alignY can center",
+    /#live-main\s*\{[^}]*display:\s*flex/s.test(liveCss) && /#live-main\s*\{[^}]*flex:\s*1/s.test(liveCss),
+  );
+  assert("live option cards use border-box so DIV padding stays in-track", /html \*,[\s\S]*box-sizing:\s*border-box/.test(liveCss) && /min-width:\s*0/.test(liveCss));
+  const renderSrc = readFileSync(new URL("../packages/player/src/live/render.ts", import.meta.url), "utf8");
+  assert(
+    "Presenter poll cards are DIV .live-option, not buttons",
+    /<div class="live-option/.test(renderSrc) && !/<button class="live-option/.test(renderSrc),
+  );
+  const wheelsSrc = readFileSync(new URL("../netlify/functions/wheels.mjs", import.meta.url), "utf8");
+  assert(
+    "adapted editor layout fields persist on pinboard/wheel/scratcher PUT",
+    wheelsSrc.includes('"layoutMode"') && /isPinboard[\s\S]*layoutMode[\s\S]*isLeaderboard/.test(wheelsSrc),
+  );
+  const pageModSrc = readFileSync(new URL("../netlify/functions/lib/page-modules.mjs", import.meta.url), "utf8");
+  assert("mini-quiz normalize persists live layout", /gameType: "mini-quiz"[\s\S]*layoutMode[\s\S]*layout:/.test(pageModSrc));
 }
 
 async function main() {
@@ -940,6 +1433,8 @@ async function main() {
   }
 
   await blobsAdapterBoundaryTests();
+  await hostedRuntimeTests();
+  await hostedBundleTests();
   await isolatedCasJoin();
   await pinboardDomRegression();
   await fullFlow();

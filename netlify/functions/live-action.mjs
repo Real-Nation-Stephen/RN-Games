@@ -1,4 +1,4 @@
-import { connectLambda } from "@netlify/blobs";
+import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { getLiveRunWithRetry, hydrateLiveRun, putLiveMedia, secretsEqual, updateLiveRun, writePresence } from "./lib/live-store.mjs";
 import { applyParticipantAction, projectRun } from "./lib/live-run.mjs";
 import { makeId as storeId } from "./lib/live-store.mjs";
@@ -13,11 +13,7 @@ const headers = {
 const MAX_DATA_URL = 450_000;
 
 function connect(event) {
-  try {
-    connectLambda(event);
-  } catch {
-    /* local/test store */
-  }
+  connectBlobs(event);
 }
 
 export const handler = async (event) => {

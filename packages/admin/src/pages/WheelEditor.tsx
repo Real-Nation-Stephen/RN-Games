@@ -4,6 +4,8 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiGet, apiSend, apiDelete, uploadFile } from "../api";
 import { ComponentMetadataFields } from "../components/ComponentMetadataFields";
+import { LiveSurfaceLayoutFields } from "../components/LiveSurfaceLayoutFields";
+import type { LiveLayoutMode, LiveSurfaceLayouts } from "@rngames/shared";
 
 type Wheel = {
   id: string;
@@ -36,6 +38,8 @@ type Wheel = {
   projectCode?: string;
   designCode?: string;
   archived?: boolean;
+  layoutMode?: LiveLayoutMode;
+  layout?: LiveSurfaceLayouts;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -455,6 +459,17 @@ export default function WheelEditor() {
               sounds: { ...wheel.sounds, musicVolume: Number(e.target.value) },
             })
           }
+        />
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Live Presenter & phone layout</h3>
+        <p className="muted">Applies on the shared live Presenter and phones. Inherit uses the Flow join-screen layout.</p>
+        <LiveSurfaceLayoutFields
+          showInherit
+          layout={wheel.layout}
+          layoutMode={wheel.layoutMode}
+          onChange={({ layoutMode, layout }) => setWheel({ ...wheel, layoutMode, layout })}
         />
       </div>
 

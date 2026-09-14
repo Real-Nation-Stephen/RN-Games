@@ -1,4 +1,4 @@
-import { connectLambda } from "@netlify/blobs";
+import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { requireOperatorAuth } from "./lib/auth.mjs";
 import { getQueryParam } from "./lib/query.mjs";
 import {
@@ -21,11 +21,7 @@ const headers = {
 };
 
 function connect(event) {
-  try {
-    connectLambda(event);
-  } catch {
-    /* local/test store */
-  }
+  connectBlobs(event);
 }
 
 function readSecret(event) {

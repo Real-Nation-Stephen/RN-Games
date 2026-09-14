@@ -6,11 +6,13 @@ import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { BgUploadRow } from "../components/BgUploadRow";
 import { CollapsibleSection } from "../components/CollapsibleSection";
 import { HexField } from "../components/HexField";
+import { LiveSurfaceLayoutFields } from "../components/LiveSurfaceLayoutFields";
 import { DeploymentMeasurementPanel } from "../components/DeploymentMeasurementPanel";
 import { ExperienceFlowCanvas } from "../components/ExperienceFlowCanvas";
 import { ExperienceNodeOverridesPanel } from "../components/ExperienceNodeOverridesPanel";
 import type { PickerModule } from "../components/ItemPicker";
-import { experiencePublicUrl } from "./homeShared";
+import { assignWindowLocation, openBlankWindow, POPUP_BLOCKED_MESSAGE } from "../openLiveWindow";
+import { experiencePresenterUrl, experiencePublicUrl } from "./homeShared";
 
 export default function ExperienceEditor() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,7 @@ export default function ExperienceEditor() {
   const [warnings, setWarnings] = useState<{ stepId: string; message: string }[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [masterFallbackUrl, setMasterFallbackUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -105,7 +108,11 @@ export default function ExperienceEditor() {
     navigate("/");
   }
 
-  const previewUrl = game ? experiencePublicUrl(game.slug, game.previewToken) : "";
+  const previewUrl = game
+    ? game.foundation.interactive
+      ? experiencePresenterUrl(game.slug, game.previewToken)
+      : experiencePublicUrl(game.slug, game.previewToken)
+    : "";
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -173,24 +180,30 @@ export default function ExperienceEditor() {
               onChange={(e) => patch((g) => ({ ...g, designCode: e.target.value }))}
             />
           </label>
-          <label className="field">
-            Next step button label
-            <input
-              value={game.foundation.navigation.nextStepButtonLabel ?? "Next Activity"}
-              onChange={(e) =>
-                patch((g) => ({
-                  ...g,
-                  foundation: {
-                    ...g.foundation,
-                    navigation: {
-                      ...g.foundation.navigation,
-                      nextStepButtonLabel: e.target.value,
+          {!game.foundation.interactive ? (
+            <label className="field">
+              Next step button label
+              <input
+                value={game.foundation.navigation.nextStepButtonLabel ?? "Next Activity"}
+                onChange={(e) =>
+                  patch((g) => ({
+                    ...g,
+                    foundation: {
+                      ...g.foundation,
+                      navigation: {
+                        ...g.foundation.navigation,
+                        nextStepButtonLabel: e.target.value,
+                      },
                     },
-                  },
-                }))
-              }
-            />
-          </label>
+                  }))
+                }
+              />
+            </label>
+          ) : (
+            <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.85rem" }}>
+              Interactive flows have no Next Activity shell. Navigation belongs only on Flow Master.
+            </p>
+          )}
           <label className="field" style={{ gridColumn: "1 / -1" }}>
             <input
               type="checkbox"
@@ -209,26 +222,39 @@ export default function ExperienceEditor() {
           Tracking and reporting settings are configured in Measurement &amp; Reporting below.
         </p>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
-          Self-directed: <code>{liveUrl}</code>
           {game.foundation.interactive ? (
             <>
+              Presenter: <code>{`${origin}/x/${game.slug}/present`}</code>
+              <br />
+              Join: <code>{`${origin}/x/${game.slug}/join`}</code>
               <br />
               Flow Master: <code>{`${origin}/x/${game.slug}/master`}</code>{" "}
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={async () => {
-                  try {
-                    const res = (await apiSend("/api/live-run", "POST", { slug: game.slug })) as {
-                      hostKey?: string;
-                      code?: string;
-                      reused?: boolean;
-                    };
-                    const hk = encodeURIComponent(String(res.hostKey || ""));
-                    window.open(`${origin}/x/${game.slug}/master#hk=${hk}`, "_blank", "noopener,noreferrer");
-                  } catch (e) {
-                    setErr(e instanceof Error ? e.message : String(e));
-                  }
+                onClick={() => {
+                  const popup = openBlankWindow();
+                  void (async () => {
+                    try {
+                      const res = (await apiSend("/api/live-run", "POST", { slug: game.slug })) as {
+                        hostKey?: string;
+                      };
+                      const url = `${origin}/x/${game.slug}/master#hk=${encodeURIComponent(String(res.hostKey || ""))}`;
+                      if (!assignWindowLocation(popup, url)) {
+                        setMasterFallbackUrl(url);
+                        setErr(POPUP_BLOCKED_MESSAGE);
+                      } else {
+                        setMasterFallbackUrl(null);
+                      }
+                    } catch (e) {
+                      try {
+                        popup?.close();
+                      } catch {
+                        /* ignore */
+                      }
+                      setErr(e instanceof Error ? e.message : String(e));
+                    }
+                  })();
                 }}
               >
                 Open Flow Master
@@ -236,27 +262,48 @@ export default function ExperienceEditor() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={async () => {
+                onClick={() => {
                   if (!confirm("Start a new run? This resets prizes, numbers, and event state.")) return;
-                  try {
-                    const res = (await apiSend("/api/live-run", "POST", { slug: game.slug, forceNew: true })) as {
-                      hostKey?: string;
-                    };
-                    const hk = encodeURIComponent(String(res.hostKey || ""));
-                    window.open(`${origin}/x/${game.slug}/master#hk=${hk}`, "_blank", "noopener,noreferrer");
-                  } catch (e) {
-                    setErr(e instanceof Error ? e.message : String(e));
-                  }
+                  const popup = openBlankWindow();
+                  void (async () => {
+                    try {
+                      const res = (await apiSend("/api/live-run", "POST", { slug: game.slug, forceNew: true })) as {
+                        hostKey?: string;
+                      };
+                      const url = `${origin}/x/${game.slug}/master#hk=${encodeURIComponent(String(res.hostKey || ""))}`;
+                      if (!assignWindowLocation(popup, url)) {
+                        setMasterFallbackUrl(url);
+                        setErr(POPUP_BLOCKED_MESSAGE);
+                      } else {
+                        setMasterFallbackUrl(null);
+                      }
+                    } catch (e) {
+                      try {
+                        popup?.close();
+                      } catch {
+                        /* ignore */
+                      }
+                      setErr(e instanceof Error ? e.message : String(e));
+                    }
+                  })();
                 }}
               >
                 Start new run
               </button>
-              <br />
-              Presenter: <code>{`${origin}/x/${game.slug}/present`}</code>
-              <br />
-              Join: <code>{`${origin}/x/${game.slug}/join`}</code>
+              {masterFallbackUrl ? (
+                <>
+                  <br />
+                  <a href={masterFallbackUrl} target="_blank" rel="noreferrer">
+                    Open Flow Master link
+                  </a>
+                </>
+              ) : null}
             </>
-          ) : null}
+          ) : (
+            <>
+              Self-directed: <code>{liveUrl}</code>
+            </>
+          )}
           {game.status !== "published" ? (
             <>
               <br />
@@ -312,6 +359,10 @@ export default function ExperienceEditor() {
                 <BgUploadRow label="Logo" hint="Any brand mark" value={js.logoUrl} onUploaded={(url) => setJs({ logoUrl: url })} />
                 <BgUploadRow label="Phone / join background" hint="Optional" value={js.backgroundImageUrl} onUploaded={(url) => setJs({ backgroundImageUrl: url })} />
                 <BgUploadRow label="Presenter background" hint="Optional 16:9 art" value={js.presenterBackgroundImageUrl} onUploaded={(url) => setJs({ presenterBackgroundImageUrl: url })} />
+                <LiveSurfaceLayoutFields
+                  layout={js.layout}
+                  onChange={({ layout }) => setJs({ layout })}
+                />
                 <CollapsibleSection title="Custom fonts" summary="Heading, body, button">
                   {(["heading", "body", "button"] as const).map((role) => (
                     <div key={role} style={{ marginTop: 10 }}>
@@ -385,7 +436,9 @@ export default function ExperienceEditor() {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Preview</h3>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
-          Save first, then open preview in a new tab (uses draft preview token when unpublished).
+          {game.foundation.interactive
+            ? "Save first, then open the shared Presenter. Navigation belongs only on Flow Master."
+            : "Save first, then open preview in a new tab (uses draft preview token when unpublished)."}
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
           <a href={previewUrl} target="_blank" rel="noreferrer" className="btn">
@@ -402,7 +455,11 @@ export default function ExperienceEditor() {
         </div>
       </div>
 
-      {err ? <p className="muted">{err}</p> : null}
+      {err ? (
+        <p role="alert" style={{ color: "#f3c14e", fontWeight: 600 }}>
+          {err}
+        </p>
+      ) : null}
       {msg ? <p className="muted">{msg}</p> : null}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>

@@ -5,7 +5,7 @@
  */
 
 import path from "node:path";
-import { getStore } from "@netlify/blobs";
+import { getStore, setEnvironmentContext } from "@netlify/blobs";
 import {
   createFileCasStore,
   createMemoryCasStore,
@@ -32,9 +32,90 @@ function hooks() {
   return globalThis.__RN_LIVE_TEST__ || {};
 }
 
+function headerValue(event, name) {
+  const headers = event?.headers || {};
+  const want = String(name).toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (String(key).toLowerCase() === want) return String(value || "");
+  }
+  return "";
+}
+
+function decodeBlobsContext(raw) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && !(raw instanceof Buffer)) return raw;
+  if (typeof raw !== "string" || !raw) return {};
+  try {
+    return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+}
+
+/** SDK EnvironmentContext field only — do not guess uncachedURL / uncached_url. */
+function uncachedEdgeURLFrom(obj) {
+  if (!obj || typeof obj !== "object") return "";
+  return typeof obj.uncachedEdgeURL === "string" ? obj.uncachedEdgeURL : "";
+}
+
+function readBlobsEnvContext() {
+  const raw = process.env.NETLIFY_BLOBS_CONTEXT || globalThis.netlifyBlobsContext || "";
+  return decodeBlobsContext(raw);
+}
+
+export function liveBlobsStrongUnavailableError(detail) {
+  const extra = detail ? ` ${detail}` : "";
+  const err = new Error(
+    `Live runs need Netlify Blobs strong consistency (EnvironmentContext.uncachedEdgeURL).${extra} Live store will not fall back to eventual reads.`,
+  );
+  err.statusCode = 503;
+  err.code = "live_blobs_strong_unavailable";
+  return err;
+}
+
+/**
+ * Hosted Lambda/Netlify Functions must never use the local file driver, even when
+ * CONTEXT is unset. Isolated QA and `netlify dev` are not hosted.
+ */
 export function hostedRemoteContext() {
+  if (process.env.NETLIFY_DEV === "true") return false;
+  if (process.env.RN_ISOLATED_QA === "1") return false;
   const ctx = String(process.env.CONTEXT || "");
-  return ctx === "production" || ctx === "deploy-preview" || ctx === "branch-deploy";
+  if (ctx === "dev") return false;
+  if (ctx === "production" || ctx === "deploy-preview" || ctx === "branch-deploy") return true;
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT || process.env.AWS_EXECUTION_ENV) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Stock connectLambda (SDK 11.1) copies { deployID, edgeURL, siteID, token } from
+ * Lambda event.blobs `{ token, url }` and drops EnvironmentContext.uncachedEdgeURL.
+ * Restore uncachedEdgeURL from the prior NETLIFY_BLOBS_CONTEXT. Ignore non-string
+ * blobs (isolated QA sets `{ isolated: true }`). Do not invent uncachedURL fields.
+ */
+export function connectBlobs(event) {
+  const prior = readBlobsEnvContext();
+  const payload = typeof event?.blobs === "string" ? decodeBlobsContext(event.blobs) : {};
+  const hasPayload = !!(payload.token || payload.url);
+  if (!hasPayload) return;
+  setEnvironmentContext({
+    apiURL: prior.apiURL,
+    deployID: headerValue(event, "x-nf-deploy-id") || prior.deployID,
+    edgeURL: payload.url || prior.edgeURL,
+    primaryRegion: prior.primaryRegion,
+    siteID: headerValue(event, "x-nf-site-id") || prior.siteID,
+    token: payload.token || prior.token,
+    uncachedEdgeURL: uncachedEdgeURLFrom(prior) || undefined,
+  });
+}
+
+export function blobsHasUncachedEdge() {
+  return !!uncachedEdgeURLFrom(readBlobsEnvContext());
 }
 
 function sanitizeName(name) {
@@ -63,13 +144,26 @@ export function liveStoreName() {
 }
 
 export function blobsStoreOptions(name) {
-  if (name === liveStoreName()) return { name, consistency: LIVE_BLOBS_CONSISTENCY };
+  if (name === liveStoreName()) {
+    return { name, consistency: LIVE_BLOBS_CONSISTENCY };
+  }
   return { name };
 }
 
 export function blobsWrapOptions(name) {
-  if (name === liveStoreName()) return { readConsistency: LIVE_BLOBS_CONSISTENCY };
+  if (name === liveStoreName()) {
+    return { readConsistency: LIVE_BLOBS_CONSISTENCY };
+  }
   return {};
+}
+
+export function assertLiveBlobsStrongConsistency(name) {
+  if (name !== liveStoreName()) return;
+  if (isolationDriver()) return;
+  if (blobsHasUncachedEdge()) return;
+  throw liveBlobsStrongUnavailableError(
+    "connectLambda dropped it or NETLIFY_BLOBS_CONTEXT is missing it.",
+  );
 }
 
 function blobsEndpointHint() {
@@ -172,18 +266,26 @@ export async function getRuntimeStore(name) {
 
   if (blobsByName.has(name)) return blobsByName.get(name);
 
-  const wrapped = wrapBlobsCasStore(getStore(blobsStoreOptions(name)), name, blobsWrapOptions(name));
   const liveName = liveStoreName();
+  if (name === liveName && !blobsHasUncachedEdge()) {
+    if (hostedRemoteContext()) throw liveBlobsStrongUnavailableError();
+    const root = process.env.LIVE_CAS_DIR || defaultFileStoreDir();
+    const file = createFileCasStore(path.join(root, sanitizeName(name)));
+    blobsByName.set(name, file);
+    return file;
+  }
+
+  if (name === liveName) assertLiveBlobsStrongConsistency(name);
+
+  const wrapped = wrapBlobsCasStore(getStore(blobsStoreOptions(name)), name, blobsWrapOptions(name));
   if (name === liveName) {
     const cas = await probeConditionalWrites(wrapped);
     if (!cas.ok) {
-      if (hostedRemoteContext()) {
-        const err = new Error(
-          `Netlify Blobs conditional writes are unavailable (${cas.reason || "unknown"}). Live runs refuse unsafe overwrites.`,
-        );
-        err.statusCode = 503;
-        throw err;
-      }
+      const err = new Error(
+        `Netlify Blobs conditional writes are unavailable (${cas.reason || "unknown"}). Live runs refuse unsafe overwrites.`,
+      );
+      err.statusCode = 503;
+      if (hostedRemoteContext()) throw err;
       const root = process.env.LIVE_CAS_DIR || defaultFileStoreDir();
       const file = createFileCasStore(path.join(root, sanitizeName(name)));
       blobsByName.set(name, file);

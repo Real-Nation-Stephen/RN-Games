@@ -1,3 +1,4 @@
+import { liveSurfaceBrandingFromComponent } from "@rngames/shared";
 import { startLivePoll } from "./poll";
 import { applyJoinTheme } from "./theme";
 import { renderJoinDock, shortJoinUrl } from "./join-dock";
@@ -5,6 +6,7 @@ import {
   renderClosing,
   renderFillPresenter,
   renderLobby,
+  renderLogo,
   renderPinboardPresenter,
   renderPollPresenter,
   renderQuizPresenter,
@@ -70,9 +72,11 @@ function mountActivity(root: HTMLElement, state: AnyRec) {
   else if (kind === "pinboard") root.appendChild(renderPinboardPresenter(state));
   else if (kind === "scratcher") root.appendChild(renderScratcherPresenter(state));
   else if (kind === "spinning-wheel") {
+    const branding = liveSurfaceBrandingFromComponent(state.component);
+    const assets = ((state.component as AnyRec)?.assets || {}) as AnyRec;
     const wrap = document.createElement("div");
     wrap.className = "live-stage-inner";
-    wrap.innerHTML = `<p class="live-kicker">Live draw</p><p class="live-pointer-readout" id="wheel-readout">—</p><div class="live-wheel-wrap"><canvas id="live-wheel"></canvas></div>`;
+    wrap.innerHTML = `${renderLogo(String(branding.logoUrl || assets.logo || ""))}<p class="live-kicker">Live draw</p><p class="live-pointer-readout" id="wheel-readout">—</p><div class="live-wheel-wrap"><canvas id="live-wheel"></canvas></div>`;
     root.appendChild(wrap);
     const canvas = wrap.querySelector("canvas") as HTMLCanvasElement;
     const readout = wrap.querySelector("#wheel-readout") as HTMLElement;
@@ -127,11 +131,10 @@ async function main() {
     code: () => code,
     role: "public",
     onState(state) {
-      applyJoinTheme(
-        state.joinScreen as Record<string, string>,
-        ((state.component as AnyRec) || {}).branding as Record<string, string>,
-        { surface: "presenter" },
-      );
+      applyJoinTheme(state.joinScreen as Record<string, unknown>, undefined, {
+        surface: "presenter",
+        component: ((state.component as AnyRec) || {}) as Record<string, unknown>,
+      });
       mountActivity(inner, state);
       const kind = String((state.activity as AnyRec)?.kind || "lobby");
       const featured = kind === "lobby";

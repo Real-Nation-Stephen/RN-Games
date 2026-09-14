@@ -1,4 +1,4 @@
-import { connectLambda } from "@netlify/blobs";
+import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { getQueryParam } from "./lib/query.mjs";
 import { getLiveMedia, getLiveRunWithRetry, secretsEqual } from "./lib/live-store.mjs";
 
@@ -9,11 +9,7 @@ const jsonHeaders = {
 };
 
 export const handler = async (event) => {
-  try {
-    connectLambda(event);
-  } catch {
-    /* local/test store */
-  }
+  connectBlobs(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...jsonHeaders, "Access-Control-Allow-Methods": "GET, OPTIONS" } };
   }

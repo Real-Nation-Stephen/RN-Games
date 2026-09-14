@@ -4,7 +4,9 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
 import { HexField } from "../components/HexField";
+import { LiveSurfaceLayoutFields } from "../components/LiveSurfaceLayoutFields";
 import { PinboardAssetList, type PinboardAssetItem } from "../components/PinboardAssetList";
+import type { LiveLayoutMode, LiveSurfaceLayouts } from "@rngames/shared";
 
 /** html2canvas cannot see `body::before`; apply board BG on the cloned `#app` (thumbnails/PDF). */
 function getPinboardHtml2CanvasOptions(iframe: HTMLIFrameElement) {
@@ -59,6 +61,8 @@ type PinboardGame = {
   mobile: Record<string, unknown>;
   moderator: Record<string, unknown>;
   stickies: { id: string; label: string; imageUrl: string }[];
+  layoutMode?: LiveLayoutMode;
+  layout?: LiveSurfaceLayouts;
 };
 
 const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -104,6 +108,8 @@ function publicPayload(g: PinboardGame) {
     mobile: g.mobile,
     moderator: g.moderator,
     stickies: g.stickies,
+    layoutMode: g.layoutMode,
+    layout: g.layout,
   };
 }
 
@@ -679,6 +685,17 @@ export default function PinboardEditor() {
           <HexField label="Button hex" value={mod.buttonHex || "#2d6a4f"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonHex: v } }))} />
           <HexField label="Button text hex" value={mod.buttonTextHex || "#ffffff"} onChange={(v) => patch((g) => ({ ...g, moderator: { ...g.moderator, buttonTextHex: v } }))} />
         </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Live Presenter & phone layout</h3>
+        <p className="muted">Applies on the shared live Presenter and phones. Inherit uses the Flow join-screen layout.</p>
+        <LiveSurfaceLayoutFields
+          showInherit
+          layout={game.layout}
+          layoutMode={game.layoutMode}
+          onChange={({ layoutMode, layout }) => patch((g) => ({ ...g, layoutMode, layout }))}
+        />
       </div>
 
       <div className="card">
