@@ -1,6 +1,6 @@
 import netlifyIdentity from "netlify-identity-widget";
 import { compressImageForUpload } from "./compressImage";
-import { identityAuthHeaders, identityForceRefresh } from "./identity-auth.mjs";
+import { identityAuthHeaders, identityForceRefresh, identitySessionExpired, SESSION_EXPIRED_MESSAGE } from "./identity-auth.mjs";
 
 /** Unverified JWT shape accepted by `netlify/functions/lib/auth.mjs` when `VITE_DEV_AUTH=1`. */
 const DEV_BEARER =
@@ -28,17 +28,21 @@ function formatApiErrorBody(text: string): string {
   return t;
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const { headers } = await identityAuthHeaders({
+function widgetRefresh(forceRefresh?: boolean): Promise<string> {
+  if (typeof (netlifyIdentity as { refresh?: (force?: boolean) => Promise<string> }).refresh !== "function") {
+    return Promise.resolve("");
+  }
+  if (!netlifyIdentity.currentUser()) return Promise.resolve("");
+  return (netlifyIdentity as { refresh: (force?: boolean) => Promise<string> }).refresh(forceRefresh);
+}
+
+async function studioAuth(): Promise<{ headers: Record<string, string>; source: string }> {
+  return identityAuthHeaders({
     devAuth: import.meta.env.VITE_DEV_AUTH === "1",
     devBearer: DEV_BEARER,
     currentUser: () => netlifyIdentity.currentUser(),
-    widgetRefresh: () =>
-      typeof (netlifyIdentity as { refresh?: () => Promise<string> }).refresh === "function"
-        ? (netlifyIdentity as { refresh: () => Promise<string> }).refresh()
-        : Promise.resolve(""),
+    widgetRefresh,
   });
-  return headers;
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -74,29 +78,37 @@ async function fetchWithRetry(path: string, init: RequestInit, retries = 3): Pro
 }
 
 async function fetchAuthed(path: string, init: RequestInit = {}, retries = 3): Promise<Response> {
-  const headers = { ...(await authHeaders()), ...(init.headers || {}) };
-  let res = await fetchWithRetry(path, { ...init, headers }, retries);
+  const { headers, source } = await studioAuth();
+  if (identitySessionExpired(source)) {
+    netlifyIdentity.open();
+    throw new Error(SESSION_EXPIRED_MESSAGE);
+  }
+  const merged = { ...headers, ...(init.headers || {}) };
+  let res = await fetchWithRetry(path, { ...init, headers: merged }, retries);
   if (res.status === 401 && import.meta.env.VITE_DEV_AUTH !== "1") {
     try {
       const token = await identityForceRefresh({
         currentUser: () => netlifyIdentity.currentUser(),
-        widgetRefresh: () =>
-          typeof (netlifyIdentity as { refresh?: () => Promise<string> }).refresh === "function"
-            ? (netlifyIdentity as { refresh: () => Promise<string> }).refresh()
-            : Promise.resolve(""),
+        widgetRefresh,
       });
       if (token) {
         res = await fetchWithRetry(
           path,
-          { ...init, headers: { ...headers, Authorization: `Bearer ${token}` } },
+          { ...init, headers: { ...merged, Authorization: `Bearer ${token}` } },
           retries,
         );
       }
     } catch {
-      /* keep the original 401 */
+      netlifyIdentity.open();
+      throw new Error(SESSION_EXPIRED_MESSAGE);
     }
   }
   return res;
+}
+
+function denySession() {
+  netlifyIdentity.open();
+  throw new Error(SESSION_EXPIRED_MESSAGE);
 }
 
 const inflightGet = new Map<string, Promise<unknown>>();
@@ -107,10 +119,7 @@ export async function apiGet(path: string) {
 
   const promise = (async () => {
     const res = await fetchAuthed(path);
-    if (res.status === 401) {
-      netlifyIdentity.open();
-      throw new Error("Unauthorized");
-    }
+    if (res.status === 401) denySession();
     if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
     return res.json();
   })();
@@ -125,10 +134,7 @@ export async function apiGet(path: string) {
 
 export async function apiDelete(path: string) {
   const res = await fetchAuthed(path, { method: "DELETE" });
-  if (res.status === 401) {
-    netlifyIdentity.open();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) denySession();
   if (res.status === 204) return;
   if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
 }
@@ -138,10 +144,7 @@ export async function apiSend(path: string, method: string, body?: unknown) {
     method,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401) {
-    netlifyIdentity.open();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) denySession();
   if (res.status === 204) return null;
   if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.text()));
   const t = await res.text();
@@ -167,10 +170,7 @@ export async function uploadFile(file: File): Promise<{ id: string; url: string 
       filename: prepared.name,
     }),
   });
-  if (res.status === 401) {
-    netlifyIdentity.open();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) denySession();
   if (!res.ok) throw new Error(formatApiErrorBody(await res.text()));
   return res.json();
 }

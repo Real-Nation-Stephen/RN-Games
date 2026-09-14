@@ -27,7 +27,7 @@ import {
 } from "../netlify/functions/lib/blob-runtime.mjs";
 import { isUnsignedDevAuthAllowed, requireOperatorAuth, verifyIdentityBearer } from "../netlify/functions/lib/auth.mjs";
 import { asNetlifyFunction } from "../netlify/functions/lib/netlify-v2.mjs";
-import { identityAuthHeaders, identityForceRefresh } from "../packages/admin/src/identity-auth.mjs";
+import { identityAuthHeaders, identityForceRefresh, identitySessionExpired, SESSION_EXPIRED_MESSAGE } from "../packages/admin/src/identity-auth.mjs";
 import { loadBinary, saveBinary } from "../netlify/functions/lib/files.mjs";
 import {
   createActivatedLiveRun,
@@ -577,18 +577,50 @@ async function studioWidgetRefreshTests() {
   });
   assert("Studio 401 retry force-refreshes via user.jwt(true)", forceCalls === 1 && forced === "forced-token");
 
+  const failedRefreshCalls = { n: 0 };
   const failed = await identityAuthHeaders({
     currentUser: () => ({
-      token: { access_token: stale },
       jwt: async () => {
         throw new Error("refresh failed");
       },
     }),
+    widgetRefresh: async () => {
+      failedRefreshCalls.n += 1;
+      return "should-not-run";
+    },
   });
   assert(
-    "failed jwt() refresh does not send the stale cached token",
-    failed.source === "jwt-failed" && failed.headers.Authorization == null,
+    "failed jwt() refresh does not send a stale token or call widget.refresh",
+    failed.source === "jwt-failed" &&
+      failed.headers.Authorization == null &&
+      failedRefreshCalls.n === 0 &&
+      identitySessionExpired(failed.source) === true,
     JSON.stringify(failed),
+  );
+  assert(
+    "rejected refresh uses a session-expired message, not generic Unauthorized",
+    SESSION_EXPIRED_MESSAGE.includes("expired") && !/Unauthorized/.test(SESSION_EXPIRED_MESSAGE),
+  );
+
+  let refreshCalls = 0;
+  const present = await identityAuthHeaders({
+    currentUser: () => ({
+      jwt: async (force) => {
+        assert("normal header path calls jwt() without forceRefresh", force == null || force === false);
+        return "ok-token";
+      },
+    }),
+    widgetRefresh: async () => {
+      refreshCalls += 1;
+      return "from-refresh";
+    },
+  });
+  assert(
+    "currentUser.jwt() is used when present; widget.refresh is not a different signature",
+    present.source === "jwt" &&
+      present.headers.Authorization === "Bearer ok-token" &&
+      refreshCalls === 0,
+    JSON.stringify(present),
   );
 }
 
@@ -1762,8 +1794,12 @@ async function guardAndSeedTests() {
   );
   const apiSrc = readFileSync(new URL("../packages/admin/src/api.ts", import.meta.url), "utf8");
   assert(
-    "Studio API headers refresh with user.jwt() instead of cached access_token",
-    /identityAuthHeaders/.test(apiSrc) && /identityForceRefresh/.test(apiSrc) && /async function authHeaders/.test(apiSrc) && !/access_token/.test(apiSrc),
+    "Studio API headers refresh with user.jwt() and show session-expired when refresh rejects",
+    /identityAuthHeaders/.test(apiSrc) &&
+      /identityForceRefresh/.test(apiSrc) &&
+      /SESSION_EXPIRED_MESSAGE/.test(apiSrc) &&
+      /studioAuth/.test(apiSrc) &&
+      !/access_token/.test(apiSrc),
   );
   const identityAuthSrc = readFileSync(new URL("../packages/admin/src/identity-auth.mjs", import.meta.url), "utf8");
   assert("identity-auth calls user.jwt() and never reads access_token", /user\.jwt\(/.test(identityAuthSrc) && !/access_token/.test(identityAuthSrc));

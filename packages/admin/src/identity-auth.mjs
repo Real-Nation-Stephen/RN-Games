@@ -1,8 +1,21 @@
 /**
- * Studio Identity headers. netlify-identity-widget sessions expire in ~1h;
- * GoTrue `user.jwt()` refreshes when the session is near expiry. Never send the
- * widget's cached token string without that refresh.
+ * Studio Identity headers.
+ *
+ * Installed netlify-identity-widget 1.9.2:
+ *   currentUser() → gotrue.currentUser()
+ *   refresh(forceRefresh) → currentUser().jwt(forceRefresh)
+ * So `user.jwt()` is the documented refresh path, not a missing method.
+ *
+ * jwt() refreshes when expires_at is within 60s. On rejection GoTrue
+ * clearSession()s; the iframe can still show the previous email. Do not send
+ * the previous token after that — it is stale. Surface session-expired instead.
  */
+
+export const SESSION_EXPIRED_MESSAGE = "Studio session expired. Sign in again to continue.";
+
+export function identitySessionExpired(source) {
+  return source === "jwt-failed" || source === "refresh-failed";
+}
 
 export async function identityAuthHeaders({
   devAuth = false,
@@ -24,10 +37,11 @@ export async function identityAuthHeaders({
         return { headers, source: "jwt" };
       }
     } catch {
+      /* Refresh rejected. Do not attach the previous token; widget.refresh is the same jwt(). */
       return { headers, source: "jwt-failed" };
     }
   }
-  if (typeof widgetRefresh === "function") {
+  if (user && typeof widgetRefresh === "function") {
     try {
       const token = await widgetRefresh();
       if (token) {
@@ -46,8 +60,8 @@ export async function identityForceRefresh({ currentUser, widgetRefresh } = {}) 
   if (user && typeof user.jwt === "function") {
     return user.jwt(true);
   }
-  if (typeof widgetRefresh === "function") {
-    return widgetRefresh();
+  if (user && typeof widgetRefresh === "function") {
+    return widgetRefresh(true);
   }
   return "";
 }
