@@ -1,4 +1,5 @@
 import { connectBlobs } from "./lib/blob-runtime.mjs";
+import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { requireOperatorAuth } from "./lib/auth.mjs";
 import { getQueryParam } from "./lib/query.mjs";
 import {
@@ -33,7 +34,7 @@ function readSecret(event) {
   ).trim();
 }
 
-export const handler = async (event, context) => {
+export async function lambdaHandler(event, context) {
   connect(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } };
@@ -169,4 +170,6 @@ export const handler = async (event, context) => {
     const status = e.statusCode || 500;
     return { statusCode: status, headers, body: JSON.stringify({ error: e instanceof Error ? e.message : "Failed" }) };
   }
-};
+}
+
+export default asNetlifyFunction(lambdaHandler);

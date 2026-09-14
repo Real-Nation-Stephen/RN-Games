@@ -60,7 +60,7 @@ export function isUnsignedDevAuthAllowed() {
 
 /**
  * Studio/operator authority for creating or recovering live runs.
- * Production: Netlify Identity via clientContext (signature-verified by the platform).
+ * Production: Netlify Identity via clientContext (Lambda) or @netlify/identity getUser (Functions v2).
  * Local: unsigned preview bearer only when explicitly allowed.
  */
 export function requireOperatorAuth(event, context) {

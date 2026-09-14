@@ -25,7 +25,8 @@ import {
   liveStoreName,
   resetRuntimeStores,
 } from "../netlify/functions/lib/blob-runtime.mjs";
-import { isUnsignedDevAuthAllowed } from "../netlify/functions/lib/auth.mjs";
+import { isUnsignedDevAuthAllowed, requireOperatorAuth } from "../netlify/functions/lib/auth.mjs";
+import { asNetlifyFunction } from "../netlify/functions/lib/netlify-v2.mjs";
 import { loadBinary, saveBinary } from "../netlify/functions/lib/files.mjs";
 import {
   createActivatedLiveRun,
@@ -39,10 +40,10 @@ import {
   writePresence,
 } from "../netlify/functions/lib/live-store.mjs";
 import { createRunDocument, joinParticipant } from "../netlify/functions/lib/live-run.mjs";
-import { handler as liveRun } from "../netlify/functions/live-run.mjs";
-import { handler as liveJoin } from "../netlify/functions/live-join.mjs";
-import { handler as liveControl } from "../netlify/functions/live-control.mjs";
-import { handler as liveAction } from "../netlify/functions/live-action.mjs";
+import liveRunDefault, { lambdaHandler as liveRun } from "../netlify/functions/live-run.mjs";
+import { lambdaHandler as liveJoin } from "../netlify/functions/live-join.mjs";
+import { lambdaHandler as liveControl } from "../netlify/functions/live-control.mjs";
+import { lambdaHandler as liveAction } from "../netlify/functions/live-action.mjs";
 import { handler as liveSeed } from "../netlify/functions/live-demo-seed.mjs";
 import { normalizeMiniPollRecord, normalizeFillGameRecord, liveSurfaceBrandingFromComponent, resolveLiveSurfaceLayouts } from "../netlify/functions/lib/live-modules.mjs";
 import { fillPinboardCard } from "./lib/fill-pinboard-card.mjs";
@@ -277,6 +278,16 @@ async function hostedRuntimeTests() {
       uncached_url: "https://blobs-uncached.example",
     }),
   ).toString("base64");
+  const v2Context = Buffer.from(
+    JSON.stringify({
+      apiURL: "https://api.netlify.com",
+      edgeURL: "https://blobs-edge.example",
+      uncachedEdgeURL: "https://blobs-uncached.example",
+      token: "v2-token",
+      siteID: "site-v2",
+      deployID: "deploy-v2",
+    }),
+  ).toString("base64");
 
   await withEnv(
     {
@@ -397,6 +408,160 @@ async function hostedRuntimeTests() {
         );
       }
     },
+  );
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: "production",
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_BLOB_STORE: undefined,
+      LIVE_STORE_DRIVER: undefined,
+      NETLIFY_BLOBS_CONTEXT: v2Context,
+    },
+    async () => {
+      resetRuntimeStores();
+      setLiveTestHooks({});
+      connectBlobs({ headers: {} });
+      assert(
+        "Functions v2 context keeps uncachedEdgeURL when the event has no Lambda blobs payload",
+        blobsHasUncachedEdge() === true,
+      );
+      const origFetch = globalThis.fetch;
+      let fetchedUncached = false;
+      globalThis.fetch = async (input) => {
+        const href = String(input && input.url ? input.url : input);
+        if (/blobs-uncached\.example/.test(href)) fetchedUncached = true;
+        return new Response("unavailable", { status: 404, headers: { "content-type": "text/plain" } });
+      };
+      try {
+        try {
+          await getRuntimeStore(liveStoreName());
+          fail("expected hosted strong-path probe failure");
+        } catch (e) {
+          const msg = String((e && e.message) || e);
+          assert(
+            "v2 live store uses strong Blobs access instead of fail-closed missing uncachedEdgeURL",
+            fetchedUncached === true &&
+              e.code !== "live_blobs_strong_unavailable" &&
+              !/Live runs need Netlify Blobs strong consistency/.test(msg),
+            `${msg} fetchedUncached=${fetchedUncached} code=${e.code}`,
+          );
+        }
+
+        resetRuntimeStores();
+        const posted = await liveRun(
+          {
+            httpMethod: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: "live-demo" }),
+          },
+          { clientContext: { user: { sub: "nf-user-1", email: "host@example.com" } } },
+        );
+        const postedMsg = String(posted.body || "");
+        assert(
+          "hosted live-run POST with v2 Identity does not fail-closed on missing uncachedEdgeURL",
+          posted.statusCode !== 401 &&
+            !/Live runs need Netlify Blobs strong consistency/.test(postedMsg) &&
+            !/live_blobs_strong_unavailable/.test(postedMsg),
+          `status=${posted.statusCode} body=${postedMsg.slice(0, 300)}`,
+        );
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+    },
+  );
+
+  await nativeRuntimeAuthTests();
+  nodeEngineTests();
+}
+
+async function nativeRuntimeAuthTests() {
+  assert("live-run default export is the Functions v2 withLambda wrapper", typeof liveRunDefault === "function");
+  const wrapped = asNetlifyFunction(async (event, context) => {
+    const op = requireOperatorAuth(event, context);
+    if (op.error) return op.error;
+    return { statusCode: 200, body: JSON.stringify({ sub: op.user.sub, email: op.user.email }) };
+  });
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: "production",
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_DEV_AUTH: undefined,
+    },
+    async () => {
+      const prevIdentity = globalThis.netlifyIdentityContext;
+      globalThis.netlifyIdentityContext = {
+        user: { sub: "nf-user-1", email: "host@example.com" },
+      };
+      try {
+        const res = await wrapped(
+          new Request("https://example.netlify.app/.netlify/functions/live-run", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          }),
+          { requestId: "native-auth" },
+        );
+        const body = await res.json();
+        assert(
+          "Functions v2 getUser maps Identity claims onto operator clientContext (no unsigned JWT)",
+          res.status === 200 && body.sub === "nf-user-1" && body.email === "host@example.com",
+          JSON.stringify(body),
+        );
+      } finally {
+        if (prevIdentity === undefined) delete globalThis.netlifyIdentityContext;
+        else globalThis.netlifyIdentityContext = prevIdentity;
+      }
+
+      const denied = await wrapped(
+        new Request("https://example.netlify.app/.netlify/functions/live-run", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${DEV_BEARER}`,
+            "content-type": "application/json",
+          },
+          body: "{}",
+        }),
+        { requestId: "native-auth-unsigned" },
+      );
+      const deniedBody = await denied.text();
+      assert(
+        "hosted Functions v2 refuses unsigned JWT when Identity context is absent",
+        denied.status === 401 && /Unauthorized/i.test(deniedBody),
+        `status=${denied.status} body=${deniedBody.slice(0, 200)}`,
+      );
+    },
+  );
+}
+
+function nodeEngineTests() {
+  const need = ">=22.12.0";
+  for (const name of ["@netlify/aws-lambda-compat", "@netlify/identity", "@netlify/blobs"]) {
+    const pkg = JSON.parse(readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), "utf8"));
+    assert(`${name} engines.node is ${need}`, pkg.engines?.node === need, JSON.stringify(pkg.engines));
+  }
+  const [major, minor] = String(process.versions.node)
+    .split(".")
+    .map((n) => Number(n));
+  assert(
+    "local Node satisfies Functions v2 packages (>=22.12)",
+    major > 22 || (major === 22 && minor >= 12),
+    process.version,
+  );
+  const nvmrc = readFileSync(new URL("../.nvmrc", import.meta.url), "utf8").trim();
+  const toml = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  const rootPkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert(
+    "repo pins Node 22 so hosted build/functions match package engines",
+    nvmrc === "22" &&
+      /NODE_VERSION\s*=\s*"22"/.test(toml) &&
+      rootPkg.engines?.node === need,
+    `nvmrc=${nvmrc} engines=${rootPkg.engines?.node}`,
   );
 }
 
@@ -1415,6 +1580,25 @@ async function guardAndSeedTests() {
   );
   const pageModSrc = readFileSync(new URL("../netlify/functions/lib/page-modules.mjs", import.meta.url), "utf8");
   assert("mini-quiz normalize persists live layout", /gameType: "mini-quiz"[\s\S]*layoutMode[\s\S]*layout:/.test(pageModSrc));
+  for (const name of ["live-run", "live-join", "live-control", "live-action", "live-media"]) {
+    const src = readFileSync(new URL(`../netlify/functions/${name}.mjs`, import.meta.url), "utf8");
+    assert(
+      `${name} is a Functions v2 default export (not Lambda handler)`,
+      /asNetlifyFunction\(lambdaHandler\)/.test(src) &&
+        /export default asNetlifyFunction/.test(src) &&
+        !/export const handler/.test(src),
+    );
+  }
+  const v2Src = readFileSync(new URL("../netlify/functions/lib/netlify-v2.mjs", import.meta.url), "utf8");
+  assert(
+    "v2 wrapper uses withLambda + getUser and does not decode unsigned JWTs",
+    /withLambda/.test(v2Src) && /getUser/.test(v2Src) && !/decodeBearer|base64url/.test(v2Src),
+  );
+  const toml = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  assert(
+    "Identity stays an external Functions module so v2 runtime context is not bundled away",
+    /external_node_modules[\s\S]*@netlify\/identity/.test(toml),
+  );
 }
 
 async function main() {

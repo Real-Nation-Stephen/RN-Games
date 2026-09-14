@@ -1,4 +1,5 @@
 import { connectBlobs } from "./lib/blob-runtime.mjs";
+import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { getQueryParam } from "./lib/query.mjs";
 import { getLiveMedia, getLiveRunWithRetry, secretsEqual } from "./lib/live-store.mjs";
 
@@ -8,7 +9,7 @@ const jsonHeaders = {
   "Cache-Control": "no-store",
 };
 
-export const handler = async (event) => {
+export async function lambdaHandler(event) {
   connectBlobs(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...jsonHeaders, "Access-Control-Allow-Methods": "GET, OPTIONS" } };
@@ -59,4 +60,6 @@ export const handler = async (event) => {
   } catch (e) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: e instanceof Error ? e.message : "Failed" }) };
   }
-};
+}
+
+export default asNetlifyFunction(lambdaHandler);

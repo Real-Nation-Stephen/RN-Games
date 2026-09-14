@@ -93,10 +93,14 @@ export function hostedRemoteContext() {
 }
 
 /**
- * Stock connectLambda (SDK 11.1) copies { deployID, edgeURL, siteID, token } from
- * Lambda event.blobs `{ token, url }` and drops EnvironmentContext.uncachedEdgeURL.
- * Restore uncachedEdgeURL from the prior NETLIFY_BLOBS_CONTEXT. Ignore non-string
- * blobs (isolated QA sets `{ isolated: true }`). Do not invent uncachedURL fields.
+ * Functions v2 initializes NETLIFY_BLOBS_CONTEXT (including uncachedEdgeURL) before
+ * user code. Stock connectLambda (SDK 11.1) copies { deployID, edgeURL, siteID, token }
+ * from Lambda event.blobs `{ token, url }` and drops uncachedEdgeURL.
+ *
+ * If the event has no blobs payload, leave the v2 context intact. If Lambda blobs
+ * arrive, restore uncachedEdgeURL only from the prior EnvironmentContext field.
+ * Ignore non-string blobs (isolated QA sets `{ isolated: true }`). Do not invent
+ * uncachedURL fields or endpoint hostnames.
  */
 export function connectBlobs(event) {
   const prior = readBlobsEnvContext();

@@ -18,12 +18,17 @@
     "qa:live": "LIVE_DEV_AUTH=1 node scripts/start-live-qa.mjs"
   },
   "dependencies": {
+    "@netlify/aws-lambda-compat": "^2.0.0",
     "@netlify/blobs": "^11.1.0",
     "@netlify/database": "^1.1.0",
     "@netlify/functions": "^2.8.0",
+    "@netlify/identity": "^2.0.0",
     "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

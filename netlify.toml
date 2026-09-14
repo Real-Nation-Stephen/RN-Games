@@ -3,13 +3,16 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  NODE_VERSION = "22"
+
 [[edge_functions]]
   path = "/*"
   function = "router"
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs", "@netlify/database", "googleapis"]
+  external_node_modules = ["@netlify/blobs", "@netlify/database", "googleapis", "@netlify/functions", "@netlify/identity"]
 
 [[redirects]]
   from = "/admin/*"

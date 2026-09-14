@@ -104,6 +104,24 @@ async function invoke(name, req, url, bodyBuf) {
   const mod = await import(`../../netlify/functions/${name}.mjs`);
   const headers = {};
   for (const [k, v] of Object.entries(req.headers)) headers[k.toLowerCase()] = v;
+  if (typeof mod.default === "function") {
+    const init = { method: req.method, headers };
+    if (bodyBuf && bodyBuf.length && req.method !== "GET" && req.method !== "HEAD") init.body = bodyBuf;
+    const request = new Request(url.href, init);
+    const response = await mod.default(request, { requestId: "isolated-qa" });
+    const buf = Buffer.from(await response.arrayBuffer());
+    const outHeaders = {};
+    response.headers.forEach((value, key) => {
+      outHeaders[key] = value;
+    });
+    const binary = /^\s*(image|audio|video|application\/octet-stream)/i.test(String(outHeaders["content-type"] || ""));
+    return {
+      statusCode: response.status,
+      headers: outHeaders,
+      body: binary ? buf.toString("base64") : buf.toString("utf8"),
+      isBase64Encoded: binary,
+    };
+  }
   const event = {
     httpMethod: req.method,
     path: url.pathname,

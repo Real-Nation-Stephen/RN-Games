@@ -1,4 +1,5 @@
 import { connectBlobs } from "./lib/blob-runtime.mjs";
+import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { getActiveRunCode, getLiveRunWithRetry, updateLiveRun, writePresence } from "./lib/live-store.mjs";
 import { heartbeat, joinParticipant, loadExperienceBySlug, projectRun } from "./lib/live-run.mjs";
 
@@ -13,7 +14,7 @@ function connect(event) {
   connectBlobs(event);
 }
 
-export const handler = async (event) => {
+export async function lambdaHandler(event) {
   connect(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "POST, OPTIONS" } };
@@ -59,4 +60,6 @@ export const handler = async (event) => {
     const status = e.statusCode || 500;
     return { statusCode: status, headers, body: JSON.stringify({ error: e instanceof Error ? e.message : "Failed" }) };
   }
-};
+}
+
+export default asNetlifyFunction(lambdaHandler);
