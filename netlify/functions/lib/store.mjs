@@ -1,7 +1,5 @@
-import { getStore } from "@netlify/blobs";
-
-const NAME = "rngames-platform";
+import { getRuntimeStore, platformStoreName } from "./blob-runtime.mjs";
 
 export async function blobStore() {
-  return getStore({ name: NAME });
+  return getRuntimeStore(platformStoreName());
 }

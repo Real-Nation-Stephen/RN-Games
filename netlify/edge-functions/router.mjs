@@ -31,6 +31,9 @@ const RESERVED = new Set([
   "redemption",
   /** Branded single-player mini quiz */
   "mini-quiz",
+  "mini-poll",
+  "fill-game",
+  "j",
   /** Experience player routes */
   "x",
   /** Course player routes */
@@ -46,21 +49,62 @@ const PAGE_MODULE_ROUTES = [
   ["email-signup", "email-signup.html"],
   ["redemption", "redemption.html"],
   ["mini-quiz", "mini-quiz.html"],
+  ["mini-poll", "live-preview.html"],
+  ["fill-game", "live-preview.html"],
 ];
 
 export default async (request, context) => {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // Experience: /x/:slug
+  // Experience: /x/:slug plus live surfaces /present /master /join
   if (path === "/x" || path.startsWith("/x/")) {
     const seg = path.split("/").filter(Boolean);
     if (seg.length >= 2 && seg[0] === "x") {
       const slug = seg[1];
+      const surface = seg[2] || "";
+      if (surface === "present") {
+        const target = new URL("/play/live-present.html", url);
+        target.searchParams.set("slug", slug);
+        if (seg[3]) target.searchParams.set("code", seg[3]);
+        for (const [key, value] of url.searchParams) {
+          if (key !== "slug") target.searchParams.set(key, value);
+        }
+        return fetch(target);
+      }
+      if (surface === "master") {
+        const target = new URL("/play/live-master.html", url);
+        target.searchParams.set("slug", slug);
+        for (const [key, value] of url.searchParams) {
+          if (key !== "slug") target.searchParams.set(key, value);
+        }
+        return fetch(target);
+      }
+      if (surface === "join") {
+        const target = new URL("/play/live-join.html", url);
+        target.searchParams.set("slug", slug);
+        for (const [key, value] of url.searchParams) {
+          if (key !== "slug") target.searchParams.set(key, value);
+        }
+        return fetch(target);
+      }
       const target = new URL("/play/experience.html", url);
       target.searchParams.set("slug", slug);
       for (const [key, value] of url.searchParams) {
         if (key !== "slug") target.searchParams.set(key, value);
+      }
+      return fetch(target);
+    }
+  }
+
+  // Short live join: /j/:code
+  if (path === "/j" || path.startsWith("/j/")) {
+    const seg = path.split("/").filter(Boolean);
+    if (seg.length >= 2 && seg[0] === "j") {
+      const target = new URL("/play/live-join.html", url);
+      target.searchParams.set("code", seg[1]);
+      for (const [key, value] of url.searchParams) {
+        if (key !== "code") target.searchParams.set(key, value);
       }
       return fetch(target);
     }

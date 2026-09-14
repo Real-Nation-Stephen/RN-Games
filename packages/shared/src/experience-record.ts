@@ -9,6 +9,7 @@ import type {
   ExperienceStatus,
   ModuleRefNode,
 } from "./experience.js";
+import { defaultLiveJoinScreen, normalizeLiveJoinScreen } from "./live.js";
 import type { DeploymentMeasurement } from "./measurement/types.js";
 import { normalizeDeploymentMeasurement } from "./measurement/deployment.js";
 
@@ -131,6 +132,8 @@ export function defaultExperienceFoundation(): ExperienceFoundation {
     requireConsentBeforeTrack: false,
     sessionTtlMinutes: 0,
     navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
+    interactive: false,
+    joinScreen: defaultLiveJoinScreen(),
   };
 }
 
@@ -197,6 +200,10 @@ export function normalizeExperience(
     foundation: {
       ...defaultExperienceFoundation(),
       ...(doc.foundation && typeof doc.foundation === "object" ? doc.foundation : {}),
+      interactive: !!(doc.foundation && typeof doc.foundation === "object" && doc.foundation.interactive),
+      joinScreen: normalizeLiveJoinScreen(
+        doc.foundation && typeof doc.foundation === "object" ? doc.foundation.joinScreen : undefined,
+      ),
       navigation: {
         ...defaultExperienceFoundation().navigation,
         ...(doc.foundation?.navigation && typeof doc.foundation.navigation === "object"

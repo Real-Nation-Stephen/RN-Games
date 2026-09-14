@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flow Master</title>
+    <link rel="stylesheet" href="/src/css/live.css" />
+  </head>
+  <body class="live-page">
+    <p id="err" class="live-error" hidden></p>
+    <div id="app" hidden>
+      <div class="live-master">
+        <div class="live-master-col">
+          <h2>Running order</h2>
+          <ol id="master-steps"></ol>
+        </div>
+        <div class="live-master-col">
+          <h2>Presenter preview</h2>
+          <iframe id="master-preview" title="Presenter preview"></iframe>
+          <p class="live-body">Code <strong id="master-code"></strong></p>
+          <p class="live-body" id="master-join"></p>
+          <p class="live-body" id="master-counts"></p>
+          <div class="live-actions">
+            <button class="live-btn" id="btn-present" type="button">Open presenter</button>
+            <button class="live-btn" id="btn-prev" type="button">Previous</button>
+            <button class="live-btn" id="btn-next" type="button">Next</button>
+            <button class="live-btn live-btn-ghost" id="btn-hold" type="button">Hold</button>
+            <button class="live-btn live-btn-ghost" id="btn-resume" type="button">Resume</button>
+            <button class="live-btn live-btn-ghost" id="btn-replay" type="button">Replay</button>
+            <button class="live-btn live-btn-ghost" id="btn-end" type="button">End run</button>
+            <button class="live-btn live-btn-ghost" id="btn-new" type="button">Start new run</button>
+            <button class="live-btn live-btn-ghost" id="btn-takeover" type="button">Take over</button>
+          </div>
+          <p class="live-body">Prizes: <span id="master-awards"></span></p>
+        </div>
+        <div class="live-master-col">
+          <h2>Activity</h2>
+          <div class="live-actions" id="master-activity"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/live/master.ts"></script>
+  </body>
+</html>

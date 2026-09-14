@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live presenter</title>
+    <link rel="stylesheet" href="/src/css/live.css" />
+  </head>
+  <body class="live-page">
+    <p id="err" class="live-error" hidden></p>
+    <div id="app" hidden>
+      <div class="live-stage">
+        <div class="live-status" id="live-status"></div>
+        <div id="live-main"></div>
+        <div id="live-dock" class="live-dock"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/live/present.ts"></script>
+  </body>
+</html>

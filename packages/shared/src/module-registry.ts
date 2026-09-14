@@ -208,6 +208,24 @@ export const MODULE_REGISTRY: ModuleTypeDefinition[] = [
       { id: "correctCount", label: "Correct count", outcomeKey: "quiz.correctCount", valueType: "number" },
     ],
   },
+  {
+    typeId: "mini-poll",
+    category: "data-collection",
+    label: "Mini poll",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [{ id: "completed", label: "Voted", outcomeKey: "completed", valueType: "boolean" }],
+  },
+  {
+    typeId: "fill-game",
+    category: "game",
+    label: "Fill game",
+    status: "shipped",
+    participantFacing: true,
+    standalonePlayable: true,
+    outputs: [{ id: "completed", label: "Completed", outcomeKey: "completed", valueType: "boolean" }],
+  },
   // Control-flow — graph only (Logic node unified per ROADMAP Jul 2026)
   {
     typeId: "logic",

@@ -74,6 +74,18 @@ export const COMPONENT_METADATA_REGISTRY: Record<string, ComponentMetadataContra
     ],
     ["component.viewed", "component.completed", "quiz.submitted"],
   ),
+  "mini-poll": componentContract(
+    "mini-poll",
+    "Mini poll",
+    [{ id: "answers", label: "Votes", dataClass: "behavioural", defaultCollect: true, defaultReport: false }],
+    ["component.viewed", "component.completed"],
+  ),
+  "fill-game": componentContract(
+    "fill-game",
+    "Fill game",
+    [{ id: "answers", label: "Answers", dataClass: "behavioural", defaultCollect: true, defaultReport: false }],
+    ["component.viewed", "component.completed"],
+  ),
   runner: componentContract(
     "runner",
     "Runner game",

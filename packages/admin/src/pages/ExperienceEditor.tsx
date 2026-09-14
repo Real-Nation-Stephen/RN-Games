@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ExperienceGraph, ExperienceRecord } from "@rngames/shared";
-import { defaultDeploymentMeasurement, graphToLinearSteps } from "@rngames/shared";
-import { apiDelete, apiGet, apiSend } from "../api";
+import type { ExperienceGraph, ExperienceRecord, LiveJoinScreen } from "@rngames/shared";
+import { defaultDeploymentMeasurement, graphToLinearSteps, isLiveCapableType, normalizeLiveJoinScreen } from "@rngames/shared";
+import { apiDelete, apiGet, apiSend, uploadFile } from "../api";
+import { BgUploadRow } from "../components/BgUploadRow";
+import { CollapsibleSection } from "../components/CollapsibleSection";
+import { HexField } from "../components/HexField";
 import { DeploymentMeasurementPanel } from "../components/DeploymentMeasurementPanel";
 import { ExperienceFlowCanvas } from "../components/ExperienceFlowCanvas";
 import { ExperienceNodeOverridesPanel } from "../components/ExperienceNodeOverridesPanel";
@@ -123,6 +126,7 @@ export default function ExperienceEditor() {
   }
 
   const liveUrl = experiencePublicUrl(game.slug);
+  const origin = window.location.origin;
 
   return (
     <div>
@@ -187,12 +191,72 @@ export default function ExperienceEditor() {
               }
             />
           </label>
+          <label className="field" style={{ gridColumn: "1 / -1" }}>
+            <input
+              type="checkbox"
+              checked={!!game.foundation.interactive}
+              onChange={(e) =>
+                patch((g) => ({
+                  ...g,
+                  foundation: { ...g.foundation, interactive: e.target.checked },
+                }))
+              }
+            />{" "}
+            Interactive experience (one shared live run: Presenter, Flow Master, phones)
+          </label>
         </div>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Tracking and reporting settings are configured in Measurement &amp; Reporting below.
         </p>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
-          Live: <code>{liveUrl}</code>
+          Self-directed: <code>{liveUrl}</code>
+          {game.foundation.interactive ? (
+            <>
+              <br />
+              Flow Master: <code>{`${origin}/x/${game.slug}/master`}</code>{" "}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={async () => {
+                  try {
+                    const res = (await apiSend("/api/live-run", "POST", { slug: game.slug })) as {
+                      hostKey?: string;
+                      code?: string;
+                      reused?: boolean;
+                    };
+                    const hk = encodeURIComponent(String(res.hostKey || ""));
+                    window.open(`${origin}/x/${game.slug}/master#hk=${hk}`, "_blank", "noopener,noreferrer");
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                Open Flow Master
+              </button>{" "}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={async () => {
+                  if (!confirm("Start a new run? This resets prizes, numbers, and event state.")) return;
+                  try {
+                    const res = (await apiSend("/api/live-run", "POST", { slug: game.slug, forceNew: true })) as {
+                      hostKey?: string;
+                    };
+                    const hk = encodeURIComponent(String(res.hostKey || ""));
+                    window.open(`${origin}/x/${game.slug}/master#hk=${hk}`, "_blank", "noopener,noreferrer");
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                Start new run
+              </button>
+              <br />
+              Presenter: <code>{`${origin}/x/${game.slug}/present`}</code>
+              <br />
+              Join: <code>{`${origin}/x/${game.slug}/join`}</code>
+            </>
+          ) : null}
           {game.status !== "published" ? (
             <>
               <br />
@@ -201,6 +265,83 @@ export default function ExperienceEditor() {
           ) : null}
         </p>
       </div>
+
+      {game.foundation.interactive ? (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Join / opening screen</h3>
+          <p className="muted">These fields skin Presenter, phones, and closing — any brand, not a fixed client.</p>
+          {(() => {
+            const js = normalizeLiveJoinScreen(game.foundation.joinScreen);
+            const setJs = (partial: Partial<LiveJoinScreen>) =>
+              patch((g) => ({
+                ...g,
+                foundation: { ...g.foundation, joinScreen: { ...js, ...partial } },
+              }));
+            const liveSteps = game.linearSteps.filter((s) => !isLiveCapableType(s.moduleType));
+            return (
+              <>
+                {liveSteps.length ? (
+                  <p className="muted">
+                    Not live-capable (skipped at runtime): {liveSteps.map((s) => s.moduleType || s.label).join(", ")}
+                  </p>
+                ) : null}
+                <label className="field">
+                  Headline
+                  <input value={js.headline} onChange={(e) => setJs({ headline: e.target.value })} />
+                </label>
+                <label className="field">
+                  Instructions
+                  <textarea value={js.instructions} rows={3} onChange={(e) => setJs({ instructions: e.target.value })} />
+                </label>
+                <label className="field">
+                  Closing headline
+                  <input value={js.closingHeadline} onChange={(e) => setJs({ closingHeadline: e.target.value })} />
+                </label>
+                <label className="field">
+                  Closing body
+                  <textarea value={js.closingBody} rows={2} onChange={(e) => setJs({ closingBody: e.target.value })} />
+                </label>
+                <div className="grid2">
+                  <HexField label="Background" value={js.backgroundHex} onChange={(v) => setJs({ backgroundHex: v })} />
+                  <HexField label="Headline colour" value={js.headlineHex} onChange={(v) => setJs({ headlineHex: v })} />
+                  <HexField label="Body colour" value={js.bodyHex} onChange={(v) => setJs({ bodyHex: v })} />
+                  <HexField label="Accent" value={js.accentHex} onChange={(v) => setJs({ accentHex: v })} />
+                  <HexField label="Button" value={js.buttonHex} onChange={(v) => setJs({ buttonHex: v })} />
+                  <HexField label="Button text" value={js.buttonTextHex} onChange={(v) => setJs({ buttonTextHex: v })} />
+                </div>
+                <BgUploadRow label="Logo" hint="Any brand mark" value={js.logoUrl} onUploaded={(url) => setJs({ logoUrl: url })} />
+                <BgUploadRow label="Phone / join background" hint="Optional" value={js.backgroundImageUrl} onUploaded={(url) => setJs({ backgroundImageUrl: url })} />
+                <BgUploadRow label="Presenter background" hint="Optional 16:9 art" value={js.presenterBackgroundImageUrl} onUploaded={(url) => setJs({ presenterBackgroundImageUrl: url })} />
+                <CollapsibleSection title="Custom fonts" summary="Heading, body, button">
+                  {(["heading", "body", "button"] as const).map((role) => (
+                    <div key={role} style={{ marginTop: 10 }}>
+                      <label className="field">{role.charAt(0).toUpperCase() + role.slice(1)} font</label>
+                      <input
+                        type="file"
+                        accept=".woff,.woff2,.ttf,.otf"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          const { url } = await uploadFile(f);
+                          const family = f.name.replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "-") || "CustomFont";
+                          const stack = `'${family}', system-ui, sans-serif`;
+                          setJs({
+                            fontUploads: { ...js.fontUploads, [role]: { url, family } },
+                            headingFont: role === "heading" ? stack : js.headingFont,
+                            bodyFont: role === "body" ? stack : js.bodyFont,
+                            buttonFont: role === "button" ? stack : js.buttonFont,
+                          });
+                        }}
+                      />
+                      {js.fontUploads?.[role]?.url ? <span className="muted"> ✓</span> : null}
+                    </div>
+                  ))}
+                </CollapsibleSection>
+              </>
+            );
+          })()}
+        </div>
+      ) : null}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Flow canvas</h3>

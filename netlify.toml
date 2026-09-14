@@ -151,6 +151,41 @@
   to = "/.netlify/functions/measurement-replay"
   status = 200
 
+[[redirects]]
+  from = "/api/live-run"
+  to = "/.netlify/functions/live-run"
+  status = 200
+
+[[redirects]]
+  from = "/api/live-join"
+  to = "/.netlify/functions/live-join"
+  status = 200
+
+[[redirects]]
+  from = "/api/live-control"
+  to = "/.netlify/functions/live-control"
+  status = 200
+
+[[redirects]]
+  from = "/api/live-action"
+  to = "/.netlify/functions/live-action"
+  status = 200
+
+[[redirects]]
+  from = "/api/live-media"
+  to = "/.netlify/functions/live-media"
+  status = 200
+
+[[redirects]]
+  from = "/api/live-demo-seed"
+  to = "/.netlify/functions/live-demo-seed"
+  status = 200
+
+[[headers]]
+  for = "/api/live-run"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
 [[headers]]
   for = "/api/leaderboard-state"
   [headers.values]

@@ -31,6 +31,8 @@ export const COMPONENT_METADATA_REGISTRY = {
     fields: [{ id: "photo", dataClass: "personal" }],
   },
   "mini-quiz": { componentType: "mini-quiz", fields: [{ id: "answers", dataClass: "behavioural" }] },
+  "mini-poll": { componentType: "mini-poll", fields: [{ id: "answers", dataClass: "behavioural" }] },
+  "fill-game": { componentType: "fill-game", fields: [{ id: "answers", dataClass: "behavioural" }] },
   landing: { componentType: "landing", fields: [] },
   runner: { componentType: "runner", fields: [{ id: "score", dataClass: "behavioural" }] },
   catch: { componentType: "catch", fields: [{ id: "score", dataClass: "behavioural" }] },

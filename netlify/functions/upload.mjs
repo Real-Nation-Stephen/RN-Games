@@ -1,5 +1,6 @@
 import { connectLambda } from "@netlify/blobs";
 import { requireAuth } from "./lib/auth.mjs";
+import { isolationDriver } from "./lib/blob-runtime.mjs";
 import { saveBinary } from "./lib/files.mjs";
 
 /** Raw file bytes after decode (stay under Netlify ~6MB request body with base64 + JSON). */
@@ -13,7 +14,11 @@ const headers = {
 };
 
 export const handler = async (event, context) => {
-  connectLambda(event);
+  try {
+    connectLambda(event);
+  } catch {
+    /* isolated / local file store */
+  }
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "POST, OPTIONS" } };
   }
@@ -24,7 +29,7 @@ export const handler = async (event, context) => {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }), headers };
   }
 
-  if (!event.blobs) {
+  if (!event.blobs && !isolationDriver()) {
     return {
       statusCode: 500,
       headers,

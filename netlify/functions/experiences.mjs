@@ -46,7 +46,11 @@ function filterList(list, params) {
 }
 
 export const handler = async (event, context) => {
-  connectLambda(event);
+  try {
+    connectLambda(event);
+  } catch {
+    /* isolated / local file store */
+  }
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }

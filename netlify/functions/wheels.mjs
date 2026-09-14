@@ -12,6 +12,11 @@ import {
   normalizePageModule,
   toPublicPageModule,
 } from "./lib/page-modules.mjs";
+import {
+  emptyLiveModuleRecord,
+  isLiveModuleType,
+  normalizeLiveModuleRecord,
+} from "./lib/live-modules.mjs";
 import { requireAuth } from "./lib/auth.mjs";
 import {
   readIndex,
@@ -278,7 +283,11 @@ function syncSegmentArrays(w) {
 }
 
 export const handler = async (event, context) => {
-  connectLambda(event);
+  try {
+    connectLambda(event);
+  } catch {
+    /* isolated / local file store */
+  }
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -302,6 +311,7 @@ export const handler = async (event, context) => {
         if (wheel.gameType === "runner") normalizeRunnerRecord(wheel);
         if (wheel.gameType === "matching") normalizeMatchingRecord(wheel);
         if (isPageModuleType(wheel.gameType)) Object.assign(wheel, normalizePageModule(wheel));
+        if (isLiveModuleType(wheel.gameType)) Object.assign(wheel, normalizeLiveModuleRecord(wheel));
         return { statusCode: 200, body: JSON.stringify(wheel), headers };
       }
       let list = await readIndex();
@@ -364,6 +374,7 @@ export const handler = async (event, context) => {
         const isRunner = body.gameType === "runner";
         const isMatching = body.gameType === "matching";
         const isPageModule = isPageModuleType(body.gameType);
+        const isLiveModule = isLiveModuleType(body.gameType);
         wheel = isScratcher
           ? emptyScratcherRecord(id, slugCheck.slug)
           : isFlipCards
@@ -382,6 +393,8 @@ export const handler = async (event, context) => {
                     ? emptyMatchingRecord(id, slugCheck.slug)
                     : isPageModule
                       ? emptyPageModuleRecord(id, slugCheck.slug, body.gameType)
+                      : isLiveModule
+                        ? emptyLiveModuleRecord(id, slugCheck.slug, body.gameType)
                       : emptyWheelRecord(id, slugCheck.slug);
         wheel.title = body.title || wheel.title;
         wheel.clientName = body.clientName || "";
@@ -436,8 +449,10 @@ export const handler = async (event, context) => {
       const isRunner = existing.gameType === "runner";
       const isMatching = existing.gameType === "matching";
       const isPageModule = isPageModuleType(existing.gameType);
+      const isLiveModule = isLiveModuleType(existing.gameType);
       const isWheel =
         !isPageModule &&
+        !isLiveModule &&
         existing.gameType !== "scratcher" &&
         existing.gameType !== "flip-cards" &&
         existing.gameType !== "quiz" &&
@@ -652,6 +667,12 @@ export const handler = async (event, context) => {
           if (!skip.has(k) && v !== undefined) existing[k] = v;
         }
         Object.assign(existing, normalizePageModule(existing));
+      } else if (isLiveModule) {
+        const skip = new Set(["id", "slug", "gameType"]);
+        for (const [k, v] of Object.entries(body)) {
+          if (!skip.has(k) && v !== undefined) existing[k] = v;
+        }
+        Object.assign(existing, normalizeLiveModuleRecord(existing));
       } else if (isWheel) {
         const assign = [
           "title",

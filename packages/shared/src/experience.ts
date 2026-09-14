@@ -3,6 +3,8 @@
  * Not wired to API or player runtime yet; stable contracts for planning and implementation.
  */
 
+import type { LiveJoinScreen } from "./live.js";
+
 // ---------------------------------------------------------------------------
 // Module capability registry (declares what each module type can emit / accept)
 // ---------------------------------------------------------------------------
@@ -208,6 +210,9 @@ export interface ExperienceFoundation {
   sessionTtlMinutes: number;
   navigation: ExperienceNavigation;
   kiosk?: ExperienceKiosk;
+  /** When true, this flow uses one shared live run (Presenter / Master / phones). Default off. */
+  interactive?: boolean;
+  joinScreen?: LiveJoinScreen;
 }
 
 // ---------------------------------------------------------------------------

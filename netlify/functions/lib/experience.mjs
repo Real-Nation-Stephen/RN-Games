@@ -9,6 +9,29 @@ export function defaultExperienceFoundation() {
     requireConsentBeforeTrack: false,
     sessionTtlMinutes: 0,
     navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
+    interactive: false,
+    joinScreen: {
+      logoUrl: "",
+      backgroundImageUrl: "",
+      presenterBackgroundImageUrl: "",
+      backgroundHex: "#07131f",
+      headline: "Join the live experience",
+      instructions: "Scan the QR code or enter the room code on your phone.",
+      headlineHex: "#ffffff",
+      bodyHex: "#d7e0ea",
+      accentHex: "#3ecf8e",
+      buttonHex: "#3ecf8e",
+      buttonTextHex: "#07131f",
+      headingFont: '"Barlow Condensed", Impact, sans-serif',
+      bodyFont: "Inter, system-ui, sans-serif",
+      buttonFont: '"Barlow Condensed", Impact, sans-serif',
+      headingFontUrl:
+        "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;600&display=swap",
+      bodyFontUrl: "",
+      fontUploads: {},
+      closingHeadline: "Thanks for playing",
+      closingBody: "That's the end of this live run.",
+    },
   };
 }
 
@@ -128,6 +151,13 @@ export function normalizeExperienceRecord(doc) {
     foundation: {
       ...defaultExperienceFoundation(),
       ...(doc.foundation && typeof doc.foundation === "object" ? doc.foundation : {}),
+      interactive: !!(doc.foundation && typeof doc.foundation === "object" && doc.foundation.interactive),
+      joinScreen: {
+        ...defaultExperienceFoundation().joinScreen,
+        ...(doc.foundation?.joinScreen && typeof doc.foundation.joinScreen === "object"
+          ? doc.foundation.joinScreen
+          : {}),
+      },
       navigation: {
         ...defaultExperienceFoundation().navigation,
         ...(doc.foundation?.navigation && typeof doc.foundation.navigation === "object"
@@ -158,6 +188,8 @@ const MODULE_NODE_TYPES = new Set([
   "email-signup",
   "redemption",
   "mini-quiz",
+  "mini-poll",
+  "fill-game",
 ]);
 
 export function resolvePublishedSteps(experience, moduleById) {
@@ -187,6 +219,8 @@ export function toPublicExperience(experience, steps) {
     status: experience.status,
     foundation: {
       trackingEnabled: !!experience.foundation?.trackingEnabled,
+      interactive: !!experience.foundation?.interactive,
+      joinScreen: experience.foundation?.joinScreen || defaultExperienceFoundation().joinScreen,
       navigation: {
         backButton: experience.foundation?.navigation?.backButton || "one_way",
         nextStepButtonLabel:
@@ -248,6 +282,10 @@ export function componentPublicPath(moduleType, slug) {
       return `/redemption/${encodeURIComponent(slug)}`;
     case "mini-quiz":
       return `/mini-quiz/${encodeURIComponent(slug)}`;
+    case "mini-poll":
+      return `/mini-poll/${encodeURIComponent(slug)}`;
+    case "fill-game":
+      return `/fill-game/${encodeURIComponent(slug)}`;
     default:
       return `/${encodeURIComponent(slug)}`;
   }

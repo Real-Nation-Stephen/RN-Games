@@ -18,6 +18,9 @@ export const RESERVED_SLUGS = new Set([
   "runner",
   "matching",
   "x",
+  "j",
+  "mini-poll",
+  "fill-game",
 ]);
 
 export function validateSlug(raw) {

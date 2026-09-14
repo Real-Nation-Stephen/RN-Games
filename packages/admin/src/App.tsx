@@ -20,6 +20,8 @@ import PageModuleEditor from "./pages/PageModuleEditor";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import BadgeEditor from "./pages/BadgeEditor";
 import MiniQuizEditor from "./pages/MiniQuizEditor";
+import MiniPollEditor from "./pages/MiniPollEditor";
+import FillGameEditor from "./pages/FillGameEditor";
 
 const devAuth = import.meta.env.VITE_DEV_AUTH === "1";
 
@@ -111,6 +113,8 @@ export default function App() {
           <Route path="/email-signups/:id" element={<PageModuleEditor gameType="email-signup" />} />
           <Route path="/redemptions/:id" element={<PageModuleEditor gameType="redemption" />} />
           <Route path="/mini-quizzes/:id" element={<MiniQuizEditor />} />
+          <Route path="/mini-polls/:id" element={<MiniPollEditor />} />
+          <Route path="/fill-games/:id" element={<FillGameEditor />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

@@ -110,6 +110,20 @@ const LIBRARY_TYPES: {
     editPrefix: "/mini-quizzes",
     publicUrl: (w) => `${window.location.origin}/mini-quiz/${w.slug}`,
   },
+  {
+    gameType: "mini-poll",
+    title: "Mini polls",
+    newLabel: "New mini poll",
+    editPrefix: "/mini-polls",
+    publicUrl: (w) => `${window.location.origin}/mini-poll/${w.slug}`,
+  },
+  {
+    gameType: "fill-game",
+    title: "Fill games",
+    newLabel: "New fill game",
+    editPrefix: "/fill-games",
+    publicUrl: (w) => `${window.location.origin}/fill-game/${w.slug}`,
+  },
 ];
 
 function matchesType(w: LibraryItem, gameType: string) {

@@ -45,6 +45,10 @@ export function componentPublicPath(moduleType: string, slug: string): string {
       return `/redemption/${encodeURIComponent(slug)}`;
     case "mini-quiz":
       return `/mini-quiz/${encodeURIComponent(slug)}`;
+    case "mini-poll":
+      return `/mini-poll/${encodeURIComponent(slug)}`;
+    case "fill-game":
+      return `/fill-game/${encodeURIComponent(slug)}`;
     case "spinning-wheel":
     default:
       return `/${encodeURIComponent(slug)}`;

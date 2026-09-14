@@ -159,6 +159,44 @@ export {
   isModuleItemCompleteOverride,
 } from "./course-bridge.js";
 export {
+  LIVE_CAPABLE_TYPES,
+  LIVE_PRESENCE_WINDOW_MS,
+  isLiveCapableType,
+  defaultLiveJoinScreen,
+  normalizeLiveJoinScreen,
+  mergeLiveFontUploads,
+  type LiveCapableType,
+  type LiveFontUpload,
+  type LiveFontUploads,
+  type LiveJoinScreen,
+  type LiveRunStatus,
+  type LiveSurfaceRole,
+  type LiveNodeKind,
+  type LivePrizeSource,
+  type LivePrizeAward,
+  type LiveCue,
+  type LiveStepSnapshot,
+} from "./live.js";
+export {
+  defaultLiveSurfaceBranding,
+  emptyMiniPoll,
+  normalizeMiniPoll,
+  toPublicMiniPoll,
+  emptyFillGame,
+  normalizeFillGame,
+  toPublicFillGame,
+  clampFillPercent,
+  type LiveSurfaceBranding,
+  type MiniPollOption,
+  type MiniPollRecord,
+  type FillGameRecord,
+  type FillGameQuestion,
+  type FillGameQuestionChoice,
+  type FillGameTeam,
+  type FillMetricMode,
+  type FillMaskPlacement,
+} from "./live-modules.js";
+export {
   type FlowContext,
   type StepCompleteMessage,
   FLOW_CTX_STORAGE_KEY,
@@ -322,6 +360,10 @@ export const RESERVED_SLUGS = new Set([
   "consent",
   "email-signup",
   "redemption",
+  "mini-quiz",
+  "mini-poll",
+  "fill-game",
+  "j",
 ]);
 
 /** Game kinds supported by the studio (wheels today; more lists use the same pattern). */

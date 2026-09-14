@@ -1,6 +1,7 @@
 import { connectLambda } from "@netlify/blobs";
 import { readIndex, getWheelJson } from "./lib/blobs.mjs";
 import { toPublicPageModule, isPageModuleType } from "./lib/page-modules.mjs";
+import { isLiveModuleType, toPublicFillGame, toPublicMiniPoll } from "./lib/live-modules.mjs";
 import { flipCardSharedRearUrl, normalizeFlipCardFace } from "./lib/flip-cards.mjs";
 import { toPublicPinboard } from "./lib/pinboard.mjs";
 import { toPublicLeaderboard } from "./lib/leaderboard.mjs";
@@ -138,7 +139,11 @@ function toPublicQuiz(q) {
 }
 
 export const handler = async (event) => {
-  connectLambda(event);
+  try {
+    connectLambda(event);
+  } catch {
+    /* isolated / local file store */
+  }
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "GET, OPTIONS" } };
   }
@@ -176,6 +181,10 @@ export const handler = async (event) => {
                   ? toPublicRunner(doc)
                 : doc.gameType === "matching"
                   ? toPublicMatching(doc)
+                  : doc.gameType === "mini-poll"
+                    ? toPublicMiniPoll(doc)
+                    : doc.gameType === "fill-game"
+                      ? toPublicFillGame(doc)
                   : isPageModuleType(doc.gameType)
                     ? toPublicPageModule(doc)
                     : toPublicWheel(doc);

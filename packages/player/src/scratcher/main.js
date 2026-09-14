@@ -602,7 +602,11 @@ async function bootstrap() {
     return;
   }
 
-  const slug = params.get("slug")?.trim();
+  const slug = params.get("slug")?.trim() || (() => {
+    const seg = location.pathname.split("/").filter(Boolean);
+    const i = seg.indexOf("scratcher");
+    return i >= 0 && seg[i + 1] ? seg[i + 1] : "";
+  })();
   if (slug) {
     const res = await fetch(`${API_BASE}/public-wheel?slug=${encodeURIComponent(slug)}`);
     if (!res.ok) {

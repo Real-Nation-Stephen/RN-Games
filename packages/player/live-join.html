@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Join live</title>
+    <link rel="stylesheet" href="/src/css/live.css" />
+  </head>
+  <body class="live-page">
+    <p id="err" class="live-error" hidden></p>
+    <div id="gate" hidden class="live-phone-chrome">
+      <h1 class="live-headline">Enter code</h1>
+      <div class="live-code-entry">
+        <input id="manual-code" maxlength="8" autocomplete="off" />
+        <button class="live-btn" id="manual-go" type="button">Join</button>
+      </div>
+    </div>
+    <div id="app" hidden>
+      <div class="live-stage">
+        <div id="live-main"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/live/join.ts"></script>
+  </body>
+</html>

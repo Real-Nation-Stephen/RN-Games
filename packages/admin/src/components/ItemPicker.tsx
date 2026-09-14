@@ -28,6 +28,8 @@ const GAME_TYPES = new Set([
   "runner",
   "quiz",
   "mini-quiz",
+  "mini-poll",
+  "fill-game",
 ]);
 const DATA_TYPES = new Set(["form", "pinboard"]);
 const OUTCOME_TYPES = new Set(["certificate", "badge", "redemption", "leaderboard"]);

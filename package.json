@@ -12,10 +12,13 @@
     "build:preview": "VITE_DEV_AUTH=1 npm run build",
     "dev:admin": "npm run dev -w @rngames/admin",
     "dev:player": "npm run dev -w @rngames/player",
-    "dev:report": "npm run dev -w @rngames/report"
+    "dev:report": "npm run dev -w @rngames/report",
+    "test:live": "LIVE_STORE_DRIVER=memory LIVE_DEV_AUTH=1 LIVE_BLOB_STORE=rngames-live-local PLATFORM_BLOB_STORE=rngames-platform-local node scripts/test-live-acceptance.mjs",
+    "test:live:http": "LIVE_DEV_AUTH=1 node scripts/test-live-http.mjs",
+    "qa:live": "LIVE_DEV_AUTH=1 node scripts/start-live-qa.mjs"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.0.0",
+    "@netlify/blobs": "^11.1.0",
     "@netlify/database": "^1.1.0",
     "@netlify/functions": "^2.8.0",
     "googleapis": "^144.0.0"

@@ -7,7 +7,11 @@ const headers = {
 };
 
 export const handler = async (event) => {
-  connectLambda(event);
+  try {
+    connectLambda(event);
+  } catch {
+    /* isolated / local file store */
+  }
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "GET, OPTIONS" } };
   }
