@@ -14,6 +14,15 @@ import {
   wrapBlobsCasStore,
 } from "./cas-store.mjs";
 
+/**
+ * Installed SDK defaults getStore({ name }) to eventual (main.cjs Client.consistency).
+ * Live CAS probe + getWithMetadata-before-onlyIfMatch need strong reads or they see
+ * stale misses (false 503) and stale etags (extra 409). Scoped to the live store only:
+ * platform config/media is not CAS-probed, and forcing strong there would fail closed
+ * in contexts without uncachedEdgeURL even when live is unused.
+ */
+export const LIVE_BLOBS_CONSISTENCY = "strong";
+
 const PLATFORM = "rngames-platform";
 const memoryByName = new Map();
 const fileByName = new Map();
@@ -51,6 +60,16 @@ export function liveStoreName() {
   if (process.env.LIVE_BLOB_STORE) return String(process.env.LIVE_BLOB_STORE);
   if (isolationDriver() || !hostedRemoteContext()) return "rngames-live-local";
   return "rngames-live";
+}
+
+export function blobsStoreOptions(name) {
+  if (name === liveStoreName()) return { name, consistency: LIVE_BLOBS_CONSISTENCY };
+  return { name };
+}
+
+export function blobsWrapOptions(name) {
+  if (name === liveStoreName()) return { readConsistency: LIVE_BLOBS_CONSISTENCY };
+  return {};
 }
 
 function blobsEndpointHint() {
@@ -112,6 +131,8 @@ export function inspectStorageConfig() {
     productionEndpoint,
     blocked,
     blockReason,
+    liveBlobsConsistency: LIVE_BLOBS_CONSISTENCY,
+    platformBlobsConsistency: "eventual",
   };
 }
 
@@ -151,7 +172,7 @@ export async function getRuntimeStore(name) {
 
   if (blobsByName.has(name)) return blobsByName.get(name);
 
-  const wrapped = wrapBlobsCasStore(getStore({ name }), name);
+  const wrapped = wrapBlobsCasStore(getStore(blobsStoreOptions(name)), name, blobsWrapOptions(name));
   const liveName = liveStoreName();
   if (name === liveName) {
     const cas = await probeConditionalWrites(wrapped);

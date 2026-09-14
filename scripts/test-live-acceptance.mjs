@@ -7,7 +7,15 @@
  */
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { createMemoryCasStore } from "../netlify/functions/lib/cas-store.mjs";
+import { createMemoryCasStore, wrapBlobsCasStore } from "../netlify/functions/lib/cas-store.mjs";
+import {
+  blobsStoreOptions,
+  blobsWrapOptions,
+  getRuntimeStore,
+  LIVE_BLOBS_CONSISTENCY,
+  liveStoreName,
+} from "../netlify/functions/lib/blob-runtime.mjs";
+import { loadBinary, saveBinary } from "../netlify/functions/lib/files.mjs";
 import {
   createActivatedLiveRun,
   createLiveRunRecord,
@@ -25,7 +33,6 @@ import { handler as liveJoin } from "../netlify/functions/live-join.mjs";
 import { handler as liveControl } from "../netlify/functions/live-control.mjs";
 import { handler as liveAction } from "../netlify/functions/live-action.mjs";
 import { handler as liveSeed } from "../netlify/functions/live-demo-seed.mjs";
-import { getRuntimeStore } from "../netlify/functions/lib/blob-runtime.mjs";
 import { normalizeMiniPollRecord, normalizeFillGameRecord } from "../netlify/functions/lib/live-modules.mjs";
 import { fillPinboardCard } from "./lib/fill-pinboard-card.mjs";
 
@@ -82,6 +89,122 @@ async function must(handler, evt, ctx, expectStatus = 200) {
 
 function id() {
   return randomUUID();
+}
+
+const QA_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+/** Mimics @netlify/blobs Store: setJSON stringifies; set stores raw BlobInput. */
+function createFakeNetlifyBlobsAdapter() {
+  const map = new Map();
+  const calls = { set: [], setJSON: [], get: [], getWithMetadata: [] };
+  function toBuf(data) {
+    if (Buffer.isBuffer(data)) return Buffer.from(data);
+    if (data instanceof ArrayBuffer) return Buffer.from(data);
+    if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    if (typeof data === "string") return Buffer.from(data);
+    throw new Error(`fake blobs.set expected BlobInput, got ${data?.constructor?.name || typeof data}`);
+  }
+  return {
+    calls,
+    async set(key, data, opts = {}) {
+      calls.set.push({ key, data, opts, ctor: data?.constructor?.name });
+      const buf = toBuf(data);
+      const etag = `"s${calls.set.length}"`;
+      map.set(key, { buf, etag, metadata: opts.metadata || {} });
+      return { modified: true, etag };
+    },
+    async setJSON(key, data, opts = {}) {
+      calls.setJSON.push({ key, data, opts, ctor: data?.constructor?.name });
+      const buf = Buffer.from(JSON.stringify(data));
+      const etag = `"j${calls.setJSON.length}"`;
+      map.set(key, { buf, etag, metadata: opts.metadata || {} });
+      return { modified: true, etag };
+    },
+    async get(key, opts = {}) {
+      calls.get.push({ key, opts: opts || {} });
+      const row = map.get(key);
+      if (!row) return null;
+      if (opts?.type === "arrayBuffer") {
+        return row.buf.buffer.slice(row.buf.byteOffset, row.buf.byteOffset + row.buf.byteLength);
+      }
+      if (opts?.type === "json") return JSON.parse(row.buf.toString("utf8"));
+      return row.buf.toString("utf8");
+    },
+    async getWithMetadata(key, opts = {}) {
+      calls.getWithMetadata.push({ key, opts: opts || {} });
+      const data = await this.get(key, opts);
+      const row = map.get(key);
+      if (!row) return null;
+      return { data, etag: row.etag, metadata: row.metadata };
+    },
+    async delete(key) {
+      map.delete(key);
+    },
+  };
+}
+
+async function blobsAdapterBoundaryTests() {
+  const fake = createFakeNetlifyBlobsAdapter();
+  const wrapped = wrapBlobsCasStore(fake, "rngames-platform-local");
+  setLiveTestHooks({ store: wrapped });
+  try {
+    const fileId = await saveBinary(QA_PNG, "image/png");
+    const fileSets = fake.calls.set.filter((c) => c.key.startsWith("file:") && !c.key.startsWith("filemeta:"));
+    const fileJson = fake.calls.setJSON.filter((c) => c.key.startsWith("file:") && !c.key.startsWith("filemeta:"));
+    assert(
+      "blobs adapter set used for binary, not setJSON",
+      fileSets.length === 1 && fileJson.length === 0,
+      `set=${fileSets.length} setJSON=${fileJson.length}`,
+    );
+    assert("blobs adapter set received ArrayBuffer", fileSets[0]?.data instanceof ArrayBuffer, `ctor=${fileSets[0]?.ctor}`);
+    const loaded = await loadBinary(fileId);
+    const body = loaded?.body ? Buffer.from(loaded.body) : Buffer.alloc(0);
+    assert(
+      "binary roundtrip is PNG bytes, not JSON {}",
+      loaded?.contentType === "image/png" && body.equals(QA_PNG) && body[0] === 0x89 && !body.equals(Buffer.from("{}")),
+      `len=${body.length} hex=${body.slice(0, 8).toString("hex")} type=${loaded?.contentType}`,
+    );
+  } finally {
+    setLiveTestHooks({});
+  }
+
+  const liveName = liveStoreName();
+  const liveOpts = blobsStoreOptions(liveName);
+  const platformOpts = blobsStoreOptions("rngames-platform");
+  assert(
+    "live Blobs store requests strong consistency",
+    liveOpts.consistency === LIVE_BLOBS_CONSISTENCY && liveOpts.name === liveName,
+    JSON.stringify(liveOpts),
+  );
+  assert(
+    "platform Blobs store stays eventual (no strong default)",
+    platformOpts.consistency == null && platformOpts.name === "rngames-platform",
+    JSON.stringify(platformOpts),
+  );
+
+  const liveFake = createFakeNetlifyBlobsAdapter();
+  const liveWrapped = wrapBlobsCasStore(liveFake, liveName, blobsWrapOptions(liveName));
+  await liveWrapped.setJSON("liverun:TEST01", { n: 1 });
+  await liveWrapped.getWithMetadata("liverun:TEST01", { type: "json" });
+  await liveWrapped.get("liverun:TEST01", { type: "json" });
+  assert(
+    "live CAS reads request strong consistency",
+    liveFake.calls.getWithMetadata[0]?.opts?.consistency === "strong" &&
+      liveFake.calls.get[0]?.opts?.consistency === "strong",
+    JSON.stringify({ get: liveFake.calls.get[0]?.opts, meta: liveFake.calls.getWithMetadata[0]?.opts }),
+  );
+
+  const platformFake = createFakeNetlifyBlobsAdapter();
+  const platformWrapped = wrapBlobsCasStore(platformFake, "rngames-platform", blobsWrapOptions("rngames-platform"));
+  await platformWrapped.get("file:x", { type: "arrayBuffer" });
+  assert(
+    "platform reads do not force strong consistency",
+    platformFake.calls.get[0]?.opts?.consistency == null,
+    JSON.stringify(platformFake.calls.get[0]?.opts),
+  );
 }
 
 function demoExperience() {
@@ -816,6 +939,7 @@ async function main() {
     process.exit(1);
   }
 
+  await blobsAdapterBoundaryTests();
   await isolatedCasJoin();
   await pinboardDomRegression();
   await fullFlow();

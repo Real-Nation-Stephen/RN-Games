@@ -155,6 +155,10 @@ async function main() {
     );
     const fileRes = await fetch(`${base}${uploaded.url}`);
     if (fileRes.status !== 200) throw new Error(`file fetch ${fileRes.status}`);
+    const fileBytes = Buffer.from(await fileRes.arrayBuffer());
+    if (fileBytes[0] !== 0x89 || fileBytes[1] !== 0x50 || fileBytes.equals(Buffer.from("{}"))) {
+      throw new Error(`uploaded file was not PNG bytes (hex=${fileBytes.slice(0, 8).toString("hex")})`);
+    }
     console.log("ok  HTTP isolated binary upload");
 
     async function control(action, extra = {}) {

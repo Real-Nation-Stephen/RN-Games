@@ -235,37 +235,57 @@ function isPreconditionFailed(err) {
   return /412|precondition|if-match|onlyifmatch|not modified/i.test(msg);
 }
 
-export function wrapBlobsCasStore(blobs, name) {
+function blobsWriteOpts({ onlyIfMatch, onlyIfNew, metadata } = {}) {
+  const opts = {};
+  if (metadata) opts.metadata = metadata;
+  if (onlyIfMatch) opts.onlyIfMatch = onlyIfMatch;
+  else if (onlyIfNew) opts.onlyIfNew = true;
+  return opts;
+}
+
+async function blobsConditionalWrite(write, { onlyIfMatch, onlyIfNew } = {}) {
+  try {
+    const result = await write();
+    if (result && typeof result.modified === "boolean") return result;
+    if (onlyIfMatch || onlyIfNew) {
+      throw new Error("Netlify Blobs did not return a conditional-write result");
+    }
+    return { modified: true, etag: result?.etag };
+  } catch (e) {
+    if ((onlyIfMatch || onlyIfNew) && isPreconditionFailed(e)) {
+      return { modified: false };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Adapter over the installed @netlify/blobs Store.
+ * `set` must call blobs.set (raw bytes). JSON.stringify(ArrayBuffer) is "{}" and
+ * would replace uploaded images/fonts with an empty object on hosted deploys.
+ */
+export function wrapBlobsCasStore(blobs, name, { readConsistency } = {}) {
+  function withReadConsistency(opts) {
+    if (!readConsistency) return opts;
+    return { ...(opts || {}), consistency: opts?.consistency ?? readConsistency };
+  }
   return {
     driver: "blobs",
     name,
+    readConsistency: readConsistency || null,
     async get(key, opts) {
-      return blobs.get(key, opts);
+      return blobs.get(key, withReadConsistency(opts));
     },
     async getWithMetadata(key, opts) {
-      return blobs.getWithMetadata(key, opts);
+      return blobs.getWithMetadata(key, withReadConsistency(opts));
     },
-    async setJSON(key, data, { onlyIfMatch, onlyIfNew, metadata } = {}) {
-      const opts = {};
-      if (metadata) opts.metadata = metadata;
-      if (onlyIfMatch) opts.onlyIfMatch = onlyIfMatch;
-      else if (onlyIfNew) opts.onlyIfNew = true;
-      try {
-        const result = await blobs.setJSON(key, data, opts);
-        if (result && typeof result.modified === "boolean") return result;
-        if (onlyIfMatch || onlyIfNew) {
-          throw new Error("Netlify Blobs did not return a conditional-write result");
-        }
-        return { modified: true, etag: result?.etag };
-      } catch (e) {
-        if ((onlyIfMatch || onlyIfNew) && isPreconditionFailed(e)) {
-          return { modified: false };
-        }
-        throw e;
-      }
+    async setJSON(key, data, opts = {}) {
+      const writeOpts = blobsWriteOpts(opts);
+      return blobsConditionalWrite(() => blobs.setJSON(key, data, writeOpts), opts);
     },
     async set(key, data, opts = {}) {
-      return this.setJSON(key, data, opts);
+      const writeOpts = blobsWriteOpts(opts);
+      return blobsConditionalWrite(() => blobs.set(key, data, writeOpts), opts);
     },
     async delete(key) {
       if (typeof blobs.delete === "function") await blobs.delete(key);
