@@ -1,5 +1,7 @@
 import { hostedRemoteContext } from "./blob-runtime.mjs";
 
+const IDENTITY_PATH = "/.netlify/identity";
+
 /**
  * Netlify Identity user from JWT (Authorization: Bearer) or context.clientContext
  * @param {import('@netlify/functions').HandlerEvent} event
@@ -33,10 +35,23 @@ export function requireAuth(event, context) {
   return null;
 }
 
+function headerValue(headers, name) {
+  if (!headers || typeof headers !== "object") return "";
+  const want = String(name).toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (String(key).toLowerCase() === want) return String(value || "");
+  }
+  return "";
+}
+
+export function readBearerToken(event) {
+  const auth = headerValue(event?.headers, "authorization");
+  if (!auth.startsWith("Bearer ")) return "";
+  return auth.slice(7).trim();
+}
+
 function decodeBearer(event) {
-  const auth = event.headers?.authorization || event.headers?.Authorization;
-  if (!auth?.startsWith("Bearer ")) return null;
-  const token = auth.slice(7);
+  const token = readBearerToken(event);
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
@@ -46,6 +61,70 @@ function decodeBearer(event) {
     return null;
   }
   return null;
+}
+
+function identityUserEndpoint(base) {
+  if (!base) return "";
+  try {
+    const url = new URL(String(base));
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    url.search = "";
+    url.hash = "";
+    const path = url.pathname.replace(/\/+$/, "") || "";
+    if (path !== IDENTITY_PATH) url.pathname = IDENTITY_PATH;
+    return `${url.origin}${IDENTITY_PATH}/user`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Identity API origin from Netlify runtime/site configuration only.
+ * Never request Host/Origin or JWT `iss` — those are attacker-controlled.
+ */
+export async function resolveTrustedIdentityUrl() {
+  try {
+    const { getIdentityConfig } = await import("@netlify/identity");
+    const cfg = getIdentityConfig();
+    if (cfg?.url) return String(cfg.url);
+  } catch {
+    /* Identity helper unavailable outside Functions v2. */
+  }
+  const siteUrl = String(process.env.URL || "").trim();
+  if (!siteUrl) return "";
+  try {
+    return new URL(IDENTITY_PATH, siteUrl).href;
+  } catch {
+    return "";
+  }
+}
+
+export function identityUserUrlFromTrustedBase(base) {
+  return identityUserEndpoint(base);
+}
+
+/**
+ * Verify Studio's netlify-identity-widget Bearer against GoTrue GET /user.
+ * Signature/expiry are enforced by the Identity API; we never decode the JWT.
+ */
+export async function verifyIdentityBearer(event) {
+  const token = readBearerToken(event);
+  if (!token) return null;
+  const identityUrl = await resolveTrustedIdentityUrl();
+  const userUrl = identityUserEndpoint(identityUrl);
+  if (!userUrl) return null;
+  try {
+    const res = await fetch(userUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const id = data?.id || data?.sub;
+    if (!id) return null;
+    return { sub: String(id), email: data.email };
+  } catch {
+    return null;
+  }
 }
 
 /** Unsigned JWTs are only accepted on local/dev functions, never hosted deploys. */
@@ -60,10 +139,10 @@ export function isUnsignedDevAuthAllowed() {
 
 /**
  * Studio/operator authority for creating or recovering live runs.
- * Production: Netlify Identity via clientContext (Lambda) or @netlify/identity getUser (Functions v2).
- * Local: unsigned preview bearer only when explicitly allowed.
+ * Production: verified Identity (clientContext, getUser, or GET /user with
+ * the widget Bearer). Local: unsigned preview bearer only when allowed.
  */
-export function requireOperatorAuth(event, context) {
+export async function requireOperatorAuth(event, context) {
   const cc = context?.clientContext;
   if (cc?.user?.sub) {
     return { user: { sub: cc.user.sub, email: cc.user.email } };
@@ -72,6 +151,8 @@ export function requireOperatorAuth(event, context) {
     const user = decodeBearer(event);
     if (user?.sub) return { user };
   }
+  const verified = await verifyIdentityBearer(event);
+  if (verified?.sub) return { user: verified };
   return {
     error: { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) },
   };

@@ -25,8 +25,9 @@ import {
   liveStoreName,
   resetRuntimeStores,
 } from "../netlify/functions/lib/blob-runtime.mjs";
-import { isUnsignedDevAuthAllowed, requireOperatorAuth } from "../netlify/functions/lib/auth.mjs";
+import { isUnsignedDevAuthAllowed, requireOperatorAuth, verifyIdentityBearer } from "../netlify/functions/lib/auth.mjs";
 import { asNetlifyFunction } from "../netlify/functions/lib/netlify-v2.mjs";
+import { identityAuthHeaders, identityForceRefresh } from "../packages/admin/src/identity-auth.mjs";
 import { loadBinary, saveBinary } from "../netlify/functions/lib/files.mjs";
 import {
   createActivatedLiveRun,
@@ -480,7 +481,7 @@ async function hostedRuntimeTests() {
 async function nativeRuntimeAuthTests() {
   assert("live-run default export is the Functions v2 withLambda wrapper", typeof liveRunDefault === "function");
   const wrapped = asNetlifyFunction(async (event, context) => {
-    const op = requireOperatorAuth(event, context);
+    const op = await requireOperatorAuth(event, context);
     if (op.error) return op.error;
     return { statusCode: 200, body: JSON.stringify({ sub: op.user.sub, email: op.user.email }) };
   });
@@ -535,6 +536,166 @@ async function nativeRuntimeAuthTests() {
         denied.status === 401 && /Unauthorized/i.test(deniedBody),
         `status=${denied.status} body=${deniedBody.slice(0, 200)}`,
       );
+    },
+  );
+
+  await studioWidgetRefreshTests();
+  await hostedBearerVerificationTests();
+}
+
+async function studioWidgetRefreshTests() {
+  let jwtCalls = 0;
+  const stale = "stale-cached-access-token";
+  const fresh = "fresh-refreshed-access-token";
+  const result = await identityAuthHeaders({
+    currentUser: () => ({
+      token: { access_token: stale, expires_at: Date.now() - 60_000 },
+      jwt: async () => {
+        jwtCalls += 1;
+        return fresh;
+      },
+    }),
+  });
+  assert(
+    "Studio authHeaders uses user.jwt() instead of cached access_token",
+    jwtCalls === 1 &&
+      result.source === "jwt" &&
+      result.headers.Authorization === `Bearer ${fresh}` &&
+      !String(result.headers.Authorization).includes(stale),
+    JSON.stringify(result),
+  );
+
+  let forceCalls = 0;
+  const forced = await identityForceRefresh({
+    currentUser: () => ({
+      jwt: async (force) => {
+        forceCalls += 1;
+        assert("401 retry asks user.jwt(true)", force === true);
+        return "forced-token";
+      },
+    }),
+  });
+  assert("Studio 401 retry force-refreshes via user.jwt(true)", forceCalls === 1 && forced === "forced-token");
+
+  const failed = await identityAuthHeaders({
+    currentUser: () => ({
+      token: { access_token: stale },
+      jwt: async () => {
+        throw new Error("refresh failed");
+      },
+    }),
+  });
+  assert(
+    "failed jwt() refresh does not send the stale cached token",
+    failed.source === "jwt-failed" && failed.headers.Authorization == null,
+    JSON.stringify(failed),
+  );
+}
+
+async function hostedBearerVerificationTests() {
+  const site = "https://site.example.netlify.app";
+  const goodToken = "widget-access-token";
+  const unsigned = DEV_BEARER;
+
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: "production",
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_DEV_AUTH: undefined,
+      URL: site,
+    },
+    async () => {
+      const origFetch = globalThis.fetch;
+      const fetched = [];
+      globalThis.fetch = async (input, init = {}) => {
+        const href = String(input && input.url ? input.url : input);
+        fetched.push({
+          href,
+          auth: String(init.headers?.Authorization || init.headers?.authorization || ""),
+        });
+        if (href === `${site}/.netlify/identity/user` && init.headers?.Authorization === `Bearer ${goodToken}`) {
+          return new Response(JSON.stringify({ id: "verified-user", email: "host@example.com" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (href.includes("/.netlify/identity/user")) {
+          return new Response(JSON.stringify({ error: "invalid token" }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return new Response("unexpected", { status: 500 });
+      };
+      try {
+        const ok = await verifyIdentityBearer({
+          headers: {
+            authorization: `Bearer ${goodToken}`,
+            host: "evil.example",
+            origin: "https://evil.example",
+          },
+        });
+        assert(
+          "valid widget Bearer is verified via trusted Identity /user",
+          ok?.sub === "verified-user" && ok?.email === "host@example.com",
+          JSON.stringify(ok),
+        );
+        assert(
+          "Identity /user URL comes from site URL, not Host/Origin/JWT iss",
+          fetched.length === 1 && fetched[0].href === `${site}/.netlify/identity/user`,
+          JSON.stringify(fetched),
+        );
+
+        const denied = await verifyIdentityBearer({
+          headers: { authorization: `Bearer ${unsigned}` },
+        });
+        assert("invalid/unsigned Bearer is rejected by Identity /user", denied === null);
+
+        const wrapped = asNetlifyFunction(async (event, context) => {
+          const op = await requireOperatorAuth(event, context);
+          if (op.error) return op.error;
+          return { statusCode: 200, body: JSON.stringify({ sub: op.user.sub }) };
+        });
+        const allowed = await wrapped(
+          new Request("https://example.netlify.app/.netlify/functions/live-run", {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${goodToken}`,
+              host: "evil.example",
+              "content-type": "application/json",
+            },
+            body: "{}",
+          }),
+          { requestId: "bearer-ok" },
+        );
+        const allowedBody = await allowed.json();
+        assert(
+          "Functions v2 accepts verified widget Bearer without runtime getUser",
+          allowed.status === 200 && allowedBody.sub === "verified-user",
+          JSON.stringify(allowedBody),
+        );
+
+        const blocked = await wrapped(
+          new Request("https://example.netlify.app/.netlify/functions/live-run", {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${unsigned}`,
+              "content-type": "application/json",
+            },
+            body: "{}",
+          }),
+          { requestId: "bearer-bad" },
+        );
+        assert(
+          "Functions v2 still 401s an unverified widget Bearer",
+          blocked.status === 401,
+          await blocked.text(),
+        );
+      } finally {
+        globalThis.fetch = origFetch;
+      }
     },
   );
 }
@@ -1591,9 +1752,21 @@ async function guardAndSeedTests() {
   }
   const v2Src = readFileSync(new URL("../netlify/functions/lib/netlify-v2.mjs", import.meta.url), "utf8");
   assert(
-    "v2 wrapper uses withLambda + getUser and does not decode unsigned JWTs",
-    /withLambda/.test(v2Src) && /getUser/.test(v2Src) && !/decodeBearer|base64url/.test(v2Src),
+    "v2 wrapper uses withLambda + getUser and verifies widget Bearer without decoding JWTs",
+    /withLambda/.test(v2Src) && /getUser/.test(v2Src) && /verifyIdentityBearer/.test(v2Src) && !/decodeBearer|base64url/.test(v2Src),
   );
+  const authSrc = readFileSync(new URL("../netlify/functions/lib/auth.mjs", import.meta.url), "utf8");
+  assert(
+    "operator Bearer is verified at Identity /user using trusted site URL",
+    /\/user/.test(authSrc) && /getIdentityConfig/.test(authSrc) && /process\.env\.URL/.test(authSrc) && !/\.iss\b/.test(authSrc),
+  );
+  const apiSrc = readFileSync(new URL("../packages/admin/src/api.ts", import.meta.url), "utf8");
+  assert(
+    "Studio API headers refresh with user.jwt() instead of cached access_token",
+    /identityAuthHeaders/.test(apiSrc) && /identityForceRefresh/.test(apiSrc) && /async function authHeaders/.test(apiSrc) && !/access_token/.test(apiSrc),
+  );
+  const identityAuthSrc = readFileSync(new URL("../packages/admin/src/identity-auth.mjs", import.meta.url), "utf8");
+  assert("identity-auth calls user.jwt() and never reads access_token", /user\.jwt\(/.test(identityAuthSrc) && !/access_token/.test(identityAuthSrc));
   const toml = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
   assert(
     "Identity stays an external Functions module so v2 runtime context is not bundled away",

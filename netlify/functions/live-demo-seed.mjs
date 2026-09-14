@@ -88,7 +88,7 @@ export const handler = async (event, context) => {
   if (hostedRemoteContext() && process.env.LIVE_ALLOW_SEED !== "1") {
     return { statusCode: 403, headers, body: JSON.stringify({ error: "Demo seed is disabled on hosted deploys" }) };
   }
-  const operator = requireOperatorAuth(event, context);
+  const operator = await requireOperatorAuth(event, context);
   if (operator.error) return { ...operator.error, headers: { ...headers, ...(operator.error.headers || {}) } };
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers, body: JSON.stringify({ error: "POST only" }) };

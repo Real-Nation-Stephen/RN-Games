@@ -92,7 +92,7 @@ export async function lambdaHandler(event, context) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "This flow is not interactive" }) };
       }
 
-      const operator = requireOperatorAuth(event, context);
+      const operator = await requireOperatorAuth(event, context);
       const hasOperator = !operator.error;
       const providedKey = String(body.hostKey || "");
 
