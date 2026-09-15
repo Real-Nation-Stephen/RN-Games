@@ -295,8 +295,9 @@ function blobsHttpError(status) {
 /**
  * Supported `getStore({ fetch })` interceptor. The SDK's conditional setJSON
  * branch treats every non-412 as success, including HTTP 409/403 with an empty
- * ETag. Rewrite 409/412 to 412, require an ETag on 2xx conditional writes, and
- * reject other non-2xx so they cannot be acknowledged as modified:true.
+ * ETag. Rewrite 409/412 to 412 (safe conflict). Pass 2xx through even without
+ * an ETag so an applied write is verified or marked uncertain, never turned
+ * into a CAS retry. Reject other non-2xx so they cannot be acknowledged.
  */
 export function wrapBlobsCasFetch(fetchImpl) {
   const base = fetchImpl || globalThis.fetch.bind(globalThis);
@@ -347,11 +348,11 @@ function blobsUncertain(detail) {
   );
 }
 
-async function confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency) {
+async function confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency, missingEtag = false) {
   const conditional = !!(opts.onlyIfMatch || opts.onlyIfNew);
   if (!conditional) return result;
   if (result?.modified === true && hasEtag(result.etag)) return result;
-  if (result?.modified !== true) return result;
+  if (!missingEtag && result?.modified !== true) return result;
 
   const metaOpts = { consistency: readConsistency || undefined };
   if (method === "setJSON") {
@@ -395,7 +396,7 @@ async function runBlobsWrite(blobs, method, key, data, opts = {}, readConsistenc
   return blobsCasWriteContext.run(ctx, async () => {
     const result = await blobsConditionalWrite(() => blobs[method](key, data, writeOpts), opts);
     if (ctx.reject) throw blobsHttpError(ctx.httpStatus || 502);
-    return confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency);
+    return confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency, ctx.missingEtag);
   });
 }
 

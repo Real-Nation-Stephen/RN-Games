@@ -109,13 +109,44 @@ export function drawLiveWheel(
     ctx.strokeStyle = theme.bg;
     ctx.lineWidth = Math.max(6, r * 0.04);
     ctx.stroke();
-    ctx.fillStyle = theme.headline;
+  } else {
+    const seg = (Math.PI * 2) / n;
+    for (let i = 0; i < n; i++) {
+      const a0 = i * seg + rot - Math.PI / 2;
+      const a1 = (i + 1) * seg + rot - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? theme.accent : theme.text;
+      ctx.fill();
+      const mid = a0 + seg / 2;
+      const tr = r * (n > 10 ? 0.68 : 0.62);
+      ctx.fillStyle = i % 2 === 0 ? theme.buttonText : theme.bg;
+      const fontPx = Math.max(14, Math.min(42, Math.round(r / Math.max(3.2, n * 0.55))));
+      ctx.font = `700 ${fontPx}px ${theme.headingFont}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(labelFor(pool, i), cx + Math.cos(mid) * tr, cy + Math.sin(mid) * tr);
+    }
+  }
+
+  if (n > 1) {
     ctx.beginPath();
-    ctx.moveTo(cx, 10);
-    ctx.lineTo(cx - 12, 36);
-    ctx.lineTo(cx + 12, 36);
-    ctx.closePath();
+    ctx.arc(cx, cy, r * 0.16, 0, Math.PI * 2);
+    ctx.fillStyle = theme.bg;
     ctx.fill();
+  }
+
+  ctx.fillStyle = theme.headline;
+  ctx.beginPath();
+  ctx.moveTo(cx, 10);
+  ctx.lineTo(cx - 12, 36);
+  ctx.lineTo(cx + 12, 36);
+  ctx.closePath();
+  ctx.fill();
+
+  if (n === 1) {
     ctx.fillStyle = theme.buttonText;
     ctx.font = `700 ${Math.max(36, Math.round(r * 0.42))}px ${theme.headingFont}`;
     ctx.textAlign = "center";
@@ -124,37 +155,6 @@ export function drawLiveWheel(
     return { angle, number: pool[0] ?? null };
   }
 
-  const seg = (Math.PI * 2) / n;
-  for (let i = 0; i < n; i++) {
-    const a0 = i * seg + rot - Math.PI / 2;
-    const a1 = (i + 1) * seg + rot - Math.PI / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, a0, a1);
-    ctx.closePath();
-    ctx.fillStyle = i % 2 === 0 ? theme.accent : theme.text;
-    ctx.fill();
-    const mid = a0 + seg / 2;
-    const tr = r * (n > 10 ? 0.68 : 0.62);
-    ctx.fillStyle = i % 2 === 0 ? theme.buttonText : theme.bg;
-    const fontPx = Math.max(14, Math.min(42, Math.round(r / Math.max(3.2, n * 0.55))));
-    ctx.font = `700 ${fontPx}px ${theme.headingFont}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(labelFor(pool, i), cx + Math.cos(mid) * tr, cy + Math.sin(mid) * tr);
-  }
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.16, 0, Math.PI * 2);
-  ctx.fillStyle = theme.bg;
-  ctx.fill();
-  ctx.fillStyle = theme.headline;
-  ctx.beginPath();
-  ctx.moveTo(cx, 10);
-  ctx.lineTo(cx - 12, 36);
-  ctx.lineTo(cx + 12, 36);
-  ctx.closePath();
-  ctx.fill();
   const idx = wheelSegmentIndex(angle, n, state.pointerOffsetDeg || 0);
   const number = pool[idx] ?? null;
   return { angle, number };

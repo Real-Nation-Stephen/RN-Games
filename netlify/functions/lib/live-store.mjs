@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { CasConflict } from "./cas-store.mjs";
+import { CasConflict, CasUncertain } from "./cas-store.mjs";
 import {
   assertStorageAllowed,
   getRuntimeStore,
@@ -138,7 +138,13 @@ export async function updateLiveRun(code, mutator) {
     if (!next) return got.data;
     next.revision = expected + 1;
     next.updatedAt = nowIso();
-    const written = await st.setJSON(key, next, { onlyIfMatch: got.etag });
+    let written;
+    try {
+      written = await st.setJSON(key, next, { onlyIfMatch: got.etag });
+    } catch (e) {
+      if (e instanceof CasUncertain) throw e;
+      throw e;
+    }
     if (written?.modified) return next;
     lastErr = new CasConflict("live run write conflict");
     await sleep(retryDelay(i));

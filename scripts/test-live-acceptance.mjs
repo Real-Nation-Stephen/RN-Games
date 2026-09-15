@@ -318,6 +318,16 @@ async function sdkInjectedFetchCasTests() {
   ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
   assert("fetch guard maps HTTP 412 to conflict", g412.modified === false);
 
+  const passed2xx = await wrapBlobsCasFetch(put(200, ""))("https://blobs-uncached.test/k", {
+    method: "PUT",
+    headers: { "If-Match": '"old"' },
+  });
+  assert(
+    "2xx without ETag is not rewritten to a 412 conflict",
+    Number(passed2xx.status) === 200,
+    `status=${passed2xx.status}`,
+  );
+
   try {
     await wrapBlobsCasStore(
       getStore({ ...base, fetch: wrapBlobsCasFetch(put(403, "")) }),
@@ -2110,12 +2120,12 @@ async function guardAndSeedTests() {
       !/replaceChildren\(shell\);\s*\n\s*const key =/.test(joinSrc),
   );
   const wheelSrc = readFileSync(new URL("../packages/player/src/live/wheel-draw.ts", import.meta.url), "utf8");
-  const n1 = wheelSrc.indexOf("if (n === 1)");
-  const n1Return = wheelSrc.indexOf("return { angle, number: pool[0]", n1);
-  const hub = wheelSrc.indexOf("r * 0.16");
+  const hubGuard = wheelSrc.indexOf("if (n > 1)");
+  const hub = wheelSrc.indexOf("r * 0.16", hubGuard);
+  const n1Label = wheelSrc.indexOf("fillText(labelFor(pool, 0)", hub);
   assert(
-    "single-player wheel paints the number and skips the hub drawn afterwards",
-    n1 >= 0 && n1Return > n1 && hub > n1Return && /fillText\(labelFor/.test(wheelSrc),
+    "single-player wheel paints the number after skipping the hub",
+    hubGuard >= 0 && hub > hubGuard && n1Label > hub,
   );
   const themeSrc = readFileSync(new URL("../packages/player/src/live/theme.ts", import.meta.url), "utf8");
   assert(
