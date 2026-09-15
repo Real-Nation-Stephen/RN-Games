@@ -79,6 +79,22 @@ function phoneShell(html: string): HTMLElement {
   return d;
 }
 
+function safeTeamHex(value: unknown): string {
+  const hex = String(value || "");
+  return /^#[0-9a-fA-F]{3,8}$/.test(hex) ? hex : "";
+}
+
+function teamDisplayName(me: AnyRec): string {
+  return String(me.teamName || me.teamId || "");
+}
+
+function teamNameHtml(me: AnyRec): string {
+  const name = escapeHtml(teamDisplayName(me));
+  const hex = safeTeamHex(me.teamColorHex);
+  const style = hex ? ` style="color:${hex}"` : "";
+  return `<span${style}>${name}</span>`;
+}
+
 function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
   lastState = state;
   const me = (state.me || {}) as AnyRec;
@@ -165,11 +181,11 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
       return;
     }
     if (activity.phase !== "racing") {
-      root.replaceChildren(phoneShell(`<h1 class="live-headline">${activity.finishedTeamId ? "Race over" : "Get ready"}</h1><p class="live-body">Team ${escapeHtml(me.teamId || "")}</p>`));
+      root.replaceChildren(phoneShell(`<h1 class="live-headline">${activity.finishedTeamId ? "Race over" : "Get ready"}</h1><p class="live-body">Team ${teamNameHtml(me)}</p>`));
       return;
     }
     const shell = phoneShell(`
-      <p class="live-kicker">${escapeHtml(me.teamId || "")}${fb ? (fb.correct ? " · Correct +1" : " · Incorrect −1") : ""}</p>
+      <p class="live-kicker">${teamNameHtml(me)}${fb ? (fb.correct ? " · Correct +1" : " · Incorrect −1") : ""}</p>
       <h1 class="live-headline">${escapeHtml(q.prompt || "")}</h1>
       <div class="live-options"></div>
     `);
@@ -259,15 +275,24 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
   }
   if (kind === "scratcher") {
     if (me.alreadyWon) {
+      scratchHandle?.destroy();
+      scratchHandle = null;
+      lastTicketKey = "";
       root.replaceChildren(phoneShell(`<h1 class="live-headline">Already won this session</h1><p class="live-body">One prize per participant for the whole run.</p>`));
       return;
     }
     if (me.waitingNextRelease || !me.ticket) {
+      scratchHandle?.destroy();
+      scratchHandle = null;
+      lastTicketKey = "";
       root.replaceChildren(phoneShell(`<h1 class="live-headline">Waiting</h1><p class="live-body">You'll get a ticket on the next release if you're still eligible.</p>`));
       return;
     }
     const ticket = me.ticket as AnyRec;
     if (ticket.revealed) {
+      scratchHandle?.destroy();
+      scratchHandle = null;
+      lastTicketKey = "";
       root.replaceChildren(
         phoneShell(
           ticket.isWin
@@ -277,27 +302,26 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
       );
       return;
     }
+    const key = `${state.roundAttemptId}:${me.participantId}`;
+    if (lastTicketKey === key && scratchHandle && root.querySelector("#scratch-host")) {
+      return;
+    }
+    scratchHandle?.destroy();
+    lastTicketKey = key;
     const shell = phoneShell(`<h1 class="live-headline">Scratch your ticket</h1><div id="scratch-host"></div>`);
     root.replaceChildren(shell);
-    const key = `${state.roundAttemptId}:${me.participantId}`;
     const host = shell.querySelector("#scratch-host") as HTMLElement;
-    if (lastTicketKey === key && scratchHandle) {
-      scratchHandle.attach(host);
-    } else {
-      scratchHandle?.destroy();
-      lastTicketKey = key;
-      const assets = (component.assets || {}) as AnyRec;
-      scratchHandle = mountScratcher({
-        host,
-        isWin: !!ticket.isWin,
-        winSrc: String(assets.bottomWin || ""),
-        loseSrc: String(assets.bottomLose || ""),
-        coverSrc: String(assets.top || ""),
-        formatId: String(component.scratcherFormat || "9x16"),
-        threshold: Number(component.clearThreshold ?? 0.97),
-        onComplete: () => void act(code, "reveal-ticket", { ticketId: ticket.ticketId }),
-      });
-    }
+    const assets = (component.assets || {}) as AnyRec;
+    scratchHandle = mountScratcher({
+      host,
+      isWin: !!ticket.isWin,
+      winSrc: String(assets.bottomWin || ""),
+      loseSrc: String(assets.bottomLose || ""),
+      coverSrc: String(assets.top || ""),
+      formatId: String(component.scratcherFormat || "9x16"),
+      threshold: Number(component.clearThreshold ?? 0.97),
+      onComplete: () => void act(code, "reveal-ticket", { ticketId: ticket.ticketId }),
+    });
     return;
   }
   root.replaceChildren(phoneShell(`<h1 class="live-headline">Holding</h1>`));

@@ -72,9 +72,12 @@ export function hasPrize(run, participantId) {
   return !!(run.prizeLedger?.awards || {})[participantId];
 }
 
-export function eligibleEntrants(run, now = Date.now()) {
+export function eligibleEntrants(run, now = Date.now(), presenceById = null) {
   return participantList(run)
-    .filter((p) => isConnected(p, now) && !hasPrize(run, p.id))
+    .filter((p) => {
+      const lastSeen = presenceById?.[p.id] || p.lastSeen;
+      return isConnected({ ...p, lastSeen }, now) && !hasPrize(run, p.id);
+    })
     .sort((a, b) => a.number - b.number);
 }
 
@@ -321,10 +324,12 @@ function pinboardPublic(node, runId, role, code) {
   };
 }
 
-function wheelPublic(node) {
+function wheelPublic(node, eligible = []) {
+  const spinningPool = Array.isArray(node.pool) ? node.pool : [];
+  const restPool = (eligible || []).map((p) => p.number);
   return {
     phase: node.phase,
-    pool: node.pool || [],
+    pool: spinningPool.length ? spinningPool : restPool,
     winnerNumber: node.phase === "idle" ? null : node.winnerNumber,
     spinStartedAt: node.spinStartedAt,
     durationMs: node.durationMs || 6000,
@@ -397,20 +402,19 @@ export function projectRun(run, role, participantId) {
   const cfg = step ? configs[step.id] : null;
   const joinScreen = { ...defaultJoinScreen(), ...(run.snapshot?.joinScreen || {}) };
   const me = participantId ? run.participants?.[participantId] : null;
+  const connected = participantList(run).filter((p) => isConnected(p)).length;
+  const eligible = eligibleEntrants(run);
 
   let activity = { kind, phase: node.phase || "idle" };
   if (kind === "mini-poll") activity = { kind, ...pollPublic(node, role) };
   else if (kind === "fill-game") activity = { kind, ...fillPublic(node, cfg) };
   else if (kind === "mini-quiz") activity = { kind, ...quizPublic(node, cfg, role) };
   else if (kind === "pinboard") activity = { kind, ...pinboardPublic(node, run.runId, role, run.code) };
-  else if (kind === "spinning-wheel") activity = { kind, ...wheelPublic(node) };
+  else if (kind === "spinning-wheel") activity = { kind, ...wheelPublic(node, eligible) };
   else if (kind === "scratcher") activity = { kind, ...scratcherPublic(node, role, participantId) };
   else if (kind === "lobby") activity = { kind, phase: "lobby" };
   else if (kind === "closing") activity = { kind, phase: "ended" };
   else if (kind === "unsupported") activity = { kind, phase: "idle", moduleType: step?.moduleType };
-
-  const connected = participantList(run).filter((p) => isConnected(p)).length;
-  const eligible = eligibleEntrants(run);
 
   const out = {
     revision: run.revision,
@@ -469,6 +473,9 @@ export function projectRun(run, role, participantId) {
       out.me.votedOptionId = (node.votes || {})[me.id] || null;
     }
     if (kind === "fill-game") {
+      const team = (cfg?.teams || []).find((t) => t.id === me.teamId);
+      out.me.teamName = team?.name || null;
+      out.me.teamColorHex = team?.colorHex || team?.fillHex || null;
       const qid = (node.cursors || {})[me.id];
       const questions = cfg?.questions || [];
       const idx = Number.isInteger(qid) ? qid : 0;
@@ -634,7 +641,7 @@ function assignTeam(run, cfg) {
   return pickRandom(teams).id;
 }
 
-export function joinParticipant(run, existingId, secret) {
+export function joinParticipant(run, existingId, secret, pending = null) {
   if (existingId) {
     const p = run.participants[existingId];
     if (!p || !secret || !secretsEqual(String(p.secret || ""), String(secret))) {
@@ -645,6 +652,28 @@ export function joinParticipant(run, existingId, secret) {
   }
   if (run.status === "superseded") {
     throw Object.assign(new Error("Run ended"), { statusCode: 410 });
+  }
+  if (pending?.id && run.participants[pending.id]) {
+    const p = run.participants[pending.id];
+    p.lastSeen = nowIso();
+    return p;
+  }
+  if (pending?.id) {
+    const used = new Set(Object.values(run.participants || {}).map((p) => Number(p.number)));
+    let number = Number(pending.number);
+    if (!Number.isFinite(number) || used.has(number)) {
+      number = run.nextParticipantNumber++;
+    } else if (number >= Number(run.nextParticipantNumber || 1)) {
+      run.nextParticipantNumber = number + 1;
+    }
+    const p = {
+      ...pending,
+      number,
+      lastSeen: nowIso(),
+      joinedAt: pending.joinedAt || nowIso(),
+    };
+    run.participants[p.id] = p;
+    return p;
   }
   const id = makeId();
   const participantSecret = makeSecret();
@@ -733,7 +762,7 @@ export function assertAttempt(run, payload = {}, { requireQuestion = false, requ
   }
 }
 
-export function applyControl(run, action, payload = {}) {
+export function applyControl(run, action, payload = {}, presenceById = null) {
   const { commandId, controllerId, takeover } = payload;
   const recalled = recallCommand(run, commandId);
   if (recalled) {
@@ -806,8 +835,8 @@ export function applyControl(run, action, payload = {}) {
   if (kind === "fill-game") return finish(controlFill(run, node, action));
   if (kind === "mini-quiz") return finish(controlQuiz(run, node, cfg, action));
   if (kind === "pinboard") return finish(controlPinboard(run, node, action, payload));
-  if (kind === "spinning-wheel") return finish(controlWheel(run, node, cfg, action));
-  if (kind === "scratcher") return finish(controlScratcher(run, node, cfg, action, payload));
+  if (kind === "spinning-wheel") return finish(controlWheel(run, node, cfg, action, presenceById));
+  if (kind === "scratcher") return finish(controlScratcher(run, node, cfg, action, payload, presenceById));
   throw Object.assign(new Error(`Unknown action ${action}`), { statusCode: 400 });
 }
 
@@ -945,12 +974,12 @@ function reservePrize(run, participant, source) {
   return run.prizeLedger.awards[participant.id];
 }
 
-function controlWheel(run, node, cfg, action) {
+function controlWheel(run, node, cfg, action, presenceById = null) {
   if (action === "spin") {
     if (node.phase === "spinning" || node.phase === "revealed") {
       return { alreadySpun: true };
     }
-    const eligible = eligibleEntrants(run);
+    const eligible = eligibleEntrants(run, Date.now(), presenceById);
     if (!eligible.length) {
       throw Object.assign(new Error("No eligible participants"), { statusCode: 409, code: "no_eligible" });
     }
@@ -989,12 +1018,12 @@ function controlWheel(run, node, cfg, action) {
   throw Object.assign(new Error(`Unknown wheel action ${action}`), { statusCode: 400 });
 }
 
-function controlScratcher(run, node, cfg, action, payload) {
+function controlScratcher(run, node, cfg, action, payload, presenceById = null) {
   if (action === "release") {
     if (node.phase === "released" || node.phase === "celebrating") {
       return { alreadyReleased: true };
     }
-    const eligible = eligibleEntrants(run);
+    const eligible = eligibleEntrants(run, Date.now(), presenceById);
     if (!eligible.length) {
       throw Object.assign(new Error("No eligible participants"), { statusCode: 409, code: "no_eligible" });
     }

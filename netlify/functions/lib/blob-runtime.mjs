@@ -5,12 +5,14 @@
  */
 
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { getStore, setEnvironmentContext } from "@netlify/blobs";
 import {
   createFileCasStore,
   createMemoryCasStore,
   defaultFileStoreDir,
   probeConditionalWrites,
+  wrapBlobsCasFetch,
   wrapBlobsCasStore,
 } from "./cas-store.mjs";
 
@@ -26,7 +28,9 @@ export const LIVE_BLOBS_CONSISTENCY = "strong";
 const PLATFORM = "rngames-platform";
 const memoryByName = new Map();
 const fileByName = new Map();
-const blobsByName = new Map();
+const blobsStoresByScope = new Map();
+const liveProbeByScope = new Map();
+const MAX_SCOPED_CLIENTS = 8;
 
 function hooks() {
   return globalThis.__RN_LIVE_TEST__ || {};
@@ -61,8 +65,12 @@ function uncachedEdgeURLFrom(obj) {
   return typeof obj.uncachedEdgeURL === "string" ? obj.uncachedEdgeURL : "";
 }
 
+/**
+ * Same precedence as installed SDK getEnvironmentContext (not exported in 11.1):
+ * globalThis.netlifyBlobsContext before process.env.NETLIFY_BLOBS_CONTEXT.
+ */
 function readBlobsEnvContext() {
-  const raw = process.env.NETLIFY_BLOBS_CONTEXT || globalThis.netlifyBlobsContext || "";
+  const raw = globalThis.netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT || "";
   return decodeBlobsContext(raw);
 }
 
@@ -149,7 +157,7 @@ export function liveStoreName() {
 
 export function blobsStoreOptions(name) {
   if (name === liveStoreName()) {
-    return { name, consistency: LIVE_BLOBS_CONSISTENCY };
+    return { name, consistency: LIVE_BLOBS_CONSISTENCY, fetch: wrapBlobsCasFetch() };
   }
   return { name };
 }
@@ -247,7 +255,72 @@ export function assertStorageAllowed() {
 export function resetRuntimeStores() {
   memoryByName.clear();
   fileByName.clear();
-  blobsByName.clear();
+  blobsStoresByScope.clear();
+  liveProbeByScope.clear();
+}
+
+function hashOpaque(value) {
+  if (typeof value !== "string" || !value) return "";
+  return createHash("sha256").update(value).digest("hex").slice(0, 20);
+}
+
+function blobsClientScopeKeyFrom(ctx) {
+  return [
+    String(ctx?.siteID || ""),
+    String(ctx?.edgeURL || ""),
+    String(ctx?.uncachedEdgeURL || ""),
+    String(ctx?.deployID || ""),
+    hashOpaque(ctx?.token),
+  ].join("|");
+}
+
+/** Opaque runtime-scope key. Hashes the Blobs token; never returns it. */
+export function blobsClientScopeKey() {
+  return blobsClientScopeKeyFrom(readBlobsEnvContext());
+}
+
+function currentBlobsClientOptions(name, ctx = readBlobsEnvContext()) {
+  const opts = blobsStoreOptions(name);
+  if (ctx.siteID) opts.siteID = ctx.siteID;
+  if (ctx.token) opts.token = ctx.token;
+  if (ctx.edgeURL) opts.edgeURL = ctx.edgeURL;
+  if (ctx.uncachedEdgeURL) opts.uncachedEdgeURL = ctx.uncachedEdgeURL;
+  if (ctx.apiURL) opts.apiURL = ctx.apiURL;
+  return opts;
+}
+
+function pruneScopedMaps(maps, keepScope) {
+  while (maps.size > MAX_SCOPED_CLIENTS) {
+    const oldest = [...maps.keys()].find((key) => key !== keepScope);
+    if (!oldest) break;
+    maps.delete(oldest);
+  }
+}
+
+function rememberLiveProbe(scope, result) {
+  liveProbeByScope.set(scope, result);
+  pruneScopedMaps(liveProbeByScope, scope);
+}
+
+function storesForScope(scope) {
+  let scoped = blobsStoresByScope.get(scope);
+  if (!scoped) {
+    scoped = new Map();
+    blobsStoresByScope.set(scope, scoped);
+    pruneScopedMaps(blobsStoresByScope, scope);
+  }
+  return scoped;
+}
+
+function cacheStore(scope, name, store) {
+  storesForScope(scope).set(name, store);
+  return store;
+}
+
+function instantiateBlobsStore(name, ctx) {
+  const opts = currentBlobsClientOptions(name, ctx);
+  const factory = typeof hooks().getStore === "function" ? hooks().getStore : getStore;
+  return wrapBlobsCasStore(factory(opts), name, blobsWrapOptions(name));
 }
 
 export async function getRuntimeStore(name) {
@@ -268,22 +341,28 @@ export async function getRuntimeStore(name) {
     return fileByName.get(name);
   }
 
-  if (blobsByName.has(name)) return blobsByName.get(name);
+  const ctx = readBlobsEnvContext();
+  const scope = blobsClientScopeKeyFrom(ctx);
+  const cached = storesForScope(scope).get(name);
+  if (cached) return cached;
 
   const liveName = liveStoreName();
-  if (name === liveName && !blobsHasUncachedEdge()) {
+  if (name === liveName && !uncachedEdgeURLFrom(ctx)) {
     if (hostedRemoteContext()) throw liveBlobsStrongUnavailableError();
     const root = process.env.LIVE_CAS_DIR || defaultFileStoreDir();
     const file = createFileCasStore(path.join(root, sanitizeName(name)));
-    blobsByName.set(name, file);
-    return file;
+    return cacheStore(scope, name, file);
   }
 
   if (name === liveName) assertLiveBlobsStrongConsistency(name);
 
-  const wrapped = wrapBlobsCasStore(getStore(blobsStoreOptions(name)), name, blobsWrapOptions(name));
+  const wrapped = instantiateBlobsStore(name, ctx);
   if (name === liveName) {
-    const cas = await probeConditionalWrites(wrapped);
+    let cas = liveProbeByScope.get(scope);
+    if (!cas) {
+      cas = await probeConditionalWrites(wrapped);
+      if (cas.ok) rememberLiveProbe(scope, cas);
+    }
     if (!cas.ok) {
       const err = new Error(
         `Netlify Blobs conditional writes are unavailable (${cas.reason || "unknown"}). Live runs refuse unsafe overwrites.`,
@@ -292,10 +371,8 @@ export async function getRuntimeStore(name) {
       if (hostedRemoteContext()) throw err;
       const root = process.env.LIVE_CAS_DIR || defaultFileStoreDir();
       const file = createFileCasStore(path.join(root, sanitizeName(name)));
-      blobsByName.set(name, file);
-      return file;
+      return cacheStore(scope, name, file);
     }
   }
-  blobsByName.set(name, wrapped);
-  return wrapped;
+  return cacheStore(scope, name, wrapped);
 }

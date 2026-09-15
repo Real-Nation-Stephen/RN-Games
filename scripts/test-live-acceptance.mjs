@@ -12,8 +12,10 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { createMemoryCasStore, probeConditionalWrites, wrapBlobsCasStore } from "../netlify/functions/lib/cas-store.mjs";
+import { createMemoryCasStore, probeConditionalWrites, wrapBlobsCasFetch, wrapBlobsCasStore, CasUncertain } from "../netlify/functions/lib/cas-store.mjs";
+import { getStore } from "@netlify/blobs";
 import {
+  blobsClientScopeKey,
   blobsHasUncachedEdge,
   blobsStoreOptions,
   blobsWrapOptions,
@@ -235,6 +237,325 @@ async function blobsAdapterBoundaryTests() {
     "platform reads do not force strong consistency",
     platformFake.calls.get[0]?.opts?.consistency == null,
     JSON.stringify(platformFake.calls.get[0]?.opts),
+  );
+}
+
+function probeOkAdapter() {
+  const map = new Map();
+  let n = 0;
+  return {
+    async setJSON(key, data, opts = {}) {
+      const cur = map.get(key);
+      if (opts.onlyIfNew && cur) return { modified: false };
+      if (opts.onlyIfMatch && (!cur || cur.etag !== opts.onlyIfMatch)) return { modified: false };
+      const etag = `"e${++n}"`;
+      map.set(key, { data, etag });
+      return { modified: true, etag };
+    },
+    async getWithMetadata(key) {
+      const row = map.get(key);
+      if (!row) return null;
+      return { data: row.data, etag: row.etag, metadata: {} };
+    },
+    async get(key) {
+      return map.get(key)?.data ?? null;
+    },
+    async delete(key) {
+      map.delete(key);
+    },
+  };
+}
+
+async function sdkInjectedFetchCasTests() {
+  const base = {
+    name: "cas-sdk-test",
+    siteID: "site",
+    token: "tok",
+    edgeURL: "https://blobs-edge.test",
+    uncachedEdgeURL: "https://blobs-uncached.test",
+    consistency: "strong",
+  };
+  const put =
+    (status, etag, getBody = { n: 1 }, getEtag = '"got"') =>
+    async (_url, init = {}) => {
+      const method = String(init.method || "GET").toUpperCase();
+      if (method === "GET" || method === "HEAD") {
+        return new Response(JSON.stringify(getBody), {
+          status: 200,
+          headers: { etag: getEtag, "content-type": "application/json" },
+        });
+      }
+      const headers = {};
+      if (etag) headers.etag = etag;
+      return new Response(null, { status, headers });
+    };
+
+  const raw409 = await getStore({ ...base, fetch: put(409, "") }).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert(
+    "installed SDK treats HTTP 409 as modified:true with empty etag",
+    raw409.modified === true && !String(raw409.etag || "").trim(),
+  );
+  const raw403 = await getStore({ ...base, fetch: put(403, "") }).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert(
+    "installed SDK treats HTTP 403 as modified:true with empty etag",
+    raw403.modified === true && !String(raw403.etag || "").trim(),
+  );
+  const raw412 = await getStore({ ...base, fetch: put(412, "") }).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert("installed SDK treats HTTP 412 as modified:false", raw412.modified === false);
+  const raw200 = await getStore({ ...base, fetch: put(200, '"ok"') }).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert("installed SDK treats HTTP 200+etag as modified:true", raw200.modified === true && raw200.etag === '"ok"');
+
+  const g409 = await wrapBlobsCasStore(
+    getStore({ ...base, fetch: wrapBlobsCasFetch(put(409, "")) }),
+    "cas-sdk-test",
+    { readConsistency: "strong" },
+  ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert("fetch guard maps HTTP 409 to conflict", g409.modified === false);
+  const g412 = await wrapBlobsCasStore(
+    getStore({ ...base, fetch: wrapBlobsCasFetch(put(412, "")) }),
+    "cas-sdk-test",
+    { readConsistency: "strong" },
+  ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert("fetch guard maps HTTP 412 to conflict", g412.modified === false);
+
+  try {
+    await wrapBlobsCasStore(
+      getStore({ ...base, fetch: wrapBlobsCasFetch(put(403, "")) }),
+      "cas-sdk-test",
+      { readConsistency: "strong" },
+    ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+    fail("HTTP 403 should reject");
+  } catch (e) {
+    assert("fetch guard rejects HTTP 403", e.code === "blobs_http_error" && Number(e.statusCode) === 403, e.message);
+  }
+
+  const verified = await wrapBlobsCasStore(
+    getStore({ ...base, fetch: wrapBlobsCasFetch(put(200, "", { n: 1 }, '"got"')) }),
+    "cas-sdk-test",
+    { readConsistency: "strong" },
+  ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+  assert(
+    "2xx without ETag is verified by strong read of matching content",
+    verified.modified === true && verified.etag === '"got"',
+    JSON.stringify({ modified: verified.modified, etag: verified.etag }),
+  );
+
+  try {
+    await wrapBlobsCasStore(
+      getStore({ ...base, fetch: wrapBlobsCasFetch(put(200, "", { n: 99 }, '"other"')) }),
+      "cas-sdk-test",
+      { readConsistency: "strong" },
+    ).setJSON("k", { n: 1 }, { onlyIfMatch: '"old"' });
+    fail("unverified 2xx without ETag should not look like a conflict");
+  } catch (e) {
+    assert(
+      "2xx without ETag and mismatched content is uncertain, not a CAS retry",
+      e instanceof CasUncertain && e.code === "blobs_cas_uncertain" && Number(e.statusCode) === 503,
+      e && e.message,
+    );
+  }
+
+  try {
+    await wrapBlobsCasStore(probeOkAdapter(), "x").setJSON("k", { n: 1 }, { onlyIfMatch: undefined });
+    fail("missing ETag should refuse unconditional write");
+  } catch (e) {
+    assert(
+      "missing read ETag is refused before CAS",
+      e.code === "cas_conflict" && /missing ETag/i.test(e.message || ""),
+      e && e.message,
+    );
+  }
+}
+
+async function joinIdentityRetryTest() {
+  const inner = createMemoryCasStore();
+  let denied = 0;
+  let matchAttempts = 0;
+  const store = {
+    driver: "memory",
+    get: (...a) => inner.get(...a),
+    getWithMetadata: (...a) => inner.getWithMetadata(...a),
+    list: (...a) => inner.list(...a),
+    delete: (...a) => inner.delete(...a),
+    async setJSON(key, data, opts = {}) {
+      if (opts.onlyIfMatch && /^liverun:[A-Z0-9]+$/.test(String(key))) {
+        matchAttempts += 1;
+        if (denied < 1) {
+          denied += 1;
+          return { modified: false };
+        }
+      }
+      return inner.setJSON(key, data, opts);
+    },
+    set: (...a) => inner.set(...a),
+  };
+  const fixture = demoExperience();
+  setLiveTestHooks({
+    store,
+    loadExperience: async (slug) => (slug === fixture.experience.slug ? fixture.experience : null),
+    buildSnapshot: async () => fixture.snapshot,
+  });
+  try {
+    const created = await must(liveRun, event({ method: "POST", body: { slug: "live-demo" } }), operatorCtx);
+    const beforeJoin = matchAttempts;
+    const joined = await must(liveJoin, event({ method: "POST", body: { code: created.code } }));
+    const joinWrites = matchAttempts - beforeJoin;
+    const stored = await getLiveRun(created.code);
+    const ids = Object.keys(stored.participants || {});
+    const row = stored.participants[joined.participantId];
+    const resume = await must(
+      liveJoin,
+      event({ method: "POST", body: { code: created.code, participantId: joined.participantId, secret: joined.secret } }),
+    );
+    assert(
+      "CAS retry reuses the same join identity",
+      joinWrites >= 2 &&
+        denied === 1 &&
+        ids.length === 1 &&
+        ids[0] === joined.participantId &&
+        row &&
+        Number(row.number) === Number(joined.participantNumber) &&
+        String(row.secret) === String(joined.secret) &&
+        resume.participantId === joined.participantId &&
+        Number(resume.participantNumber) === Number(joined.participantNumber),
+      `joinWrites=${joinWrites} denied=${denied} count=${ids.length} acknowledged=${!!joined.participantId}`,
+    );
+  } finally {
+    setLiveTestHooks({});
+  }
+}
+
+function encodeBlobsContext(obj) {
+  return Buffer.from(JSON.stringify(obj)).toString("base64");
+}
+
+function blobsContextToken(token) {
+  return encodeBlobsContext({
+    siteID: "site-rot",
+    token,
+    edgeURL: "https://blobs-edge.example",
+    uncachedEdgeURL: "https://blobs-uncached.example",
+    deployID: "deploy-rot",
+  });
+}
+
+function tokenLabel(token) {
+  if (token === "token-env-stale") return "stale";
+  if (token === "token-global-fresh") return "fresh";
+  if (token === "token-global-next") return "next";
+  return "other";
+}
+
+async function blobsTokenRotationTests() {
+  await withEnv(
+    {
+      AWS_LAMBDA_FUNCTION_NAME: "live-run",
+      CONTEXT: "production",
+      NETLIFY_DEV: undefined,
+      RN_ISOLATED_QA: undefined,
+      LIVE_BLOB_STORE: undefined,
+      LIVE_STORE_DRIVER: undefined,
+      NETLIFY_BLOBS_CONTEXT: blobsContextToken("token-env-stale"),
+    },
+    async () => {
+      const prevGlobal = globalThis.netlifyBlobsContext;
+      const created = [];
+      try {
+        setLiveTestHooks({
+          getStore(opts) {
+            created.push(tokenLabel(opts.token));
+            return probeOkAdapter();
+          },
+        });
+
+        globalThis.netlifyBlobsContext = blobsContextToken("token-global-fresh");
+        const keyFresh = blobsClientScopeKey();
+        delete globalThis.netlifyBlobsContext;
+        const keyStaleEnv = blobsClientScopeKey();
+        globalThis.netlifyBlobsContext = blobsContextToken("token-global-fresh");
+        assert(
+          "scope key prefers globalThis.netlifyBlobsContext over stale NETLIFY_BLOBS_CONTEXT",
+          keyFresh !== keyStaleEnv,
+        );
+
+        resetRuntimeStores();
+        created.length = 0;
+        const liveName = liveStoreName();
+        await getRuntimeStore(liveName);
+        await getRuntimeStore("rngames-platform");
+        assert(
+          "stale env + fresh global uses the global token for live and platform clients",
+          created.length === 2 && created.every((label) => label === "fresh"),
+          `labels=${created.join(",")}`,
+        );
+
+        globalThis.netlifyBlobsContext = blobsContextToken("token-global-next");
+        await getRuntimeStore(liveName);
+        await getRuntimeStore("rngames-platform");
+        assert(
+          "token rotation recreates live and platform Blobs clients",
+          created.filter((label) => label === "fresh").length === 2 &&
+            created.filter((label) => label === "next").length === 2,
+          `labels=${created.join(",")}`,
+        );
+        const reused = created.length;
+        await getRuntimeStore(liveName);
+        await getRuntimeStore("rngames-platform");
+        assert("same token scope reuses cached clients", created.length === reused);
+
+        let releaseStale;
+        const holdStale = new Promise((resolve) => {
+          releaseStale = resolve;
+        });
+        let staleEntered;
+        const staleReady = new Promise((resolve) => {
+          staleEntered = resolve;
+        });
+        const adapters = [];
+        setLiveTestHooks({
+          getStore(opts) {
+            const label = tokenLabel(opts.token);
+            const inner = probeOkAdapter();
+            const rec = { label, writes: [] };
+            adapters.push(rec);
+            return {
+              async setJSON(key, data, writeOpts = {}) {
+                if (label === "stale") {
+                  staleEntered();
+                  await holdStale;
+                }
+                rec.writes.push(key);
+                return inner.setJSON(key, data, writeOpts);
+              },
+              getWithMetadata: (...a) => inner.getWithMetadata(...a),
+              get: (...a) => inner.get(...a),
+              delete: (...a) => inner.delete(...a),
+            };
+          },
+        });
+
+        globalThis.netlifyBlobsContext = blobsContextToken("token-env-stale");
+        const stalePending = getRuntimeStore(liveName);
+        await staleReady;
+        globalThis.netlifyBlobsContext = blobsContextToken("token-global-next");
+        const nextStore = await getRuntimeStore(liveName);
+        releaseStale();
+        await stalePending;
+        const afterRotate = await getRuntimeStore(liveName);
+        await afterRotate.setJSON("whoami", { ok: true }, { onlyIfNew: true });
+        const staleWrites = adapters.filter((a) => a.label === "stale").flatMap((a) => a.writes);
+        const nextWrites = adapters.filter((a) => a.label === "next").flatMap((a) => a.writes);
+        assert(
+          "in-flight stale probe cannot overwrite the rotated client cache",
+          nextWrites.includes("whoami") && !staleWrites.includes("whoami"),
+          `stale=${staleWrites.length} next=${nextWrites.length}`,
+        );
+      } finally {
+        if (prevGlobal === undefined) delete globalThis.netlifyBlobsContext;
+        else globalThis.netlifyBlobsContext = prevGlobal;
+        setLiveTestHooks({});
+      }
+    },
   );
 }
 
@@ -474,6 +795,7 @@ async function hostedRuntimeTests() {
     },
   );
 
+  await blobsTokenRotationTests();
   await nativeRuntimeAuthTests();
   nodeEngineTests();
 }
@@ -913,8 +1235,8 @@ function demoExperience() {
         id: "m-fill",
         gameType: "fill-game",
         teams: [
-          { id: "team-a", name: "A", target: 20 },
-          { id: "team-b", name: "B", target: 20 },
+          { id: "team-a", name: "Lager", target: 20, colorHex: "#c4a35a" },
+          { id: "team-b", name: "Stout", target: 20, colorHex: "#2b2118" },
         ],
         questions: [
           {
@@ -1309,6 +1631,13 @@ async function fullFlow() {
       }),
     )
   ).state;
+  assert(
+    "fill phone projection uses configured team name and colour",
+    (fillState.me?.teamName === "Lager" || fillState.me?.teamName === "Stout") &&
+      (fillState.me?.teamColorHex === "#c4a35a" || fillState.me?.teamColorHex === "#2b2118") &&
+      fillState.me?.teamName !== fillState.me?.teamId,
+    `teamName=${fillState.me?.teamName} teamId=${fillState.me?.teamId} hex=${fillState.me?.teamColorHex}`,
+  );
   const fillAnswers = await Promise.all(
     joins.slice(0, 6).map((j) => act(j, "answer", { questionId: fixture.fillQ, choiceId: fixture.fillC1, state: fillState })),
   );
@@ -1374,8 +1703,19 @@ async function fullFlow() {
   assert("moderator projection keeps pinboard text literal", note?.text === xss, `text=${note?.text}`);
 
   await control("next"); // wheel
+  const agedIso = new Date(Date.now() - 120_000).toISOString();
+  await updateLiveRun(code, (current) => {
+    for (const p of Object.values(current.participants || {})) p.lastSeen = agedIso;
+    return current;
+  });
+  await Promise.all(joins.map((j) => writePresence(code, j.participantId)));
   const spin = await control("spin");
   assert("wheel spin reserves a prize", spin.result?.winnerNumber != null || spin.state?.activity?.winnerNumber != null);
+  const storedAfterSpin = await getLiveRun(code);
+  assert(
+    "command presence does not overwrite stored lastSeen",
+    Object.values(storedAfterSpin.participants || {}).every((p) => p.lastSeen === agedIso),
+  );
   const spinning = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
   const spinToken = spinning.state.viewToken;
   const storedRevAtSpin = (await getLiveRun(code)).revision;
@@ -1751,6 +2091,46 @@ async function guardAndSeedTests() {
       /coverSrc/.test(scratchSrc) &&
       /coverReady/.test(scratchSrc),
   );
+  assert(
+    "live scratcher wipes with round-cap strokes, pointer capture lifecycle, and throttled sampling",
+    /lineCap = "round"/.test(scratchSrc) &&
+      /lineJoin = "round"/.test(scratchSrc) &&
+      /lastPoint/.test(scratchSrc) &&
+      /pointerup/.test(scratchSrc) &&
+      /pointercancel/.test(scratchSrc) &&
+      /requestAnimationFrame/.test(scratchSrc) &&
+      !/e\.buttons/.test(scratchSrc.replace(/pointerleave[\s\S]*e\.buttons === 0/, "")),
+  );
+  const joinSrc = readFileSync(new URL("../packages/player/src/live/join.ts", import.meta.url), "utf8");
+  assert(
+    "fill phone renders configured teamName/colour and keeps scratch canvas across polls",
+    /teamNameHtml/.test(joinSrc) &&
+      /teamColorHex/.test(joinSrc) &&
+      /lastTicketKey === key && scratchHandle && root\.querySelector\("#scratch-host"\)/.test(joinSrc) &&
+      !/replaceChildren\(shell\);\s*\n\s*const key =/.test(joinSrc),
+  );
+  const wheelSrc = readFileSync(new URL("../packages/player/src/live/wheel-draw.ts", import.meta.url), "utf8");
+  const n1 = wheelSrc.indexOf("if (n === 1)");
+  const n1Return = wheelSrc.indexOf("return { angle, number: pool[0]", n1);
+  const hub = wheelSrc.indexOf("r * 0.16");
+  assert(
+    "single-player wheel paints the number and skips the hub drawn afterwards",
+    n1 >= 0 && n1Return > n1 && hub > n1Return && /fillText\(labelFor/.test(wheelSrc),
+  );
+  const themeSrc = readFileSync(new URL("../packages/player/src/live/theme.ts", import.meta.url), "utf8");
+  assert(
+    "Presenter live-logo box is 160–200px and layout vars include logo sizing",
+    /"--live-logo-width"/.test(themeSrc) &&
+      /"--live-logo-max-height"/.test(themeSrc) &&
+      /setProperty\("--live-logo-width", "184px"\)/.test(themeSrc) &&
+      /setProperty\("--live-logo-max-height", "168px"\)/.test(themeSrc),
+  );
+  const runtimeSrc = readFileSync(new URL("../netlify/functions/lib/blob-runtime.mjs", import.meta.url), "utf8");
+  assert(
+    "Blobs context matches SDK precedence: globalThis.netlifyBlobsContext before env",
+    /globalThis\.netlifyBlobsContext \|\| process\.env\.NETLIFY_BLOBS_CONTEXT/.test(runtimeSrc) &&
+      /blobsStoresByScope/.test(runtimeSrc),
+  );
   const liveCss = readFileSync(new URL("../packages/player/src/css/live.css", import.meta.url), "utf8");
   assert(
     "presenter option labels use a room-scale clamp above 1.35rem",
@@ -1761,6 +2141,14 @@ async function guardAndSeedTests() {
     /#live-main\s*\{[^}]*display:\s*flex/s.test(liveCss) && /#live-main\s*\{[^}]*flex:\s*1/s.test(liveCss),
   );
   assert("live option cards use border-box so DIV padding stays in-track", /html \*,[\s\S]*box-sizing:\s*border-box/.test(liveCss) && /min-width:\s*0/.test(liveCss));
+  assert(
+    "live-logo width is a CSS variable with object-fit contain so enlarging the box enlarges the mark",
+    /width:\s*var\(--live-logo-width/.test(liveCss) && /object-fit:\s*contain/.test(liveCss),
+  );
+  assert(
+    "live scratch canvas CSS is transparent so destination-out shows the under-image",
+    /live-scratch-stage canvas[\s\S]*background:\s*transparent/.test(liveCss),
+  );
   const renderSrc = readFileSync(new URL("../packages/player/src/live/render.ts", import.meta.url), "utf8");
   assert(
     "Presenter poll cards are DIV .live-option, not buttons",
@@ -1826,6 +2214,8 @@ async function main() {
   }
 
   await blobsAdapterBoundaryTests();
+  await sdkInjectedFetchCasTests();
+  await joinIdentityRetryTest();
   await hostedRuntimeTests();
   await hostedBundleTests();
   await isolatedCasJoin();

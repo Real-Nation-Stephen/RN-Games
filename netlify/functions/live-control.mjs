@@ -1,6 +1,6 @@
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
-import { getLiveRunWithRetry, secretsEqual, updateLiveRun } from "./lib/live-store.mjs";
+import { getLiveRunWithRetry, hydrateLiveRun, readPresenceMap, secretsEqual, updateLiveRun } from "./lib/live-store.mjs";
 import { applyControl, projectRun } from "./lib/live-run.mjs";
 
 const headers = {
@@ -38,18 +38,20 @@ export async function lambdaHandler(event) {
     }
 
     let result = {};
-    const run = await updateLiveRun(code, (current) => {
-      result = applyControl(current, action, body);
+    const presenceById = await readPresenceMap(code, Object.keys(existing.participants || {}));
+    await updateLiveRun(code, (current) => {
+      result = applyControl(current, action, body, presenceById);
       if (result?.duplicate) return null;
       return current;
     });
+    const hydrated = (await hydrateLiveRun(code)) || existing;
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         result,
-        state: projectRun(run, "moderator", null),
+        state: projectRun(hydrated, "moderator", null),
       }),
     };
   } catch (e) {

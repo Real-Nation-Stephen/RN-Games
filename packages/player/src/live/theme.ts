@@ -19,6 +19,8 @@ const LAYOUT_VARS = [
   "--live-heading-size",
   "--live-body-size",
   "--live-option-size",
+  "--live-logo-width",
+  "--live-logo-max-height",
 ];
 
 function asStr(v: unknown, fallback = ""): string {
@@ -61,6 +63,13 @@ function applyLiveLayout(pane: LivePaneLayout, surface: "phone" | "presenter") {
   root.setProperty("--live-max", `${pane.contentMaxWidthPx}px`);
   if (pane.headingSizePx > 0) root.setProperty("--live-heading-size", `${pane.headingSizePx}px`);
   if (pane.bodySizePx > 0) root.setProperty("--live-body-size", `${pane.bodySizePx}px`);
+  if (surface === "presenter") {
+    root.setProperty("--live-logo-width", "184px");
+    root.setProperty("--live-logo-max-height", "168px");
+  } else {
+    root.setProperty("--live-logo-width", "112px");
+    root.setProperty("--live-logo-max-height", "88px");
+  }
   document.body.dataset.liveSurface = surface;
   document.querySelectorAll(".live-stage").forEach((el) => {
     (el as HTMLElement).dataset.surface = surface;

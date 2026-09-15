@@ -20,6 +20,8 @@
   --live-pad-bottom: 96px;
   --live-gap: 20px;
   --live-max: 1100px;
+  --live-logo-width: 180px;
+  --live-logo-max-height: 160px;
 }
 
 html,
@@ -99,9 +101,20 @@ html *::after {
 }
 
 .live-logo {
-  max-height: 72px;
-  max-width: min(42vw, 280px);
+  display: block;
+  width: var(--live-logo-width, 180px);
+  height: auto;
+  max-width: min(42vw, 100%);
+  max-height: min(22vh, var(--live-logo-max-height, 160px));
   object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
+}
+
+body[data-live-surface="phone"] .live-logo,
+.live-phone-chrome .live-logo {
+  width: var(--live-logo-width, 112px);
+  max-height: min(18vh, var(--live-logo-max-height, 88px));
 }
 
 .live-kicker {
@@ -476,21 +489,24 @@ html *::after {
 .live-scratch-stage canvas {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   touch-action: none;
   border-radius: 12px;
-  background: #1c2836;
+  background: transparent;
 }
 
 .live-scratch-under {
   position: absolute;
   inset: 0;
+  z-index: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
   overflow: hidden;
+  background: transparent;
 }
 
 .live-scratch-under img {

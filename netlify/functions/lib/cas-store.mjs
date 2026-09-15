@@ -2,12 +2,20 @@
  * Compare-and-set JSON store used by live runs.
  * Memory and file drivers honor onlyIfMatch / onlyIfNew.
  * Blobs driver requires the installed @netlify/blobs conditional-write API.
+ *
+ * Installed SDK setJSON treats every non-412 (including 409 and 403) as
+ * `{ modified: true, etag: "" }`. wrapBlobsCasFetch is the supported custom
+ * `getStore({ fetch })` boundary that maps 409/412 to conflicts and rejects
+ * other non-2xx before that branch can acknowledge a lost write.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const blobsCasWriteContext = new AsyncLocalStorage();
 
 export class CasConflict extends Error {
   constructor(message = "Write conflict") {
@@ -15,6 +23,15 @@ export class CasConflict extends Error {
     this.name = "CasConflict";
     this.code = "cas_conflict";
     this.statusCode = 409;
+  }
+}
+
+export class CasUncertain extends Error {
+  constructor(message = "Conditional Blobs write is uncertain") {
+    super(message);
+    this.name = "CasUncertain";
+    this.code = "blobs_cas_uncertain";
+    this.statusCode = 503;
   }
 }
 
@@ -235,28 +252,151 @@ function isPreconditionFailed(err) {
   return /412|precondition|if-match|onlyifmatch|not modified/i.test(msg);
 }
 
+function headerMap(headers) {
+  const out = {};
+  if (!headers) return out;
+  if (typeof headers.forEach === "function") {
+    headers.forEach((value, key) => {
+      out[String(key).toLowerCase()] = String(value);
+    });
+    return out;
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    out[String(key).toLowerCase()] = String(value);
+  }
+  return out;
+}
+
+function hasEtag(value) {
+  return typeof value === "string" && !!value.trim();
+}
+
+export function assertConditionalWriteOpts(opts = {}) {
+  if (Object.prototype.hasOwnProperty.call(opts, "onlyIfMatch") && !hasEtag(opts.onlyIfMatch)) {
+    throw new CasConflict("Conditional write refused: missing ETag");
+  }
+}
+
 function blobsWriteOpts({ onlyIfMatch, onlyIfNew, metadata } = {}) {
   const opts = {};
   if (metadata) opts.metadata = metadata;
-  if (onlyIfMatch) opts.onlyIfMatch = onlyIfMatch;
+  if (hasEtag(onlyIfMatch)) opts.onlyIfMatch = onlyIfMatch;
   else if (onlyIfNew) opts.onlyIfNew = true;
   return opts;
 }
 
+function blobsHttpError(status) {
+  const err = new Error(`Netlify Blobs write failed with HTTP ${status}`);
+  err.statusCode = status;
+  err.code = "blobs_http_error";
+  return err;
+}
+
+/**
+ * Supported `getStore({ fetch })` interceptor. The SDK's conditional setJSON
+ * branch treats every non-412 as success, including HTTP 409/403 with an empty
+ * ETag. Rewrite 409/412 to 412, require an ETag on 2xx conditional writes, and
+ * reject other non-2xx so they cannot be acknowledged as modified:true.
+ */
+export function wrapBlobsCasFetch(fetchImpl) {
+  const base = fetchImpl || globalThis.fetch.bind(globalThis);
+  return async function blobsCasFetch(input, init = {}) {
+    const res = await base(input, init);
+    const method = String(init?.method || "GET").toUpperCase();
+    if (method !== "PUT") return res;
+    const status = Number(res.status);
+    const etag = String(res.headers.get("etag") || "").trim();
+    const headers = headerMap(init?.headers);
+    const conditional = !!(headers["if-match"] || headers["if-none-match"]);
+    const ctx = blobsCasWriteContext.getStore();
+    if (ctx) {
+      ctx.httpStatus = status;
+      ctx.etag = etag;
+      ctx.conditional = conditional;
+    }
+    if (status === 409 || status === 412) {
+      return new Response(null, {
+        status: 412,
+        statusText: "Precondition Failed",
+        headers: res.headers,
+      });
+    }
+    if (status >= 200 && status < 300) {
+      if (ctx && conditional && !etag) ctx.missingEtag = true;
+      return res;
+    }
+    if (ctx) {
+      ctx.reject = true;
+      return new Response(null, { status: 412, statusText: "Precondition Failed" });
+    }
+    throw blobsHttpError(status);
+  };
+}
+
+function jsonEqual(a, b) {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function blobsUncertain(detail) {
+  return new CasUncertain(
+    detail || "Conditional Blobs write returned no ETag; stored content could not be verified",
+  );
+}
+
+async function confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency) {
+  const conditional = !!(opts.onlyIfMatch || opts.onlyIfNew);
+  if (!conditional) return result;
+  if (result?.modified === true && hasEtag(result.etag)) return result;
+  if (result?.modified !== true) return result;
+
+  const metaOpts = { consistency: readConsistency || undefined };
+  if (method === "setJSON") {
+    const got = await blobs.getWithMetadata(key, { type: "json", ...metaOpts });
+    if (got?.data != null && jsonEqual(got.data, data) && hasEtag(got.etag)) {
+      return { modified: true, etag: got.etag };
+    }
+    throw blobsUncertain();
+  }
+  const got = await blobs.getWithMetadata(key, { type: "arrayBuffer", ...metaOpts });
+  const wrote = asBuffer(data);
+  const have = got?.data ? asBuffer(got.data) : null;
+  if (wrote && have && Buffer.from(wrote).equals(Buffer.from(have)) && hasEtag(got.etag)) {
+    return { modified: true, etag: got.etag };
+  }
+  throw blobsUncertain();
+}
+
 async function blobsConditionalWrite(write, { onlyIfMatch, onlyIfNew } = {}) {
+  const conditional = !!(onlyIfMatch || onlyIfNew);
   try {
     const result = await write();
     if (result && typeof result.modified === "boolean") return result;
-    if (onlyIfMatch || onlyIfNew) {
+    if (conditional) {
       throw new Error("Netlify Blobs did not return a conditional-write result");
     }
     return { modified: true, etag: result?.etag };
   } catch (e) {
-    if ((onlyIfMatch || onlyIfNew) && isPreconditionFailed(e)) {
+    if (e instanceof CasUncertain) throw e;
+    if (conditional && isPreconditionFailed(e)) {
       return { modified: false };
     }
     throw e;
   }
+}
+
+async function runBlobsWrite(blobs, method, key, data, opts = {}, readConsistency) {
+  assertConditionalWriteOpts(opts);
+  const writeOpts = blobsWriteOpts(opts);
+  const ctx = { httpStatus: 0, reject: false, missingEtag: false };
+  return blobsCasWriteContext.run(ctx, async () => {
+    const result = await blobsConditionalWrite(() => blobs[method](key, data, writeOpts), opts);
+    if (ctx.reject) throw blobsHttpError(ctx.httpStatus || 502);
+    return confirmConditionalAck(blobs, method, key, data, result, opts, readConsistency);
+  });
 }
 
 /**
@@ -280,18 +420,16 @@ export function wrapBlobsCasStore(blobs, name, { readConsistency } = {}) {
       return blobs.getWithMetadata(key, withReadConsistency(opts));
     },
     async setJSON(key, data, opts = {}) {
-      const writeOpts = blobsWriteOpts(opts);
-      return blobsConditionalWrite(() => blobs.setJSON(key, data, writeOpts), opts);
+      return runBlobsWrite(blobs, "setJSON", key, data, opts, readConsistency);
     },
     async set(key, data, opts = {}) {
-      const writeOpts = blobsWriteOpts(opts);
-      return blobsConditionalWrite(() => blobs.set(key, data, writeOpts), opts);
+      return runBlobsWrite(blobs, "set", key, data, opts, readConsistency);
     },
     async delete(key) {
       if (typeof blobs.delete === "function") await blobs.delete(key);
     },
     async list(opts) {
-      if (typeof blobs.list === "function") return blobs.list(opts);
+      if (typeof blobs.list === "function") return blobs.list(withReadConsistency(opts));
       return { blobs: [], directories: [] };
     },
   };

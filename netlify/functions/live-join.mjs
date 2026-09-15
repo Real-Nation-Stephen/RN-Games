@@ -39,7 +39,7 @@ export async function lambdaHandler(event) {
 
     let joined = null;
     const run = await updateLiveRun(code, (current) => {
-      joined = joinParticipant(current, body.participantId || "", body.secret || "");
+      joined = joinParticipant(current, body.participantId || "", body.secret || "", joined);
       heartbeat(current, joined.id);
       return current;
     });

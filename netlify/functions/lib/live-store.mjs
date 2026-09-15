@@ -1,7 +1,5 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import {
-  CasConflict,
-} from "./cas-store.mjs";
+import { CasConflict } from "./cas-store.mjs";
 import {
   assertStorageAllowed,
   getRuntimeStore,
@@ -15,7 +13,7 @@ const PREFIX = "liverun:";
 const ACTIVE_PREFIX = "liverun-active:";
 const MEDIA_PREFIX = "liverun-media:";
 const PRESENCE_PREFIX = "liverun-seen:";
-const MAX_RETRIES = 24;
+const MAX_RETRIES = 32;
 
 export function setLiveTestHooks(next = {}) {
   globalThis.__RN_LIVE_TEST__ = next;
@@ -50,6 +48,10 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function retryDelay(i) {
+  return Math.min(250, 8 * 2 ** Math.min(i, 5)) + Math.floor(Math.random() * 24);
+}
+
 export function isProductionNetlifyContext() {
   return hostedRemoteContext();
 }
@@ -82,6 +84,18 @@ function presenceKey(code, participantId) {
   return `${PRESENCE_PREFIX}${String(code || "").trim().toUpperCase()}:${participantId}`;
 }
 
+export async function readPresenceMap(code, participantIds = []) {
+  const st = await liveCasStore();
+  const map = {};
+  await Promise.all(
+    participantIds.map(async (id) => {
+      const row = await st.get(presenceKey(code, id), { type: "json" });
+      if (row?.at) map[id] = row.at;
+    }),
+  );
+  return map;
+}
+
 export async function getLiveRun(code) {
   const st = await liveCasStore();
   return st.get(runKey(code), { type: "json" });
@@ -104,6 +118,8 @@ export async function getLiveRunRecord(code) {
 /**
  * Atomic read-modify-write. Mutator returning null skips the write.
  * Success is only acknowledged when the store accepts the conditional put.
+ * Missing read ETags are refused so `onlyIfMatch: undefined` cannot become an
+ * unconditional overwrite.
  */
 export async function updateLiveRun(code, mutator) {
   const norm = String(code || "").trim().toUpperCase();
@@ -113,6 +129,9 @@ export async function updateLiveRun(code, mutator) {
     const st = await liveCasStore();
     const got = await st.getWithMetadata(key, { type: "json" });
     if (!got?.data) throw Object.assign(new Error("Run not found"), { statusCode: 404 });
+    if (!got.etag) {
+      throw new CasConflict("live run read missing ETag");
+    }
     const current = JSON.parse(JSON.stringify(got.data));
     const expected = Number(current.revision || 0);
     const next = await mutator(current);
@@ -122,7 +141,7 @@ export async function updateLiveRun(code, mutator) {
     const written = await st.setJSON(key, next, { onlyIfMatch: got.etag });
     if (written?.modified) return next;
     lastErr = new CasConflict("live run write conflict");
-    await sleep(8 + Math.floor(Math.random() * 24));
+    await sleep(retryDelay(i));
   }
   throw lastErr || new CasConflict("live run update failed");
 }
@@ -173,11 +192,14 @@ export async function setActiveRunCode(experienceId, code, { expectedCode } = {}
         throw new CasConflict("Active run pointer changed");
       }
     }
+    if (got?.data && !got.etag) {
+      throw new CasConflict("active pointer read missing ETag");
+    }
     const written = got?.etag
       ? await st.setJSON(key, next, { onlyIfMatch: got.etag })
       : await st.setJSON(key, next, { onlyIfNew: true });
     if (written?.modified) return next;
-    await sleep(8 + Math.floor(Math.random() * 20));
+    await sleep(retryDelay(i));
   }
   throw new CasConflict("Could not update active run pointer");
 }
