@@ -84,7 +84,7 @@ function renderPollPhone(cfg: AnyRec, phase: string): HTMLElement {
 }
 
 function renderFillPhone(cfg: AnyRec, phase: string): HTMLElement {
-  const q = ((cfg.questions || []) as AnyRec[])[0] || {};
+  const q = ((cfg.questions || []) as AnyRec[]).find((q) => q.enabled !== false) || {};
   if (phase === "finished") {
     return phoneShell(`<h1 class="live-headline">Race over</h1><p class="live-body">Preview only — no scores were recorded.</p>`);
   }

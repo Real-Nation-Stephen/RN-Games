@@ -437,6 +437,7 @@ function normFillQuestion(raw) {
   return {
     id: String(src.id || newId()),
     prompt: String(src.prompt || "Question?"),
+    enabled: src.enabled !== false,
     choices,
     correctChoiceId: correct,
   };
@@ -476,7 +477,7 @@ export function toPublicFillGame(doc) {
   const n = normalizeFillGameRecord(doc);
   return {
     ...n,
-    questions: n.questions.map((q) => ({
+    questions: n.questions.filter((q) => q.enabled !== false).map((q) => ({
       id: q.id,
       prompt: q.prompt,
       choices: q.choices,

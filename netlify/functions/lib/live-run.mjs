@@ -598,6 +598,7 @@ export async function buildSnapshot(experience) {
       configs[step.id] = normalizeMiniPollRecord(raw);
     } else if (step.moduleType === "fill-game") {
       const full = normalizeFillGameRecord(raw);
+      full.questions = full.questions.filter((q) => q.enabled !== false);
       configs[step.id] = full;
       secrets[step.id] = { questions: full.questions };
     } else if (step.moduleType === "mini-quiz") {

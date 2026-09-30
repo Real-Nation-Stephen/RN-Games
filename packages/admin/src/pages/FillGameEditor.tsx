@@ -373,8 +373,13 @@ export default function FillGameEditor() {
             Add question
           </button>
         </div>
+        <p className="muted">{doc.questions.filter((q) => q.enabled !== false).length} active of {doc.questions.length} questions. Inactive questions stay in the editor and are excluded from new live runs.</p>
         {doc.questions.map((q, qi) => (
           <div key={q.id} className="card" style={{ marginTop: 8 }}>
+            <label className="field">
+              <input type="checkbox" checked={q.enabled !== false} onChange={(e) => patch((d) => ({ ...d, questions: d.questions.map((x) => x.id === q.id ? { ...x, enabled: e.target.checked } : x) }))} />
+              Include question {qi + 1} in live rounds
+            </label>
             <label className="field">
               Prompt
               <input

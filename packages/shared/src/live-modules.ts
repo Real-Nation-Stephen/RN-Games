@@ -358,6 +358,8 @@ export interface FillGameQuestionChoice {
 }
 
 export interface FillGameQuestion {
+  /** Inactive editorial placeholders are excluded when a live run starts. */
+  enabled?: boolean;
   id: string;
   prompt: string;
   choices: FillGameQuestionChoice[];
@@ -491,6 +493,7 @@ function normalizeFillQuestion(raw: unknown): FillGameQuestion | null {
   return {
     id: typeof src.id === "string" && src.id ? src.id : newId(),
     prompt: typeof src.prompt === "string" ? src.prompt : "Question?",
+    enabled: src.enabled !== false,
     choices,
     correctChoiceId: correct,
   };
@@ -541,6 +544,6 @@ export function toPublicFillGame(doc: FillGameRecord): Omit<FillGameRecord, "que
   const n = normalizeFillGame(doc);
   return {
     ...n,
-    questions: n.questions.map(({ correctChoiceId: _c, ...q }) => q),
+    questions: n.questions.filter((q) => q.enabled !== false).map(({ correctChoiceId: _c, ...q }) => q),
   };
 }
