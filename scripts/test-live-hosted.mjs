@@ -48,6 +48,8 @@ async function req(path,body){
    let raw='';res.setEncoding('utf8');res.on('data',chunk=>raw+=chunk);res.on('end',()=>{let data;try{data=JSON.parse(raw)}catch{data={error:'Non-JSON response'}}resolve({status:res.statusCode,data,ms:Math.round(performance.now()-start)});});
    res.on('error',e=>resolve({status:0,data:{error:e.code||e.message},ms:Math.round(performance.now()-start)}));
   });
+  const deadline=setTimeout(()=>request.destroy(new Error('Request deadline exceeded')),65000);
+  request.on('close',()=>clearTimeout(deadline));
   request.setTimeout(65000,()=>request.destroy(new Error('Request timed out')));
   request.on('error',e=>resolve({status:0,data:{error:e.code||e.message},ms:Math.round(performance.now()-start)}));
   request.end(payload);
@@ -81,11 +83,11 @@ try{
  if(postgres){
   let polling=true;const pollResults=[];
   const loops=joins.map(async j=>{while(polling){pollResults.push(await req('/api/live-run?'+new URLSearchParams({code,role:'participant',...j})));await new Promise(r=>setTimeout(r,1000));}});
-  try{for(const q of pack.modules.find(m=>m.gameType==='fill-game').questions.slice(1,6)){const a=await burst('Race '+q.prompt.slice(0,35)+' with 150 polling phones',joins.map(j=>req('/api/live-action',{code,...j,action:'answer',...attempt(start),questionId:q.id,choiceId:q.correctChoiceId,commandId:randomUUID()})));a.forEach(must);await new Promise(r=>setTimeout(r,1000));}
+  try{for(const q of pack.modules.find(m=>m.gameType==='fill-game').questions.slice(1)){const a=await burst('Race '+q.prompt.slice(0,35)+' with 150 polling phones',joins.map(j=>req('/api/live-action',{code,...j,action:'answer',...attempt(start),questionId:q.id,choiceId:q.correctChoiceId,commandId:randomUUID()})));a.forEach(must);await new Promise(r=>setTimeout(r,1000));}
   const hearts=await burst('150 heartbeats during polling',joins.map(j=>req('/api/live-action',{code,...j,action:'heartbeat'})));hearts.forEach(must);
   }finally{polling=false;await Promise.all(loops);}
   await burst('Sustained phone polling',pollResults.map(r=>Promise.resolve(r)));pollResults.forEach(must);
-  const final=await readRun();assert.equal(Object.keys(final.node.answered).length,900);assert.equal(Object.values(final.node.scores).reduce((a,b)=>a+b,0),900);
+  const final=await readRun();assert.equal(Object.keys(final.node.answered).length,150*questionCount);assert.equal(Object.values(final.node.scores).reduce((a,b)=>a+b,0),150*questionCount);
  }
  await control('finish');await control('next');
  const pin=must(await req('/api/live-run?code='+code)).state;

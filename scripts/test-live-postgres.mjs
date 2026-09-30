@@ -31,13 +31,17 @@ try{
  applyControl(fill,'open');fill.revision++;assert.ok((await updatePostgresRun(code,fill,fill.revision-1)).modified);
  const payload={...attempt(fill),questionId:'q0',choiceId:'yes',commandId:randomUUID()};
  const first=await postgresAction(code,'answer',p.id,p.secret,payload);
+ await assert.rejects(postgresAction(code,'answer',players[1].id,players[1].secret,payload),/another action/);
  const duplicate=await postgresAction(code,'answer',p.id,p.secret,payload);assert.equal(duplicate.result.duplicate,true);assert.equal(duplicate.result.eventId,first.result.eventId);
  await Promise.all(players.slice(1).map(p=>postgresAction(code,'answer',p.id,p.secret,{...payload,commandId:randomUUID()})));
  let state=await read();assert.equal(Object.keys(state.node.answered).length,150);assert.equal(Object.values(state.node.scores).reduce((a,b)=>a+b,0),150);
  assert.equal(state.node.lastFeedback[p.id].correct,true);assert.equal(state.node.cursors[p.id],1);
  await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...payload,commandId:randomUUID()}),/Stale question/);
  const staleUpdate=structuredClone(fill);staleUpdate.revision++;assert.equal((await updatePostgresRun(code,staleUpdate,fill.revision)).modified,false);
- console.log('PASS 150 race scores, idempotency, feedback, cursor and stale moderator CAS');
+ const receipts=await(await getDb()).pool.query('SELECT count(*)::int AS count FROM rn_live_commands_v1 WHERE code=$1',[code.toUpperCase()]);
+ assert.equal(receipts.rows[0].count,300);
+ assert.ok(Object.keys((await read()).commandLog).length<20,'Fast command receipts must stay outside the shared room');
+ console.log('PASS 150 race scores, idempotency, feedback, cursor, compact state and stale moderator CAS');
  // Compare the exact gameplay result/state changes against the established JS engine.
  const before=await read();const js=structuredClone(before);const input={...attempt(before),questionId:'q1',choiceId:'no'};const expected=applyParticipantAction(js,p.id,'answer',input);const actual=await postgresAction(code,'answer',p.id,p.secret,input);
  assert.equal(actual.result.correct,expected.correct);assert.equal(actual.result.delta,expected.delta);assert.deepEqual(actual.result.nextQuestion,{...expected.nextQuestion});assert.deepEqual(actual.run.node.scores,js.node.scores);assert.deepEqual(actual.run.node.cursors,js.node.cursors);
