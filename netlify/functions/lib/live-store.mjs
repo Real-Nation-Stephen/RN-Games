@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { CasConflict, CasUncertain } from "./cas-store.mjs";
+import { postgresLiveEnabled, readPostgresRun, createPostgresRun, updatePostgresRun, postgresPresence, writePostgresPresence } from './live-postgres.mjs';
 import {
   assertStorageAllowed,
   getRuntimeStore,
@@ -88,6 +89,10 @@ function presenceKey(code, participantId) {
 }
 
 export async function readPresenceMap(code, participantIds = []) {
+  if (postgresLiveEnabled()) {
+    const records = await postgresPresence(code);
+    if (records) return Object.fromEntries(Object.entries(records).map(([id, row]) => [id, row.at]));
+  }
   const st = await liveCasStore();
   const map = {};
   await Promise.all(
@@ -100,6 +105,10 @@ export async function readPresenceMap(code, participantIds = []) {
 }
 
 export async function getLiveRun(code) {
+  if (postgresLiveEnabled()) {
+    const row = await readPostgresRun(code);
+    if (row) return row.data;
+  }
   const st = await liveCasStore();
   return st.get(runKey(code), { type: "json" });
 }
@@ -114,6 +123,10 @@ export async function getLiveRunWithRetry(code) {
 }
 
 export async function getLiveRunRecord(code) {
+  if (postgresLiveEnabled()) {
+    const row = await readPostgresRun(code);
+    if (row) return row;
+  }
   const st = await liveCasStore();
   return st.getWithMetadata(runKey(code), { type: "json" });
 }
@@ -129,8 +142,7 @@ export async function updateLiveRun(code, mutator) {
   const key = runKey(norm);
   let lastErr = null;
   for (let i = 0; i < MAX_RETRIES; i++) {
-    const st = await liveCasStore();
-    const got = await st.getWithMetadata(key, { type: "json" });
+    const got = await getLiveRunRecord(norm);
     if (!got?.data) throw Object.assign(new Error("Run not found"), { statusCode: 404 });
     if (!got.etag) {
       throw new CasConflict("live run read missing ETag");
@@ -143,7 +155,9 @@ export async function updateLiveRun(code, mutator) {
     next.updatedAt = nowIso();
     let written;
     try {
-      written = await st.setJSON(key, next, { onlyIfMatch: got.etag });
+      written = got.storageBackend === 'postgres-v1'
+        ? await updatePostgresRun(norm, next, got.etag)
+        : await (await liveCasStore()).setJSON(key, next, { onlyIfMatch: got.etag });
     } catch (e) {
       // An uncertain write must never be replayed. A known lock/CAS conflict
       // did not write anything, so retry from a fresh authoritative read.
@@ -161,6 +175,11 @@ export async function updateLiveRun(code, mutator) {
 }
 
 export async function createLiveRunRecord(code, data) {
+  if (postgresLiveEnabled()) {
+    const written = await createPostgresRun(code, data);
+    if (!written.modified) throw new CasConflict('Live run code already exists');
+    return { ...data, storageBackend: 'postgres-v1', readinessRequired: true };
+  }
   const st = await liveCasStore();
   const key = runKey(code);
   const written = await st.setJSON(key, data, { onlyIfNew: true });
@@ -234,13 +253,21 @@ export async function getLiveMedia(runId, mediaId) {
   return st.get(mediaKey(runId, mediaId), { type: "json" });
 }
 
-export async function writePresence(code, participantId) {
+export async function writePresence(code, participantId, readyAttempt = null) {
+  if (postgresLiveEnabled() && await writePostgresPresence(code, participantId, readyAttempt)) return;
   const st = await liveCasStore();
   await st.setJSON(presenceKey(code, participantId), { at: nowIso() });
 }
 
 export async function applyPresence(run) {
   if (!run?.participants) return run;
+  if (run.storageBackend === 'postgres-v1') {
+    const records = await postgresPresence(run.code);
+    for (const [id, row] of Object.entries(records || {})) {
+      if (run.participants[id]) Object.assign(run.participants[id], {lastSeen: row.at, readyAttempt: row.readyAttempt});
+    }
+    return run;
+  }
   const st = await liveCasStore();
   const ids = Object.keys(run.participants);
   await Promise.all(

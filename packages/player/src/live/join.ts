@@ -48,6 +48,7 @@ let lastState: AnyRec | null = null;
 let lastPhoneScene = "";
 let phoneWheelRaf = 0;
 let phoneEnterTimer = 0;
+let readyAttempt = '';
 
 function cancelPhoneWheel() {
   cancelAnimationFrame(phoneWheelRaf);
@@ -163,6 +164,12 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
   if (lastState?.runId === state.runId && Number(state.revision) < Number(lastState.revision)) return;
   state = timedFillState(state);
   lastState = state;
+  const readiness = activityOf(state);
+  const readyKey = `${state.runId}:${state.roundAttemptId}`;
+  if (readiness.kind === 'fill-game' && readiness.readinessRequired && readyAttempt !== readyKey && Array.isArray(componentOf(state).questions)) {
+    readyAttempt = readyKey;
+    void act(code, 'ready').catch(() => { if (readyAttempt === readyKey) readyAttempt = ''; });
+  }
   const me = (state.me || {}) as AnyRec;
   const activity = activityOf(state);
   const component = componentOf(state);

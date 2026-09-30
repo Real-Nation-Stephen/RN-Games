@@ -6,6 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[context.deploy-preview.environment]
+  LIVE_STATE_BACKEND = "postgres"
+
 [[edge_functions]]
   path = "/*"
   function = "router"

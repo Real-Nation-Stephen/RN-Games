@@ -430,6 +430,8 @@ export function makeViewToken(state) {
     state.roundAttemptId,
     state.prizeCount,
     a.responseCount ?? "",
+    a.readyCount ?? "",
+    a.readyTotal ?? "",
     a.revealedCount ?? "",
     a.winnerNumber ?? "",
     a.finishedTeamId ?? "",
@@ -464,6 +466,13 @@ export function projectRun(run, role, participantId) {
   else if (kind === "lobby") activity = { kind, phase: "lobby" };
   else if (kind === "closing") activity = { kind, phase: "ended" };
   else if (kind === "unsupported") activity = { kind, phase: "idle", moduleType: step?.moduleType };
+
+  if (kind === 'fill-game') {
+    const connectedPlayers = participantList(run).filter(p => isConnected(p));
+    activity.readinessRequired = !!run.readinessRequired;
+    activity.readyTotal = connectedPlayers.length;
+    activity.readyCount = connectedPlayers.filter(p => p.readyAttempt === run.roundAttemptId).length;
+  }
 
   const out = {
     revision: run.revision,
@@ -813,7 +822,7 @@ export function assertAttempt(run, payload = {}, { requireQuestion = false, requ
   }
 }
 
-export function applyControl(run, action, payload = {}, presenceById = null) {
+export function applyControl(run, action, payload = {}, presenceById = null, readinessById = null) {
   tickRun(run);
   const { commandId, controllerId, takeover } = payload;
   const recalled = recallCommand(run, commandId);
@@ -969,6 +978,13 @@ function controlFill(run, node, cfg, action, payload = {}, presenceById = null) 
     return { target };
   }
   if (action === "open" || action === "start-race") {
+    if (run.readinessRequired) {
+      const connectedPlayers = participantList(run).filter(p => isConnected({...p,lastSeen:presenceById?.[p.id] || p.lastSeen}));
+      const ready = connectedPlayers.filter(p => (readinessById?.[p.id] || p.readyAttempt) === run.roundAttemptId).length;
+      if (!connectedPlayers.length || ready !== connectedPlayers.length) {
+        throw Object.assign(new Error(`${ready}/${connectedPlayers.length} phones ready. Wait for their questions to load before starting.`),{statusCode:409,code:'phones_not_ready'});
+      }
+    }
     if (node.phase !== "idle") throw Object.assign(new Error("Race already started; use Resume or Replay"), { statusCode: 409 });
     if (!(cfg?.questions?.length)) throw Object.assign(new Error("Add questions before starting the race"), { statusCode: 400 });
     scheduleFill(node, Date.now(), action === "open");

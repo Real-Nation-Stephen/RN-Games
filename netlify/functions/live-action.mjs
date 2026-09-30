@@ -1,7 +1,8 @@
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { getLiveRunWithRetry, hydrateLiveRun, putLiveMedia, secretsEqual, updateLiveRun, writePresence } from "./lib/live-store.mjs";
-import { applyParticipantAction, projectRun } from "./lib/live-run.mjs";
+import { applyParticipantAction, projectRun, assertAttempt } from "./lib/live-run.mjs";
+import { isPostgresRun, postgresAction } from './lib/live-postgres.mjs';
 import { makeId as storeId } from "./lib/live-store.mjs";
 
 const headers = {
@@ -42,15 +43,18 @@ export async function lambdaHandler(event) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: "Forbidden" }) };
     }
 
-    if (action === "heartbeat") {
-      await writePresence(code, participantId);
-      const run = await hydrateLiveRun(code);
+    if (action === "heartbeat" || action === "ready") {
+      if (action === 'ready') {
+        assertAttempt(existing, body);
+        if (existing.node?.kind !== 'fill-game') throw Object.assign(new Error('Not a Fill round'),{statusCode:400});
+      }
+      await writePresence(code, participantId, action === 'ready' ? existing.roundAttemptId : null);
+      // A heartbeat needs an acknowledgement, not another full room/presence read.
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           result: { ok: true },
-          state: projectRun(run, "participant", participantId),
         }),
       };
     }
@@ -72,6 +76,15 @@ export async function lambdaHandler(event) {
       body.kind = "photo";
     }
 
+    const fast = isPostgresRun(existing) && (
+      (existing.node?.kind === 'fill-game' && action === 'answer') ||
+      (existing.node?.kind === 'mini-poll' && action === 'vote') ||
+      (existing.node?.kind === 'pinboard' && action === 'submit')
+    );
+    if (fast) {
+      const {run,result} = await postgresAction(code, action, participantId, secret, body);
+      return {statusCode:200,headers,body:JSON.stringify({result,state:projectRun(run,'participant',participantId)})};
+    }
     let result = {};
     const run = await updateLiveRun(code, (current) => {
       result = applyParticipantAction(current, participantId, action, body);

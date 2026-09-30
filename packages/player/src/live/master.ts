@@ -247,7 +247,13 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
     const attendance = addButton(actions, "Suggest target from attendance", () => void control(host, "attendance-target").catch((e) => alert((e as Error).message)));
     attendance.disabled = activity.phase !== "idle";
     const start = addButton(actions, "Start countdown", () => void control(host, "start-race").catch((e) => alert((e as Error).message)));
-    start.disabled = activity.phase !== "idle";
+    if (activity.readinessRequired) {
+      const ready = document.createElement('p');
+      ready.className = 'live-body';
+      ready.textContent = `${Number(activity.readyCount || 0)} / ${Number(activity.readyTotal || 0)} phones ready`;
+      panel.appendChild(ready);
+    }
+    start.disabled = activity.phase !== "idle" || (!!activity.readinessRequired && (!activity.readyTotal || activity.readyCount !== activity.readyTotal));
     const hint = document.createElement("p"); hint.className = "live-body";
     hint.textContent = "3 seconds to prepare, then 3, 2, 1. First full keg wins; highest score wins at timeout. Equal scores draw. Click the Presenter once to enable its sound. Apply timer and target before starting.";
     panel.appendChild(hint);
