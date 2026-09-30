@@ -50,6 +50,14 @@ let phoneWheelRaf = 0;
 let phoneEnterTimer = 0;
 let readyAttempt = '';
 
+function acknowledgeReady(code: string, state: AnyRec) {
+  const readiness = activityOf(state);
+  const key = `${state.runId}:${state.roundAttemptId}`;
+  if (readiness.kind !== 'fill-game' || !readiness.readinessRequired || readyAttempt === key || !Array.isArray(componentOf(state).questions)) return;
+  readyAttempt = key;
+  void act(code, 'ready').catch(() => { if (readyAttempt === key) readyAttempt = ''; });
+}
+
 function cancelPhoneWheel() {
   cancelAnimationFrame(phoneWheelRaf);
   phoneWheelRaf = 0;
@@ -164,12 +172,7 @@ function renderPhone(root: HTMLElement, state: AnyRec, code: string) {
   if (lastState?.runId === state.runId && Number(state.revision) < Number(lastState.revision)) return;
   state = timedFillState(state);
   lastState = state;
-  const readiness = activityOf(state);
-  const readyKey = `${state.runId}:${state.roundAttemptId}`;
-  if (readiness.kind === 'fill-game' && readiness.readinessRequired && readyAttempt !== readyKey && Array.isArray(componentOf(state).questions)) {
-    readyAttempt = readyKey;
-    void act(code, 'ready').catch(() => { if (readyAttempt === readyKey) readyAttempt = ''; });
-  }
+  acknowledgeReady(code, state);
   const me = (state.me || {}) as AnyRec;
   const activity = activityOf(state);
   const component = componentOf(state);
@@ -590,6 +593,7 @@ async function main() {
         renderPhone(root, state, code);
 
       },
+      onUnchanged() { if (lastState) acknowledgeReady(code, lastState); },
     });
   } catch (e) {
     if (err) {
