@@ -13,7 +13,8 @@ const PREFIX = "liverun:";
 const ACTIVE_PREFIX = "liverun-active:";
 const MEDIA_PREFIX = "liverun-media:";
 const PRESENCE_PREFIX = "liverun-seen:";
-const MAX_RETRIES = 32;
+// A 150-person hosted join burst can exhaust 32 attempts on the shared room.
+const MAX_RETRIES = 64;
 
 export function setLiveTestHooks(next = {}) {
   globalThis.__RN_LIVE_TEST__ = next;
@@ -49,7 +50,9 @@ function sleep(ms) {
 }
 
 function retryDelay(i) {
-  return Math.min(250, 8 * 2 ** Math.min(i, 5)) + Math.floor(Math.random() * 24);
+  const backoff = Math.min(250, 8 * 2 ** Math.min(i, 5));
+  // Spread contenders across the backoff window instead of retrying in lockstep.
+  return Math.floor(backoff * (0.5 + Math.random()));
 }
 
 export function isProductionNetlifyContext() {
