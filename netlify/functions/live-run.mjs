@@ -12,8 +12,9 @@ import {
 } from "./lib/live-store.mjs";
 import { buildSnapshot, createRunDocument, loadExperienceBySlug, projectRun } from "./lib/live-run.mjs";
 import { makeRoomCode as storeCode } from "./lib/live-store.mjs";
+import { postgresLiveEnabled } from './lib/live-postgres.mjs';
 
-const headers = {
+const baseHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Authorization, Content-Type, x-live-secret",
@@ -35,6 +36,7 @@ function readSecret(event) {
 }
 
 export async function lambdaHandler(event, context) {
+  const headers = {...baseHeaders,'X-Live-Storage':postgresLiveEnabled()?'postgres':'blobs'};
   connect(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } };
