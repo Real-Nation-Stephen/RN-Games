@@ -3,7 +3,9 @@ import { getDb } from './db.mjs';
 import { randomUUID } from 'node:crypto';
 
 export function postgresLiveEnabled() {
-  return process.env.LIVE_STATE_BACKEND === 'postgres' && !['memory','file'].includes(process.env.LIVE_STORE_DRIVER) && !globalThis.__RN_LIVE_TEST__?.store;
+  // Functions v2 runtime variables may live in Netlify.env rather than process.env.
+  const backend = globalThis.Netlify?.env?.get('LIVE_STATE_BACKEND') ?? process.env.LIVE_STATE_BACKEND;
+  return backend === 'postgres' && !['memory','file'].includes(process.env.LIVE_STORE_DRIVER) && !globalThis.__RN_LIVE_TEST__?.store;
 }
 export const isPostgresRun = run => run?.storageBackend === 'postgres-v1';
 const codeOf = code => String(code || '').trim().toUpperCase();
