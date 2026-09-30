@@ -215,9 +215,25 @@ export default function MiniPollEditor() {
               onChange={(e) => patch((d) => ({ ...d, revealDurationMs: Number(e.target.value) }))}
             />
           </label>
+          <label className="field">Supporting line
+            <input value={doc.subquestion} onChange={(e) => patch((d) => ({ ...d, subquestion: e.target.value }))} />
+          </label>
+          <BgUploadRow label="Question image" hint="An optional image above the answer choices." value={doc.questionImageUrl || ""} onUploaded={(url) => patch((d) => ({ ...d, questionImageUrl: url }))} />
+          <label className="field">Question image description
+            <input value={doc.questionImageAlt || ""} onChange={(e) => patch((d) => ({ ...d, questionImageAlt: e.target.value }))} />
+          </label>
+          <label className="field">Correct answer (optional)
+            <select value={doc.correctOptionId || ""} onChange={(e) => patch((d) => ({ ...d, correctOptionId: e.target.value }))}>
+              <option value="">Opinion poll — no correct answer</option>
+              {doc.options.map((o, i) => <option key={o.id} value={o.id}>{String.fromCharCode(65 + i)}. {o.label || o.accessibleLabel}</option>)}
+            </select>
+            <small>Shown with the results after the moderator tallies votes.</small>
+          </label>
+          <button type="button" className="btn" disabled={doc.options.length >= 4} onClick={() => patch((d) => ({ ...d, options: [...d.options, { id: crypto.randomUUID(), label: `Option ${String.fromCharCode(65 + d.options.length)}`, imageUrl: "", accessibleLabel: "" }] }))}>Add option</button>
           {doc.options.map((opt, i) => (
             <div key={opt.id} className="card" style={{ marginTop: 12 }}>
-              <strong>Option {i === 0 ? "A" : "B"}</strong>
+              <strong>Option {String.fromCharCode(65 + i)}</strong>
+              <button type="button" className="btn" disabled={doc.options.length <= 2} onClick={() => patch((d) => ({ ...d, options: d.options.filter((o) => o.id !== opt.id), correctOptionId: d.correctOptionId === opt.id ? "" : d.correctOptionId }))}>Remove option</button>
               <label className="field">
                 Label
                 <input

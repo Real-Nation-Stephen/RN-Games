@@ -15,7 +15,9 @@
     "dev:report": "npm run dev -w @rngames/report",
     "test:live": "LIVE_STORE_DRIVER=memory LIVE_DEV_AUTH=1 LIVE_BLOB_STORE=rngames-live-local PLATFORM_BLOB_STORE=rngames-platform-local node scripts/test-live-acceptance.mjs",
     "test:live:http": "LIVE_DEV_AUTH=1 node scripts/test-live-http.mjs",
-    "qa:live": "LIVE_DEV_AUTH=1 node scripts/start-live-qa.mjs"
+    "qa:live": "LIVE_DEV_AUTH=1 node scripts/start-live-qa.mjs",
+    "test:live:race": "LIVE_STORE_DRIVER=memory LIVE_DEV_AUTH=1 node --test scripts/test-live-race.mjs",
+    "test:live:150": "LIVE_N=150 npm run test:live:http"
   },
   "dependencies": {
     "@netlify/aws-lambda-compat": "^2.0.0",

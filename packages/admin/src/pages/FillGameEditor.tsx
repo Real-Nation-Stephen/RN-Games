@@ -387,6 +387,7 @@ export default function FillGameEditor() {
                 }
               />
             </label>
+            <button type="button" className="btn" disabled={q.choices.length >= 6} onClick={() => patch((d) => ({ ...d, questions: d.questions.map((x) => x.id === q.id ? { ...x, choices: [...x.choices, { id: newMiniQuizId(), label: `Option ${x.choices.length + 1}` }] } : x) }))}>Add answer choice</button>
             {q.choices.map((c, ci) => (
               <label key={c.id} className="field">
                 <input
@@ -401,6 +402,11 @@ export default function FillGameEditor() {
                   }
                 />{" "}
                 Correct
+                <button type="button" className="btn" disabled={q.choices.length <= 2} onClick={() => patch((d) => ({ ...d, questions: d.questions.map((x) => {
+                  if (x.id !== q.id) return x;
+                  const choices = x.choices.filter((ch) => ch.id !== c.id);
+                  return { ...x, choices, correctChoiceId: x.correctChoiceId === c.id ? choices[0].id : x.correctChoiceId };
+                }) }))}>Remove choice</button>
                 <input
                   value={c.label}
                   onChange={(e) =>

@@ -1217,7 +1217,10 @@ function demoExperience() {
   const fillC4 = id();
   const quizC1 = id();
   const quizC2 = id();
+  const quizC3 = id();
+  const quizC4 = id();
   const quizQ = id();
+  const quizQ2 = id();
   const steps = [
     { id: "step-poll", moduleInstanceId: "m-poll", moduleType: "mini-poll", label: "Poll", liveCapable: true },
     { id: "step-fill", moduleInstanceId: "m-fill", moduleType: "fill-game", label: "Fill", liveCapable: true },
@@ -1282,6 +1285,15 @@ function demoExperience() {
             ],
             correctChoiceId: quizC1,
           },
+          {
+            id: quizQ2,
+            prompt: "Quiz 2?",
+            choices: [
+              { id: quizC3, label: "Yes" },
+              { id: quizC4, label: "No" },
+            ],
+            correctChoiceId: quizC3,
+          },
         ],
       },
       "step-pin": { id: "m-pin", gameType: "pinboard", title: "Pin" },
@@ -1300,7 +1312,10 @@ function demoExperience() {
         ],
       },
       "step-quiz": {
-        questions: [{ id: quizQ, correctChoiceId: quizC1, choices: [{ id: quizC1 }, { id: quizC2 }] }],
+        questions: [
+          { id: quizQ, correctChoiceId: quizC1, choices: [{ id: quizC1 }, { id: quizC2 }] },
+          { id: quizQ2, correctChoiceId: quizC3, choices: [{ id: quizC3 }, { id: quizC4 }] },
+        ],
       },
     },
   };
@@ -1310,7 +1325,7 @@ function demoExperience() {
     title: "Live test flow",
     foundation: { interactive: true },
   };
-  return { experience, snapshot, pollA, pollB, fillQ, fillC1, quizQ, quizC1 };
+  return { experience, snapshot, pollA, pollB, fillQ, fillC1, fillQ2, fillC3, quizQ, quizC1, quizQ2, quizC3 };
 }
 
 function attemptFields(state) {
@@ -1394,6 +1409,10 @@ async function pinboardDomRegression() {
     !/innerHTML[\s\S]{0,240}s\.text/.test(src) && !/s\.text[\s\S]{0,80}innerHTML/.test(src) && src.includes("fillPinboardCard"),
     "source still looks like HTML interpolation",
   );
+  assert(
+    "Flow Master can set fill target and groups pinboard review",
+    /set-target/.test(src) && /Needs review/.test(src) && /Net points to fill a keg/.test(src),
+  );
   const card = new FakeEl("div");
   const payload = {
     text: `<img src=x onerror="alert(1)"><script>document.title="pwned"</script>`,
@@ -1456,11 +1475,11 @@ async function fullFlow() {
   const numbers = joins.map((j) => j.participantNumber).sort((a, b) => a - b);
   const uniqueIds = new Set(ids);
   const uniqueNumbers = new Set(numbers);
-  assert("15 unique participant identities persisted", uniqueIds.size === N && uniqueNumbers.size === N, `ids=${uniqueIds.size} numbers=${uniqueNumbers.size}`);
+  assert(`${N} unique participant identities persisted`, uniqueIds.size === N && uniqueNumbers.size === N, `ids=${uniqueIds.size} numbers=${uniqueNumbers.size}`);
 
   const storedAfterJoin = await getLiveRun(code);
   assert(
-    "stored participant count matches 15 acknowledged joins",
+    `stored participant count matches ${N} acknowledged joins`,
     Object.keys(storedAfterJoin.participants || {}).length === N,
     `stored=${Object.keys(storedAfterJoin.participants || {}).length}`,
   );
@@ -1565,10 +1584,10 @@ async function fullFlow() {
     joins.map((j, i) => act(j, "vote", { optionId: fixture.pollA, commandId: i === 0 ? voteCmd0 : id() })),
   );
   const voteOk = votes.filter((v) => v.status === 200);
-  assert("all 15 poll votes acknowledged", voteOk.length === N, `ok=${voteOk.length}`);
+  assert(`all ${N} poll votes acknowledged`, voteOk.length === N, `ok=${voteOk.length}`);
   const afterVotes = await getLiveRun(code);
   const storedVotes = Object.keys(afterVotes.node?.votes || {}).length;
-  assert("stored vote count equals 15 acknowledged votes", storedVotes === N, `stored=${storedVotes}`);
+  assert(`stored vote count equals ${N} acknowledged votes`, storedVotes === N, `stored=${storedVotes}`);
   const ackIds = voteOk.map((v, i) => (v.status === 200 ? joins[i].participantId : null)).filter(Boolean);
   // Promise.all preserves order
   const orderedAck = joins.filter((_, i) => votes[i].status === 200).map((j) => j.participantId);
@@ -1630,7 +1649,9 @@ async function fullFlow() {
 
   const cmdNextA = id();
   await control("next", { commandId: cmdNextA }); // fill
+  const fillTarget = await control("set-target", { target: 18 });
   await control("open");
+  assert("Flow Master can set keg fill target", fillTarget.result?.target === 18 || fillTarget.state?.activity?.target === 18, JSON.stringify(fillTarget.result || fillTarget.state?.activity));
   const fillState = (
     await must(
       liveRun,
@@ -1648,6 +1669,11 @@ async function fullFlow() {
       fillState.me?.teamName !== fillState.me?.teamId,
     `teamName=${fillState.me?.teamName} teamId=${fillState.me?.teamId} hex=${fillState.me?.teamColorHex}`,
   );
+  assert(
+    "fill keg target from Flow Master is on each team",
+    Number(fillState.activity?.target) === 18 && (fillState.activity?.teams || []).every((t) => Number(t.target) === 18),
+    `target=${fillState.activity?.target} teams=${JSON.stringify(fillState.activity?.teams)}`,
+  );
   const fillAnswers = await Promise.all(
     joins.slice(0, 6).map((j) => act(j, "answer", { questionId: fixture.fillQ, choiceId: fixture.fillC1, state: fillState })),
   );
@@ -1662,6 +1688,45 @@ async function fullFlow() {
     state: fillState,
   });
   assert("stale fill questionId is rejected", staleFill.status === 409, `status=${staleFill.status}`);
+  const fillPublic1 = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  const fillScore1 = (fillPublic1.state.activity.teams || []).reduce((sum, t) => sum + Number(t.score || 0), 0);
+  const fillEvents1 = (fillPublic1.state.activity.events || []).length;
+  assert(
+    "first Fill answers update presenter scores and events",
+    fillScore1 > 0 && fillEvents1 >= 6,
+    `score=${fillScore1} events=${fillEvents1}`,
+  );
+  const fillState2 = (
+    await must(
+      liveRun,
+      event({
+        method: "GET",
+        query: { code, role: "participant", participantId: joins[0].participantId },
+        headers: { "x-live-secret": joins[0].secret },
+      }),
+    )
+  ).state;
+  assert(
+    "Fill issues the next question after the first answer",
+    fillState2.me?.question?.id === fixture.fillQ2,
+    `question=${fillState2.me?.question?.id}`,
+  );
+  const fillAnswers2 = await Promise.all(
+    joins.slice(0, 6).map((j) => act(j, "answer", { questionId: fixture.fillQ2, choiceId: fixture.fillC3 })),
+  );
+  assert(
+    "second consecutive Fill answers accepted",
+    fillAnswers2.every((v) => v.status === 200),
+    fillAnswers2.map((v) => v.status + (v.data.error || "")).join(","),
+  );
+  const fillPublic2 = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  const fillScore2 = (fillPublic2.state.activity.teams || []).reduce((sum, t) => sum + Number(t.score || 0), 0);
+  const fillEvents2 = (fillPublic2.state.activity.events || []).length;
+  assert(
+    "second Fill answers update presenter scores and events without a scene change",
+    fillScore2 > fillScore1 && fillEvents2 > fillEvents1 && fillPublic2.state.activity.phase === fillPublic1.state.activity.phase,
+    `score ${fillScore1}->${fillScore2} events ${fillEvents1}->${fillEvents2} phase=${fillPublic2.state.activity.phase}`,
+  );
 
   const cmdNextB = id();
   await control("next", { commandId: cmdNextB }); // quiz
@@ -1690,9 +1755,26 @@ async function fullFlow() {
   ).state;
   const quizAnswers = await Promise.all(joins.map((j) => act(j, "answer", { questionId: fixture.quizQ, choiceId: fixture.quizC1, state: quizState })));
   const quizOk = quizAnswers.filter((v) => v.status === 200);
-  assert("all 15 quiz answers acknowledged", quizOk.length === N, `ok=${quizOk.length}`);
+  assert(`all ${N} quiz answers acknowledged`, quizOk.length === N, `ok=${quizOk.length}`);
   const quizStored = await getLiveRun(code);
-  assert("stored quiz answers equal 15", Object.keys(quizStored.node.answers || {}).length === N);
+  assert(`stored quiz answers equal ${N}`, Object.keys(quizStored.node.answers || {}).length === N);
+  const quizPublic1 = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  assert(
+    "quiz Presenter is on question 1",
+    Number(quizPublic1.state.activity.questionIndex) === 0 && quizPublic1.state.component?.currentQuestion?.id === fixture.quizQ,
+    `idx=${quizPublic1.state.activity.questionIndex} id=${quizPublic1.state.component?.currentQuestion?.id}`,
+  );
+  await control("reveal");
+  await control("next-question");
+  await control("open");
+  const quizPublic2 = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  assert(
+    "next quiz question updates Presenter prompt and index",
+    Number(quizPublic2.state.activity.questionIndex) === 1 &&
+      quizPublic2.state.component?.currentQuestion?.id === fixture.quizQ2 &&
+      quizPublic2.state.component?.currentQuestion?.prompt === "Quiz 2?",
+    `idx=${quizPublic2.state.activity.questionIndex} id=${quizPublic2.state.component?.currentQuestion?.id}`,
+  );
 
   await control("next"); // pinboard
   const pinState = (
@@ -1711,14 +1793,35 @@ async function fullFlow() {
   const masterPin = await must(liveRun, event({ method: "GET", query: { code, role: "moderator", hostKey } }));
   const note = (masterPin.state.activity.submissions || [])[0];
   assert("moderator projection keeps pinboard text literal", note?.text === xss, `text=${note?.text}`);
+  const pin2 = await act(joins[3], "submit", { kind: "note", text: "later note", state: pinState });
+  assert("second pinboard note stored", pin2.status === 200, `status=${pin2.status}`);
+  await control("approve", { submissionId: note.id });
+  const masterPin2 = await must(liveRun, event({ method: "GET", query: { code, role: "moderator", hostKey } }));
+  const ordered = masterPin2.state.activity.submissions || [];
+  assert(
+    "new pinboard posts stay on top; approved posts move to the bottom",
+    ordered.length === 2 && ordered[0]?.status === "pending" && ordered[0]?.text === "later note" && ordered[1]?.status === "approved" && ordered[1]?.text === xss,
+    JSON.stringify(ordered.map((s) => ({ status: s.status, text: s.text }))),
+  );
 
   await control("next"); // wheel
+  const wheelIdle = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  const poolBeforeLate = (wheelIdle.state.activity.pool || []).length;
+  const lateJoin = await must(liveJoin, event({ method: "POST", body: { code } }));
+  const wheelAfterLate = await must(liveRun, event({ method: "GET", query: { code, role: "public" } }));
+  assert(
+    "wheel idle pool updates for a late join without changing phase",
+    wheelAfterLate.state.activity.phase === "idle" &&
+      (wheelAfterLate.state.activity.pool || []).includes(lateJoin.participantNumber) &&
+      (wheelAfterLate.state.activity.pool || []).length === poolBeforeLate + 1,
+    `phase=${wheelAfterLate.state.activity.phase} before=${poolBeforeLate} after=${(wheelAfterLate.state.activity.pool || []).length}`,
+  );
   const agedIso = new Date(Date.now() - 120_000).toISOString();
   await updateLiveRun(code, (current) => {
     for (const p of Object.values(current.participants || {})) p.lastSeen = agedIso;
     return current;
   });
-  await Promise.all(joins.map((j) => writePresence(code, j.participantId)));
+  await Promise.all([lateJoin, ...joins].map((j) => writePresence(code, j.participantId)));
   const spin = await control("spin");
   assert("wheel spin reserves a prize", spin.result?.winnerNumber != null || spin.state?.activity?.winnerNumber != null);
   const storedAfterSpin = await getLiveRun(code);
@@ -1757,12 +1860,21 @@ async function fullFlow() {
   assert("wheel prize ledger has exactly one winner", awards.length === 1 && awards[0] === wheelWinner);
 
   await control("next"); // scratcher
+  const afterWheelCount = Object.keys((await getLiveRun(code)).participants || {}).length;
   const release = await control("release", { winnerCount: 1 });
-  assert("scratcher release succeeds", Number(release.result?.recipientCount) === N - 1, `recipients=${release.result?.recipientCount}`);
+  assert(
+    "scratcher release succeeds",
+    Number(release.result?.recipientCount) === afterWheelCount - 1,
+    `recipients=${release.result?.recipientCount} live=${afterWheelCount}`,
+  );
   const afterRelease = await getLiveRun(code);
   const tickets = afterRelease.node.tickets || {};
   assert("wheel winner is excluded from scratcher tickets", !tickets[wheelWinner], "winner still received a ticket");
-  assert("scratcher tickets issued to remaining eligible", Object.keys(tickets).length === N - 1, `tickets=${Object.keys(tickets).length}`);
+  assert(
+    "scratcher tickets issued to remaining eligible",
+    Object.keys(tickets).length === afterWheelCount - 1,
+    `tickets=${Object.keys(tickets).length} live=${afterWheelCount}`,
+  );
   const winnerTicket = Object.values(tickets).find((t) => t.isWin);
   assert("scratcher reserved a win at release", !!winnerTicket);
   const scratchPlayer = joins.find((j) => j.participantId === winnerTicket.participantId);
@@ -1797,8 +1909,8 @@ async function fullFlow() {
 
   const final = await getLiveRun(code);
   assert(
-    "final run still has 15 participants",
-    Object.keys(final.participants).length === N,
+    `final run still has the original ${N} plus the late wheel join`,
+    Object.keys(final.participants).length === N + 1,
     `count=${Object.keys(final.participants).length}`,
   );
 
@@ -2119,6 +2231,52 @@ async function guardAndSeedTests() {
       /lastTicketKey === key && scratchHandle && root\.querySelector\("#scratch-host"\)/.test(joinSrc) &&
       !/replaceChildren\(shell\);\s*\n\s*const key =/.test(joinSrc),
   );
+  const presentSrc = readFileSync(new URL("../packages/player/src/live/present.ts", import.meta.url), "utf8");
+  const frameSrc = readFileSync(new URL("../packages/player/src/live/frame.ts", import.meta.url), "utf8");
+  const renderSrc = readFileSync(new URL("../packages/player/src/live/render.ts", import.meta.url), "utf8");
+  assert(
+    "Fill meters, quiz prompt and pinboard text are rendered from current state",
+    /team\.score/.test(renderSrc) && /currentQuestion/.test(renderSrc) && /s\.text/.test(renderSrc),
+  );
+  assert(
+    "Presenter remounts Fill/quiz/wheel/pinboard on every state; entrance only on scene change",
+    /entranceIdentity/.test(presentSrc) &&
+      /entranceIdentity/.test(frameSrc) &&
+      /questionIndex/.test(frameSrc) &&
+      /roundAttemptId/.test(frameSrc) &&
+      /root\.replaceChildren\(\)/.test(presentSrc) &&
+      /renderFillPresenter\(state/.test(presentSrc) &&
+      /renderQuizPresenter\(state/.test(presentSrc) &&
+      /renderWheelPresenter\(state/.test(presentSrc) &&
+      /renderPinboardPresenter\(state/.test(presentSrc) &&
+      !/if \(scene === last/.test(presentSrc) &&
+      !/responseCount/.test(frameSrc) &&
+      /cancelPresenterWheel/.test(presentSrc) &&
+      /lastPresenterState/.test(presentSrc),
+  );
+  assert(
+    "phone wheel RAF is cancelled on leave and reads latest lastState",
+    /cancelPhoneWheel/.test(joinSrc) &&
+      /startPhoneWheelTick/.test(joinSrc) &&
+      /cancelAnimationFrame\(phoneWheelRaf\)/.test(joinSrc) &&
+      /lastState/.test(joinSrc),
+  );
+  assert(
+    "phone scene identity is personal and scratcher mounts through mountPhone",
+    /phoneEntranceIdentity/.test(frameSrc) &&
+      /votedOptionId/.test(frameSrc) &&
+      /ticket\.revealed/.test(frameSrc) &&
+      /function mountPhone/.test(joinSrc) &&
+      /mountPhone\(root, shell, enter\)/.test(joinSrc) &&
+      /playPhoneEnter/.test(joinSrc),
+  );
+  assert(
+    "spinning presenter wheel keeps its canvas between polls",
+    /!enter &&/.test(presentSrc) &&
+      /phase\) === "spinning"/.test(presentSrc) &&
+      /animateFillMeters/.test(presentSrc) &&
+      /if \(!wheelRaf\)/.test(presentSrc),
+  );
   const wheelSrc = readFileSync(new URL("../packages/player/src/live/wheel-draw.ts", import.meta.url), "utf8");
   const hubGuard = wheelSrc.indexOf("if (n > 1)");
   const hub = wheelSrc.indexOf("r * 0.16", hubGuard);
@@ -2129,11 +2287,11 @@ async function guardAndSeedTests() {
   );
   const themeSrc = readFileSync(new URL("../packages/player/src/live/theme.ts", import.meta.url), "utf8");
   assert(
-    "Presenter live-logo box is 160–200px and layout vars include logo sizing",
+    "Presenter live-logo box matches header sizing and layout vars include logo sizing",
     /"--live-logo-width"/.test(themeSrc) &&
       /"--live-logo-max-height"/.test(themeSrc) &&
-      /setProperty\("--live-logo-width", "184px"\)/.test(themeSrc) &&
-      /setProperty\("--live-logo-max-height", "168px"\)/.test(themeSrc),
+      /setProperty\("--live-logo-width", "110px"\)/.test(themeSrc) &&
+      /setProperty\("--live-logo-max-height", "98px"\)/.test(themeSrc),
   );
   const runtimeSrc = readFileSync(new URL("../netlify/functions/lib/blob-runtime.mjs", import.meta.url), "utf8");
   assert(
@@ -2144,7 +2302,28 @@ async function guardAndSeedTests() {
   const liveCss = readFileSync(new URL("../packages/player/src/css/live.css", import.meta.url), "utf8");
   assert(
     "presenter option labels use a room-scale clamp above 1.35rem",
-    /3\.5rem/.test(liveCss) && /data-live-surface="presenter"/.test(liveCss) && /position:\s*fixed/.test(liveCss),
+    /2\.25rem/.test(liveCss) && /data-live-surface="presenter"/.test(liveCss) && /live-frame-foot/.test(liveCss),
+  );
+  assert(
+    "live motion and phone chrome are event-scale with safe-area and tally bars",
+    /liveHeadline/.test(liveCss) &&
+      /livePunch/.test(liveCss) &&
+      /liveWheelLand/.test(liveCss) &&
+      /safe-area-inset/.test(liveCss) &&
+      /live-tally-bar/.test(liveCss) &&
+      /live-tally-bar/.test(renderSrc) &&
+      /100dvh/.test(liveCss),
+  );
+  assert(
+    "presenter background is a fixed cover layer so art is not cropped by growing content",
+    /body\[data-live-surface="presenter"\]::before/.test(liveCss) &&
+      /background-size:\s*cover/.test(liveCss) &&
+      /body\[data-live-surface="presenter"\] \.live-stage/.test(liveCss) &&
+      /overflow:\s*hidden/.test(liveCss),
+  );
+  assert(
+    "live wheel has a rim, hub and overlay peg like the original framed wheel",
+    /live-wheel-wrap::after/.test(liveCss) && /createLinearGradient/.test(wheelSrc) && /r \* 0\.16/.test(wheelSrc),
   );
   assert(
     "#live-main is a flex child so Presenter alignY can center",
@@ -2159,7 +2338,6 @@ async function guardAndSeedTests() {
     "live scratch canvas CSS is transparent so destination-out shows the under-image",
     /live-scratch-stage canvas[\s\S]*background:\s*transparent/.test(liveCss),
   );
-  const renderSrc = readFileSync(new URL("../packages/player/src/live/render.ts", import.meta.url), "utf8");
   assert(
     "Presenter poll cards are DIV .live-option, not buttons",
     /<div class="live-option/.test(renderSrc) && !/<button class="live-option/.test(renderSrc),
@@ -2237,7 +2415,7 @@ async function main() {
     console.error(`\n${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nok  isolated CAS + simulated-15 full flow");
+  console.log(`\nok  isolated CAS + simulated-${N} full flow`);
 }
 
 main().catch((e) => {

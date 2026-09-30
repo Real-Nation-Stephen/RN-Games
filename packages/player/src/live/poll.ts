@@ -1,4 +1,5 @@
 import { liveGetUrl, liveJson } from "./api";
+import { observeServerTime } from "./race-clock";
 
 export type LivePollRole = "public" | "participant" | "moderator";
 
@@ -33,7 +34,9 @@ export function startLivePoll(opts: {
       const headers: Record<string, string> = {};
       const secret = opts.participantSecret?.();
       if (secret) headers["x-live-secret"] = secret;
+      const sentAt = Date.now();
       const data = await liveJson(liveGetUrl("live-run", params), Object.keys(headers).length ? { headers } : undefined);
+      observeServerTime((data.state as Record<string, unknown> | null)?.now || data.now, sentAt);
       if (data.changed && data.state && typeof data.state === "object") {
         const state = data.state as Record<string, unknown>;
         rev = String(state.viewToken || state.revision || "");

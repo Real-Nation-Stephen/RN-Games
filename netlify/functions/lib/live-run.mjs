@@ -1,3 +1,4 @@
+import { finishFill, tickFill, scheduleFill } from "./fill-race.mjs";
 /**
  * Authoritative live-run engine: cursor, phases, answers, prize ledger.
  * Component branding is config on the snapshot — never Heineken-specific.
@@ -37,6 +38,12 @@ function defaultJoinScreen() {
     backgroundHex: "#07131f",
     headline: "Join the live experience",
     instructions: "Scan the QR code or enter the room code on your phone.",
+    eyebrow: "",
+    heroImageUrl: "",
+    joinCue: "",
+    headerLabel: "",
+    phoneHeadline: "",
+    phoneBody: "",
     headlineHex: "#ffffff",
     bodyHex: "#d7e0ea",
     accentHex: "#3ecf8e",
@@ -51,6 +58,8 @@ function defaultJoinScreen() {
     fontUploads: {},
     closingHeadline: "Thanks for playing",
     closingBody: "That's the end of this live run.",
+    closingTakeaway: "",
+    closingThanks: "",
     layout: normalizeLiveSurfaceLayouts(undefined),
   };
 }
@@ -146,6 +155,14 @@ function emptyNodeState(kind, step, configs, attemptId) {
       cursors: {},
       answered: {},
       finishedTeamId: null,
+      durationSeconds: 90,
+      countdownAt: null,
+      startsAt: null,
+      endsAt: null,
+      remainingMs: null,
+      finishReason: null,
+      tied: false,
+      target: Math.max(1, Number(teams[0]?.target) || 8),
     };
   }
   if (kind === "mini-quiz") {
@@ -227,6 +244,7 @@ function publicComponent(step, configs, secrets, node, role) {
       wheelRotationOffsetDeg: Number(cfg.wheelRotationOffsetDeg || 0),
       layoutMode: cfg.layoutMode,
       layout: cfg.layout,
+      liveCopy: cfg.liveCopy && typeof cfg.liveCopy === "object" ? cfg.liveCopy : {},
     });
   }
   if (kind === "scratcher") {
@@ -242,12 +260,13 @@ function publicComponent(step, configs, secrets, node, role) {
       clearThreshold: Number(cfg.clearThreshold || 0.97),
       layoutMode: cfg.layoutMode,
       layout: cfg.layout,
+      liveCopy: cfg.liveCopy && typeof cfg.liveCopy === "object" ? cfg.liveCopy : {},
     });
   }
   return { gameType: kind, id: cfg?.id, title: cfg?.title, slug: cfg?.slug };
 }
 
-function pollPublic(node, role) {
+function pollPublic(node, role, cfg) {
   const votes = node.votes || {};
   const total = Object.keys(votes).length;
   const phase = node.phase;
@@ -258,25 +277,43 @@ function pollPublic(node, role) {
     phase,
     responseCount: total,
     tally: phase === "revealed" ? node.tally : role === "moderator" && phase === "tallying" ? node.tally : null,
+    correctOptionId: phase === "revealed" ? cfg?.correctOptionId || null : null,
     tallyStartedAt: node.tallyStartedAt || null,
     revealDurationMs: node.revealDurationMs || 3000,
   };
 }
 
+function resolveFillTarget(node, cfg, team) {
+  const live = Number(node?.target);
+  if (Number.isFinite(live) && live >= 1) return Math.min(999, Math.max(1, Math.round(live)));
+  const fromTeam = Number(team?.target);
+  if (Number.isFinite(fromTeam) && fromTeam >= 1) return Math.min(999, Math.max(1, Math.round(fromTeam)));
+  return Math.max(1, Number(cfg?.teams?.[0]?.target) || 8);
+}
+
 function fillPublic(node, cfg) {
   const teams = (cfg?.teams || []).map((t) => ({
     ...t,
+    target: resolveFillTarget(node, cfg, t),
     score: Number(node.scores?.[t.id] || 0),
   }));
   return {
     phase: node.phase,
     teams,
+    target: resolveFillTarget(node, cfg, null),
     metric: cfg?.metric || "count",
     maskUrl: cfg?.maskUrl || "",
     maskPlacement: cfg?.maskPlacement,
     foregroundUrl: cfg?.foregroundUrl || "",
     events: (node.events || []).slice(-40),
     finishedTeamId: node.finishedTeamId || null,
+    durationSeconds: node.durationSeconds || 90,
+    countdownAt: node.countdownAt || null,
+    startsAt: node.startsAt || null,
+    endsAt: node.endsAt || null,
+    remainingMs: node.remainingMs ?? null,
+    tied: !!node.tied,
+    finishReason: node.finishReason || null,
   };
 }
 
@@ -313,14 +350,26 @@ function pinboardPublic(node, runId, role, code) {
     text: s.text || "",
     status: s.status,
     createdAt: s.createdAt,
+    reviewedAt: s.reviewedAt || null,
     imagePath: s.mediaId
       ? `/api/live-media?runId=${encodeURIComponent(runId)}&id=${encodeURIComponent(s.mediaId)}&code=${encodeURIComponent(code || "")}`
       : null,
   });
-  if (role === "moderator") return { phase: node.phase, submissions: subs.map(mapSub) };
+  const mapped = subs.map(mapSub);
+  if (role === "moderator") {
+    const pending = mapped
+      .filter((s) => s.status === "pending")
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0) || String(b.id).localeCompare(String(a.id)));
+    const reviewed = mapped
+      .filter((s) => s.status !== "pending")
+      .sort((a, b) => Date.parse(a.reviewedAt || a.createdAt || 0) - Date.parse(b.reviewedAt || b.createdAt || 0));
+    return { phase: node.phase, submissions: pending.concat(reviewed) };
+  }
   return {
     phase: node.phase,
-    submissions: subs.filter((s) => s.status === "approved").map(mapSub),
+    submissions: mapped
+      .filter((s) => s.status === "approved")
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0)),
   };
 }
 
@@ -406,7 +455,7 @@ export function projectRun(run, role, participantId) {
   const eligible = eligibleEntrants(run);
 
   let activity = { kind, phase: node.phase || "idle" };
-  if (kind === "mini-poll") activity = { kind, ...pollPublic(node, role) };
+  if (kind === "mini-poll") activity = { kind, ...pollPublic(node, role, cfg) };
   else if (kind === "fill-game") activity = { kind, ...fillPublic(node, cfg) };
   else if (kind === "mini-quiz") activity = { kind, ...quizPublic(node, cfg, role) };
   else if (kind === "pinboard") activity = { kind, ...pinboardPublic(node, run.runId, role, run.code) };
@@ -707,7 +756,8 @@ export function heartbeat(run, participantId) {
   return true;
 }
 
-const COMMAND_LOG_MAX = 48;
+// Keep retry outcomes across a 150-person burst, including host commands.
+const COMMAND_LOG_MAX = 512;
 
 function getCommandLog(run) {
   if (!run.commandLog || typeof run.commandLog !== "object") run.commandLog = {};
@@ -763,6 +813,7 @@ export function assertAttempt(run, payload = {}, { requireQuestion = false, requ
 }
 
 export function applyControl(run, action, payload = {}, presenceById = null) {
+  tickRun(run);
   const { commandId, controllerId, takeover } = payload;
   const recalled = recallCommand(run, commandId);
   if (recalled) {
@@ -789,13 +840,18 @@ export function applyControl(run, action, payload = {}, presenceById = null) {
   }
   if (action === "hold") {
     run.held = true;
-    if (nodeKind(run) === "fill-game" && run.node.phase === "racing") run.node.phase = "held";
+    if (nodeKind(run) === "fill-game" && ["racing", "countdown"].includes(run.node.phase)) {
+      run.node.remainingMs = run.node.phase === "countdown"
+        ? run.node.endsAt - run.node.startsAt
+        : Math.max(0, run.node.endsAt - Date.now());
+      run.node.phase = "held";
+    }
     return finish({});
   }
   if (action === "resume") {
     run.held = false;
     if (nodeKind(run) === "fill-game" && run.node.phase === "held" && !run.node.finishedTeamId) {
-      run.node.phase = "racing";
+      scheduleFill(run.node);
     }
     return finish({});
   }
@@ -832,7 +888,7 @@ export function applyControl(run, action, payload = {}, presenceById = null) {
   const cfg = step ? run.snapshot.configs[step.id] : null;
 
   if (kind === "mini-poll") return finish(controlPoll(run, node, cfg, action, payload));
-  if (kind === "fill-game") return finish(controlFill(run, node, action));
+  if (kind === "fill-game") return finish(controlFill(run, node, cfg, action, payload, presenceById));
   if (kind === "mini-quiz") return finish(controlQuiz(run, node, cfg, action));
   if (kind === "pinboard") return finish(controlPinboard(run, node, action, payload));
   if (kind === "spinning-wheel") return finish(controlWheel(run, node, cfg, action, presenceById));
@@ -856,25 +912,19 @@ function controlPoll(run, node, cfg, action) {
     if (node.tally && node.phase === "revealed") return { alreadyTallied: true };
     if (node.tally && node.phase === "tallying") return { alreadyTallied: true };
     const opts = cfg?.options || [];
-    const counts = { [opts[0]?.id]: 0, [opts[1]?.id]: 0 };
+    const counts = Object.fromEntries(opts.map((o) => [o.id, 0]));
     for (const optId of Object.values(node.votes || {})) {
       if (counts[optId] != null) counts[optId] += 1;
     }
     const total = Object.keys(node.votes || {}).length;
-    const a = counts[opts[0]?.id] || 0;
-    const b = counts[opts[1]?.id] || 0;
-    let result = "split";
-    if (total === 0) result = "zero";
-    else if (a === b) result = "tie";
-    else result = a > b ? "a" : "b";
+    const highest = Math.max(0, ...Object.values(counts));
+    const leaders = opts.filter((o) => counts[o.id] === highest);
     node.tally = {
       counts,
       total,
-      percents: {
-        [opts[0]?.id]: total ? Math.round((a / total) * 100) : 0,
-        [opts[1]?.id]: total ? Math.round((b / total) * 100) : 0,
-      },
-      result,
+      percents: Object.fromEntries(opts.map((o) => [o.id, total ? Math.round((counts[o.id] / total) * 100) : 0])),
+      result: !total ? "zero" : leaders.length > 1 ? "tie" : opts.length === 2 ? (leaders[0].id === opts[0].id ? "a" : "b") : "split",
+      leadingOptionIds: total ? leaders.map((o) => o.id) : [],
     };
     node.phase = "tallying";
     node.tallyStartedAt = Date.now();
@@ -889,15 +939,43 @@ function controlPoll(run, node, cfg, action) {
   throw Object.assign(new Error(`Unknown poll action ${action}`), { statusCode: 400 });
 }
 
-function controlFill(run, node, action) {
-  if (action === "open") {
-    if (node.finishedTeamId) return {};
-    node.phase = "racing";
+function controlFill(run, node, cfg, action, payload = {}, presenceById = null) {
+  const editable = node.phase === "idle";
+  if (["set-target", "set-duration", "attendance-target"].includes(action) && !editable) {
+    throw Object.assign(new Error("Replay the round before changing its target or timer"), { statusCode: 409 });
+  }
+  if (action === "set-duration") {
+    const seconds = Number(payload.durationSeconds);
+    if (!Number.isInteger(seconds) || seconds < 10 || seconds > 900) {
+      throw Object.assign(new Error("Choose a round duration from 10 to 900 seconds"), { statusCode: 400 });
+    }
+    node.durationSeconds = seconds;
+    return { durationSeconds: seconds };
+  }
+  if (action === "set-target" || action === "attendance-target") {
+    let target = Number(payload.target);
+    if (action === "attendance-target") {
+      const counts = (cfg?.teams || []).map((t) => participantList(run).filter((p) => p.teamId === t.id && isConnected({ ...p, lastSeen: presenceById?.[p.id] || p.lastSeen })).length);
+      const smallerTeam = Math.min(...counts);
+      if (!(smallerTeam > 0)) throw Object.assign(new Error("Both teams need connected players before setting an attendance target"), { statusCode: 409 });
+      // A starting suggestion: half the smaller team's available answers. Host can override before starting.
+      target = Math.max(1, Math.min(999, Math.ceil(smallerTeam * (cfg.questions?.length || 1) * 0.5)));
+    }
+    if (!Number.isInteger(target) || target < 1 || target > 999) {
+      throw Object.assign(new Error("Target must be a whole number from 1 to 999"), { statusCode: 400 });
+    }
+    node.target = target;
+    return { target };
+  }
+  if (action === "open" || action === "start-race") {
+    if (node.phase !== "idle") throw Object.assign(new Error("Race already started; use Resume or Replay"), { statusCode: 409 });
+    if (!(cfg?.questions?.length)) throw Object.assign(new Error("Add questions before starting the race"), { statusCode: 400 });
+    scheduleFill(node, Date.now(), action === "open");
     run.held = false;
-    return {};
+    return { startsAt: node.startsAt, endsAt: node.endsAt };
   }
   if (action === "close" || action === "finish") {
-    node.phase = "finished";
+    if (node.phase !== "finished") finishFill(node, cfg, "host");
     return {};
   }
   throw Object.assign(new Error(`Unknown fill action ${action}`), { statusCode: 400 });
@@ -941,11 +1019,13 @@ function controlPinboard(run, node, action, payload) {
   if (action === "approve") {
     if (!sub) throw Object.assign(new Error("Submission not found"), { statusCode: 404 });
     sub.status = "approved";
+    sub.reviewedAt = nowIso();
     return {};
   }
   if (action === "reject") {
     if (!sub) throw Object.assign(new Error("Submission not found"), { statusCode: 404 });
     sub.status = "rejected";
+    sub.reviewedAt = nowIso();
     return {};
   }
   if (action === "remove") {
@@ -1064,6 +1144,7 @@ function controlScratcher(run, node, cfg, action, payload, presenceById = null) 
 }
 
 export function applyParticipantAction(run, participantId, action, payload = {}) {
+  tickRun(run);
   const p = run.participants[participantId];
   if (!p) throw Object.assign(new Error("Not a participant"), { statusCode: 403 });
   p.lastSeen = nowIso();
@@ -1131,7 +1212,7 @@ export function applyParticipantAction(run, participantId, action, payload = {})
     const correct = choiceId === q.correctChoiceId;
     const delta = correct ? 1 : -1;
     const team = (cfg.teams || []).find((t) => t.id === p.teamId);
-    const target = team?.target || 1;
+    const target = resolveFillTarget(node, cfg, team);
     const prev = Number(node.scores[p.teamId] || 0);
     const next = Math.max(0, Math.min(target, prev + delta));
     node.scores[p.teamId] = next;
@@ -1150,6 +1231,9 @@ export function applyParticipantAction(run, participantId, action, payload = {})
     node.lastFeedback[p.id] = { correct, delta, questionId: q.id };
     if (next >= target && !node.finishedTeamId) {
       node.finishedTeamId = p.teamId;
+      node.finishReason = "target";
+      node.finishedAt = Date.now();
+      node.tied = false;
       node.phase = "finished";
     }
     const nextQ = questions[idx + 1];
@@ -1237,6 +1321,7 @@ export function tickRun(run) {
   const node = run.node;
   if (!node) return false;
   const now = Date.now();
+  if (node.kind === "fill-game") return tickFill(node, run.snapshot?.configs?.[currentStep(run)?.id], now);
   if (node.kind === "mini-poll" && node.phase === "tallying" && node.tallyStartedAt) {
     const dur = Number(node.revealDurationMs || 3000);
     if (now >= Number(node.tallyStartedAt) + dur) {

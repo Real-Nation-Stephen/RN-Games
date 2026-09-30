@@ -3,7 +3,7 @@
  * This module must never call live-run, live-join, live-action, or live-control.
  */
 import { applyJoinTheme } from "./theme";
-import { renderFillPresenter, renderPollPresenter, optionLayout, escapeHtml, escapeAttr, renderLogo } from "./render";
+import { renderFillPresenter, renderPollPresenter, optionLayout, escapeHtml, escapeAttr, renderLogo, pollImage, pollAnswer } from "./render";
 
 type AnyRec = Record<string, unknown>;
 
@@ -37,13 +37,13 @@ function applyChrome(cfg: AnyRec, surface: "presenter" | "phone") {
 
 function fakePollTally(cfg: AnyRec) {
   const opts = (cfg.options || []) as AnyRec[];
-  const a = String(opts[0]?.id || "a");
-  const b = String(opts[1]?.id || "b");
+  const counts = Object.fromEntries(opts.map((o,i) => [String(o.id), i === 0 ? 9 : 6]));
+  const total = Object.values(counts).reduce((n,v) => n+v,0);
   return {
-    counts: { [a]: 9, [b]: 6 },
-    percents: { [a]: 60, [b]: 40 },
+    counts,
+    percents: Object.fromEntries(opts.map((o) => [String(o.id), Math.round(counts[String(o.id)] / total * 100)])),
     result: "a",
-    total: 15,
+    total,
   };
 }
 
@@ -55,20 +55,20 @@ function renderPollPhone(cfg: AnyRec, phase: string): HTMLElement {
   if (phase === "revealed") {
     const tally = fakePollTally(cfg);
     const shell = phoneShell(
-      `<h1 class="live-headline">${escapeHtml(cfg.question)}</h1><div class="live-options"></div>`,
+      `<h1 class="live-headline">${escapeHtml(cfg.question)}</h1>${pollImage(cfg)}${pollAnswer(cfg, { phase, correctOptionId: cfg.correctOptionId })}<div class="live-options"></div>`,
     );
     const row = shell.querySelector(".live-options") as HTMLElement;
     for (const opt of opts) {
       const lay = optionLayout(opt);
       const card = document.createElement("div");
       card.className = `live-option${lay.hasImage ? " has-image" : ""}${lay.hasText ? "" : " no-text"}`;
-      card.innerHTML = `${lay.hasImage ? `<img alt="${escapeAttr(opt.accessibleLabel || opt.label)}" src="${escapeAttr(opt.imageUrl)}" />` : ""}<span class="${lay.hasText ? "" : "live-option-label"}">${escapeHtml(lay.hasText ? opt.label : opt.accessibleLabel || "")}</span><strong>${Number(tally.percents[String(opt.id)] || 0)}%</strong>`;
+      card.innerHTML = `${lay.hasImage ? `<img alt="${escapeAttr(opt.accessibleLabel || opt.label)}" src="${escapeAttr(opt.imageUrl)}" />` : ""}<span class="${lay.hasText ? "" : "live-option-label"}">${escapeHtml(lay.hasText ? opt.label : opt.accessibleLabel || "")}</span><span class="live-tally-bar" style="--pct:${Number(tally.percents[String(opt.id)] || 0)}%"></span><strong>${Number(tally.percents[String(opt.id)] || 0)}%</strong>`;
       row.appendChild(card);
     }
     return shell;
   }
   const shell = phoneShell(
-    `${renderLogo(String((cfg.branding as AnyRec)?.logoUrl || ""))}<h1 class="live-headline">${escapeHtml(cfg.question || "Vote")}</h1><div class="live-options"></div>`,
+    `${renderLogo(String((cfg.branding as AnyRec)?.logoUrl || ""))}<h1 class="live-headline">${escapeHtml(cfg.question || "Vote")}</h1>${pollImage(cfg)}<div class="live-options"></div>`,
   );
   const row = shell.querySelector(".live-options") as HTMLElement;
   for (const opt of opts) {
@@ -111,7 +111,8 @@ function syntheticPollState(cfg: AnyRec, phase: string): AnyRec {
     activity: {
       kind: "mini-poll",
       phase,
-      responseCount: phase === "idle" ? 0 : 15,
+      responseCount: phase === "idle" ? 0 : fakePollTally(cfg).total,
+      correctOptionId: phase === "revealed" ? cfg.correctOptionId : null,
       tally: phase === "revealed" ? fakePollTally(cfg) : null,
     },
     component: cfg,

@@ -77,7 +77,7 @@ export async function lambdaHandler(event, context) {
       const projRole = role === "moderator" ? "moderator" : role === "participant" ? "participant" : "public";
       const state = projectRun(run, projRole, projRole === "participant" ? participantId : null);
       if (rev && rev === String(state.viewToken || "")) {
-        return { statusCode: 200, headers, body: JSON.stringify({ changed: false, state: null }) };
+        return { statusCode: 200, headers, body: JSON.stringify({ changed: false, state: null, now: Date.now() }) };
       }
       return { statusCode: 200, headers, body: JSON.stringify({ changed: true, state }) };
     }

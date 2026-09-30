@@ -6,37 +6,66 @@
     <title>Flow Master</title>
     <link rel="stylesheet" href="/src/css/live.css" />
   </head>
-  <body class="live-page">
+  <body class="live-page live-master-page">
     <p id="err" class="live-error" hidden></p>
     <div id="app" hidden>
       <div class="live-master">
-        <div class="live-master-col">
-          <h2>Running order</h2>
-          <ol id="master-steps"></ol>
-        </div>
-        <div class="live-master-col">
-          <h2>Presenter preview</h2>
-          <iframe id="master-preview" title="Presenter preview"></iframe>
-          <p class="live-body">Code <strong id="master-code"></strong></p>
-          <p class="live-body" id="master-join"></p>
-          <p class="live-body" id="master-counts"></p>
-          <div class="live-actions">
+        <header class="live-master-bar">
+          <div class="live-master-brand">
+            <p class="live-master-kicker">Flow Master</p>
+            <h1 id="master-title">Live run</h1>
+            <p class="live-master-held" id="master-held" hidden>Held — phones cannot vote or answer</p>
+          </div>
+          <dl class="live-master-session">
+            <div>
+              <dt>Join code</dt>
+              <dd id="master-code"></dd>
+            </div>
+            <div>
+              <dt>Join link</dt>
+              <dd id="master-join"></dd>
+            </div>
+            <div>
+              <dt>Room</dt>
+              <dd id="master-counts"></dd>
+            </div>
+          </dl>
+          <div class="live-master-transport">
             <button class="live-btn" id="btn-present" type="button">Open presenter</button>
-            <button class="live-btn" id="btn-prev" type="button">Previous</button>
-            <button class="live-btn" id="btn-next" type="button">Next</button>
+            <button class="live-btn live-btn-ghost" id="btn-prev" type="button">Previous</button>
+            <button class="live-btn" id="btn-next" type="button">Next step</button>
             <button class="live-btn live-btn-ghost" id="btn-hold" type="button">Hold</button>
             <button class="live-btn live-btn-ghost" id="btn-resume" type="button">Resume</button>
-            <button class="live-btn live-btn-ghost" id="btn-replay" type="button">Replay</button>
-            <button class="live-btn live-btn-ghost" id="btn-end" type="button">End run</button>
-            <button class="live-btn live-btn-ghost" id="btn-new" type="button">Start new run</button>
-            <button class="live-btn live-btn-ghost" id="btn-takeover" type="button">Take over</button>
           </div>
-          <p class="live-body">Prizes: <span id="master-awards"></span></p>
-        </div>
-        <div class="live-master-col">
-          <h2>Activity</h2>
-          <div class="live-actions" id="master-activity"></div>
-        </div>
+        </header>
+        <aside class="live-master-rail">
+          <h2>Running order</h2>
+          <ol id="master-steps"></ol>
+        </aside>
+        <section class="live-master-stage">
+          <h2>Presenter</h2>
+          <iframe id="master-preview" title="Presenter preview"></iframe>
+        </section>
+        <aside class="live-master-side">
+          <section class="live-master-card">
+            <h2 id="master-activity-title">This step</h2>
+            <p class="live-master-phase" id="master-phase"></p>
+            <div id="master-activity"></div>
+          </section>
+          <section class="live-master-card">
+            <h2>Prizes</h2>
+            <p class="live-body" id="master-awards"></p>
+          </section>
+          <section class="live-master-card live-master-danger">
+            <h2>Run</h2>
+            <div class="live-actions">
+              <button class="live-btn live-btn-ghost" id="btn-replay" type="button">Replay step</button>
+              <button class="live-btn live-btn-ghost" id="btn-takeover" type="button">Take over</button>
+              <button class="live-btn live-btn-danger" id="btn-end" type="button">End run</button>
+              <button class="live-btn live-btn-danger" id="btn-new" type="button">Start new run</button>
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
     <script type="module" src="/src/live/master.ts"></script>

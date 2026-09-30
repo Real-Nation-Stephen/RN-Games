@@ -319,6 +319,7 @@ export function emptyMiniPollRecord(id, slug) {
     showPoweredBy: false,
     archived: false,
     question: "Which option do you prefer?",
+    subquestion: "",
     options: [emptyOption("Option A"), emptyOption("Option B")],
     revealDurationMs: 3000,
     branding: defaultBranding(),
@@ -354,14 +355,20 @@ export function normalizeMiniPollRecord(doc) {
     clientName: String(doc.clientName || ""),
     slug: String(doc.slug || d.slug).trim().toLowerCase(),
     question: String(doc.question || d.question),
-    options: [normOption(options[0], "Option A"), normOption(options[1], "Option B")],
+    subquestion: typeof doc.subquestion === "string" ? doc.subquestion : d.subquestion,
+    options: Array.from({ length: Math.max(2, Math.min(4, options.length)) }, (_, i) =>
+      normOption(options[i], `Option ${String.fromCharCode(65 + i)}`)),
+    questionImageUrl: String(doc.questionImageUrl || ""),
+    questionImageAlt: String(doc.questionImageAlt || ""),
+    correctOptionId: options.slice(0, 4).some((o) => o.id === doc.correctOptionId) ? doc.correctOptionId : "",
     revealDurationMs: Math.min(8000, Math.max(1200, Number(doc.revealDurationMs) || 3000)),
     branding: mergeBranding(doc.branding),
   };
 }
 
 export function toPublicMiniPoll(doc) {
-  return normalizeMiniPollRecord(doc);
+  const { correctOptionId: _answer, ...pub } = normalizeMiniPollRecord(doc);
+  return pub;
 }
 
 export function emptyFillGameRecord(id, slug) {
@@ -401,6 +408,8 @@ export function emptyFillGameRecord(id, slug) {
         correctChoiceId: c1,
       },
     ],
+    presenterHeading: "",
+    presenterBody: "",
     branding: defaultBranding(),
   };
 }
@@ -457,6 +466,8 @@ export function normalizeFillGameRecord(doc) {
     },
     foregroundUrl,
     questions: questions.length ? questions : d.questions,
+    presenterHeading: typeof doc.presenterHeading === "string" ? doc.presenterHeading : d.presenterHeading,
+    presenterBody: typeof doc.presenterBody === "string" ? doc.presenterBody : d.presenterBody,
     branding: mergeBranding(doc.branding),
   };
 }

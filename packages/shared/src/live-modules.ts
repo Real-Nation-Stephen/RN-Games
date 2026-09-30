@@ -270,7 +270,12 @@ export interface MiniPollRecord {
   showPoweredBy?: boolean;
   archived?: boolean;
   question: string;
-  options: [MiniPollOption, MiniPollOption];
+  /** Optional supporting line under the question on Presenter and phone. */
+  subquestion: string;
+  options: MiniPollOption[];
+  questionImageUrl?: string;
+  questionImageAlt?: string;
+  correctOptionId?: string;
   revealDurationMs: number;
   branding: LiveSurfaceBranding;
 }
@@ -292,6 +297,7 @@ export function emptyMiniPoll(partial: { id: string; slug: string }): MiniPollRe
     showPoweredBy: false,
     archived: false,
     question: "Which option do you prefer?",
+    subquestion: "",
     options: [
       { id: newId(), label: "Option A", imageUrl: "", accessibleLabel: "Option A" },
       { id: newId(), label: "Option B", imageUrl: "", accessibleLabel: "Option B" },
@@ -330,14 +336,20 @@ export function normalizeMiniPoll(doc: Partial<MiniPollRecord> & { id: string; s
     clientName: String(doc.clientName || ""),
     slug: String(doc.slug || d.slug).trim().toLowerCase(),
     question: String(doc.question || d.question),
-    options: [normalizeOption(optionsIn[0], "Option A"), normalizeOption(optionsIn[1], "Option B")],
+    subquestion: typeof doc.subquestion === "string" ? doc.subquestion : d.subquestion,
+    options: Array.from({ length: Math.max(2, Math.min(4, optionsIn.length)) }, (_, i) =>
+      normalizeOption(optionsIn[i], `Option ${String.fromCharCode(65 + i)}`)),
+    questionImageUrl: String(doc.questionImageUrl || ""),
+    questionImageAlt: String(doc.questionImageAlt || ""),
+    correctOptionId: optionsIn.slice(0, 4).some((o) => o.id === doc.correctOptionId) ? doc.correctOptionId : "",
     revealDurationMs: Math.min(8000, Math.max(1200, Number(doc.revealDurationMs) || d.revealDurationMs)),
     branding: mergeBranding(doc.branding),
   };
 }
 
-export function toPublicMiniPoll(doc: MiniPollRecord): MiniPollRecord {
-  return normalizeMiniPoll(doc);
+export function toPublicMiniPoll(doc: MiniPollRecord): Omit<MiniPollRecord, "correctOptionId"> {
+  const { correctOptionId: _answer, ...pub } = normalizeMiniPoll(doc);
+  return pub;
 }
 
 export interface FillGameQuestionChoice {
@@ -390,6 +402,9 @@ export interface FillGameRecord {
   maskPlacement: FillMaskPlacement;
   foregroundUrl: string;
   questions: FillGameQuestion[];
+  /** Optional Presenter heading; falls back to title. */
+  presenterHeading: string;
+  presenterBody: string;
   branding: LiveSurfaceBranding;
 }
 
@@ -437,6 +452,8 @@ export function emptyFillGame(partial: { id: string; slug: string }): FillGameRe
         correctChoiceId: c1,
       },
     ],
+    presenterHeading: "",
+    presenterBody: "",
     branding: defaultLiveSurfaceBranding(),
   };
 }
@@ -511,6 +528,8 @@ export function normalizeFillGame(doc: Partial<FillGameRecord> & { id: string; s
     },
     foregroundUrl,
     questions: questions.length ? questions : d.questions,
+    presenterHeading: typeof doc.presenterHeading === "string" ? doc.presenterHeading : d.presenterHeading,
+    presenterBody: typeof doc.presenterBody === "string" ? doc.presenterBody : d.presenterBody,
     branding: mergeBranding(doc.branding),
   };
 }

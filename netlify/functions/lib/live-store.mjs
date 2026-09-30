@@ -142,8 +142,13 @@ export async function updateLiveRun(code, mutator) {
     try {
       written = await st.setJSON(key, next, { onlyIfMatch: got.etag });
     } catch (e) {
+      // An uncertain write must never be replayed. A known lock/CAS conflict
+      // did not write anything, so retry from a fresh authoritative read.
       if (e instanceof CasUncertain) throw e;
-      throw e;
+      if (!(e instanceof CasConflict)) throw e;
+      lastErr = e;
+      await sleep(retryDelay(i));
+      continue;
     }
     if (written?.modified) return next;
     lastErr = new CasConflict("live run write conflict");

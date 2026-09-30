@@ -171,6 +171,9 @@ export {
   componentLayoutMode,
   resolveLiveSurfaceLayouts,
   mergeLiveFontUploads,
+  normalizeLiveCopy,
+  pickLiveCopy,
+  type LiveCopyBag,
   type LiveCapableType,
   type LiveFontUpload,
   type LiveFontUploads,
@@ -541,6 +544,8 @@ export interface ScratcherRecord {
   winChancePercent: number;
   layoutMode?: import("./live.js").LiveLayoutMode;
   layout?: import("./live.js").LiveSurfaceLayouts;
+  /** Presenter/phone copy; empty strings use generic engine fallbacks. */
+  liveCopy?: import("./live.js").LiveCopyBag;
 }
 
 export interface WheelAssets {
@@ -607,6 +612,7 @@ export interface WheelRecord {
   showPoweredBy?: boolean;
   layoutMode?: import("./live.js").LiveLayoutMode;
   layout?: import("./live.js").LiveSurfaceLayouts;
+  liveCopy?: import("./live.js").LiveCopyBag;
 }
 
 export type WheelListItem = Pick<
@@ -641,6 +647,7 @@ export function emptyScratcher(partial: { id: string; slug: string }): Scratcher
     winButtonUrl: "",
     clearThreshold: 0.97,
     winChancePercent: 50,
+    liveCopy: {},
   };
 }
 

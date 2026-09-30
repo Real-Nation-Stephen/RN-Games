@@ -156,6 +156,24 @@ export function resolveLiveSurfaceLayouts(flowLayout: unknown, componentBranding
   return normalizeLiveSurfaceLayouts(extra.layout);
 }
 
+/** Optional live copy bag used by scratcher/wheel Presenter and phone states. */
+export type LiveCopyBag = Record<string, string>;
+
+export function normalizeLiveCopy(raw: unknown): LiveCopyBag {
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const out: LiveCopyBag = {};
+  for (const [key, value] of Object.entries(src)) {
+    if (typeof value === "string") out[key] = value;
+  }
+  return out;
+}
+
+export function pickLiveCopy(raw: unknown, key: string, fallback = ""): string {
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const value = src[key];
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
 /** Opening / join / closing screen branding on the Flow (not a component). */
 export interface LiveJoinScreen {
   logoUrl: string;
@@ -164,6 +182,16 @@ export interface LiveJoinScreen {
   backgroundHex: string;
   headline: string;
   instructions: string;
+  /** Optional accent line above the opening headline. */
+  eyebrow: string;
+  /** Optional decorative Presenter hero (never a Fill meter). */
+  heroImageUrl: string;
+  /** Short join cue under the invitation, e.g. scan/code. */
+  joinCue: string;
+  /** Optional prefix in the Presenter header, e.g. programme name. */
+  headerLabel: string;
+  phoneHeadline: string;
+  phoneBody: string;
   headlineHex: string;
   bodyHex: string;
   accentHex: string;
@@ -177,6 +205,9 @@ export interface LiveJoinScreen {
   fontUploads: LiveFontUploads;
   closingHeadline: string;
   closingBody: string;
+  /** Optional accent line under the closing headline. */
+  closingTakeaway: string;
+  closingThanks: string;
   layout: LiveSurfaceLayouts;
 }
 
@@ -188,6 +219,12 @@ export function defaultLiveJoinScreen(): LiveJoinScreen {
     backgroundHex: "#07131f",
     headline: "Join the live experience",
     instructions: "Scan the QR code or enter the room code on your phone.",
+    eyebrow: "",
+    heroImageUrl: "",
+    joinCue: "",
+    headerLabel: "",
+    phoneHeadline: "",
+    phoneBody: "",
     headlineHex: "#ffffff",
     bodyHex: "#d7e0ea",
     accentHex: "#3ecf8e",
@@ -201,6 +238,8 @@ export function defaultLiveJoinScreen(): LiveJoinScreen {
     fontUploads: {},
     closingHeadline: "Thanks for playing",
     closingBody: "That's the end of this live run.",
+    closingTakeaway: "",
+    closingThanks: "",
     layout: defaultLiveSurfaceLayouts(),
   };
 }
@@ -219,6 +258,12 @@ export function normalizeLiveJoinScreen(raw: unknown): LiveJoinScreen {
     backgroundHex: str("backgroundHex") || d.backgroundHex,
     headline: str("headline") || d.headline,
     instructions: str("instructions") || d.instructions,
+    eyebrow: str("eyebrow"),
+    heroImageUrl: str("heroImageUrl"),
+    joinCue: str("joinCue"),
+    headerLabel: str("headerLabel"),
+    phoneHeadline: str("phoneHeadline"),
+    phoneBody: str("phoneBody"),
     headlineHex: str("headlineHex") || d.headlineHex,
     bodyHex: str("bodyHex") || d.bodyHex,
     accentHex: str("accentHex") || d.accentHex,
@@ -232,6 +277,8 @@ export function normalizeLiveJoinScreen(raw: unknown): LiveJoinScreen {
     fontUploads: mergeLiveFontUploads(src.fontUploads),
     closingHeadline: str("closingHeadline") || d.closingHeadline,
     closingBody: str("closingBody") || d.closingBody,
+    closingTakeaway: str("closingTakeaway"),
+    closingThanks: str("closingThanks"),
     layout: normalizeLiveSurfaceLayouts(src.layout),
   };
 }

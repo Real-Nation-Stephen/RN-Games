@@ -17,6 +17,12 @@ export function defaultExperienceFoundation() {
       backgroundHex: "#07131f",
       headline: "Join the live experience",
       instructions: "Scan the QR code or enter the room code on your phone.",
+      eyebrow: "",
+      heroImageUrl: "",
+      joinCue: "",
+      headerLabel: "",
+      phoneHeadline: "",
+      phoneBody: "",
       headlineHex: "#ffffff",
       bodyHex: "#d7e0ea",
       accentHex: "#3ecf8e",
@@ -31,6 +37,8 @@ export function defaultExperienceFoundation() {
       fontUploads: {},
       closingHeadline: "Thanks for playing",
       closingBody: "That's the end of this live run.",
+      closingTakeaway: "",
+      closingThanks: "",
       layout: {
         presenter: {
           alignX: "center",

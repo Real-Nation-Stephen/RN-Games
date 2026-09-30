@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import { startIsolatedQaProcess } from "./lib/isolated-qa-process.mjs";
 /**
  * Isolated HTTP full-flow: file CAS for BOTH platform seed and live state,
  * real handlers, built static files. Does not use production Blobs.
  */
-import { startIsolatedQaServer, resolveIsolatedQaDir } from "./lib/isolated-qa-server.mjs";
+import { resolveIsolatedQaDir } from "./lib/isolated-qa-server.mjs";
 import fs from "node:fs/promises";
 
 const N = Number(process.env.LIVE_N || 15);
@@ -36,7 +37,7 @@ async function main() {
   const a = resolveIsolatedQaDir();
   const b = resolveIsolatedQaDir();
   if (a.qaDir === b.qaDir) throw new Error("QA dirs must be unique per run");
-  const { server, base, dir, config } = await startIsolatedQaServer({ port: 0 });
+  const { server, base, dir, config } = await startIsolatedQaProcess();
   console.log("isolated QA", { base, dir, config });
   try {
     const seeded = mustOk(
@@ -179,7 +180,7 @@ async function main() {
       return mustOk(await json(u, { headers: extra.headers || {} }), `get ${role}`);
     }
 
-    const joins = await Promise.all(
+    const joinResults = await Promise.allSettled(
       Array.from({ length: N }, () =>
         json(`${base}/api/live-join`, {
           method: "POST",
@@ -191,6 +192,12 @@ async function main() {
         }),
       ),
     );
+    const failedJoins = joinResults.filter((r) => r.status === "rejected");
+    if (failedJoins.length) {
+      const errors = failedJoins.map((r) => String(r.reason?.cause?.code || r.reason?.message || r.reason));
+      throw new Error(`HTTP join burst: ${N - failedJoins.length}/${N} acknowledged; failures ${JSON.stringify(errors.reduce((a, e) => ({...a, [e]: (a[e] || 0) + 1}), {}))}`);
+    }
+    const joins = joinResults.map((r) => r.value);
     if (new Set(joins.map((j) => j.participantId)).size !== N) throw new Error("HTTP join identities not unique");
     console.log(`ok  HTTP ${N} joins`);
 
@@ -255,26 +262,40 @@ async function main() {
     console.log("ok  HTTP poll auto-reveal via viewToken");
 
     await control("next");
-    await control("open");
-    const fillGet = await getState("participant", {
-      query: { participantId: joins[0].participantId },
-      headers: { "x-live-secret": joins[0].secret },
-    });
-    const fq = fillGet.state.me.question;
-    const fillAttempt = {
-      runId: fillGet.state.runId,
-      nodeId: fillGet.state.steps.find((s) => s.current)?.id,
-      roundAttemptId: fillGet.state.roundAttemptId,
-      questionId: fq.id,
-      choiceId: fq.choices[0].id,
-    };
-    const fill = await json(`${base}/api/live-action`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, action: "answer", ...fillAttempt, ...joins[0] }),
-    });
-    if (fill.status !== 200) throw new Error(`fill ${fill.status} ${fill.data.error}`);
-    console.log("ok  HTTP fill scoring");
+    await control("set-target", { target: 999 });
+    await control("set-duration", { durationSeconds: 10 });
+    const prepared = await Promise.all(joins.map((j) => getState("participant", {
+      query: { participantId: j.participantId }, headers: { "x-live-secret": j.secret },
+    })));
+    if (prepared.some((x) => !x.state.me.question || JSON.stringify(x.state.component).includes("correctChoiceId"))) {
+      throw new Error("Fill preload missing questions or leaking answer keys");
+    }
+    const race = await control("start-race");
+    async function answerFill(j, index) {
+      const state = prepared[index].state;
+      const q = state.me.question;
+      return json(`${base}/api/live-action`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, action: "answer", participantId:j.participantId, secret:j.secret, commandId:crypto.randomUUID(),
+          runId:state.runId, nodeId:state.steps.find((s) => s.current)?.id, roundAttemptId:state.roundAttemptId,
+          questionId:q.id, choiceId:q.choices[0].id }),
+      });
+    }
+    const early = await answerFill(joins[0],0);
+    if (early.status !== 423) throw new Error(`Early Fill answer should be rejected: ${early.status}`);
+    await sleep(Math.max(0, race.state.activity.startsAt - Date.now()) + 10);
+    const answerStarted = performance.now();
+    const fillAnswers = await Promise.all(joins.map(answerFill));
+    const accepted = fillAnswers.filter((v) => v.status === 200).length;
+    if (accepted !== N) throw new Error(`Fill answer burst ${accepted}/${N}: ${JSON.stringify(fillAnswers.filter((v) => v.status !== 200).map((v) => [v.status,v.data.error]))}`);
+    const scores = (await getState("public")).state.activity.teams;
+    if (scores.reduce((n,t) => n+Number(t.score),0) !== N) throw new Error("Fill lost an acknowledged answer");
+    console.log(`ok  HTTP ${N} preloaded players / ${N} concurrent Fill answers persisted in ${Math.round(performance.now()-answerStarted)}ms`);
+    await sleep(Math.max(0,race.state.activity.endsAt-Date.now())+20);
+    const timed = (await getState("public")).state.activity;
+    if (timed.phase !== "finished" || timed.finishReason !== "timeout") throw new Error("Fill timeout did not finish");
+    if ((await answerFill(joins[0],0)).status !== 423) throw new Error("Late Fill answer accepted");
+    console.log("ok  HTTP countdown rejects early input; timeout finalizes scores and rejects late input");
 
     await control("next");
     await control("open");
@@ -407,7 +428,7 @@ async function main() {
     console.log("\nok  isolated HTTP full flow");
     return { base, code, hostKey, server, dir };
   } catch (e) {
-    server.close();
+    await server.close();
     await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
     throw e;
   }
@@ -417,7 +438,7 @@ const keep = process.argv.includes("--keep");
 main()
   .then(async ({ server, dir }) => {
     if (!keep) {
-      server.close();
+      await server.close();
       await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
       process.exit(0);
     }

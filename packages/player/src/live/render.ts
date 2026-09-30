@@ -1,4 +1,18 @@
+import { raceClockHtml } from "./race-clock";
 import { cueProgress, prefersReducedMotion } from "./theme";
+import {
+  activityOf,
+  artImg,
+  componentOf,
+  contentBox,
+  copy,
+  escapeAttr,
+  escapeHtml,
+  joinScreenOf,
+  padNumber,
+  renderLogo,
+  textHtml,
+} from "./frame";
 
 type AnyRec = Record<string, unknown>;
 
@@ -8,113 +22,102 @@ function el(html: string): HTMLElement {
   return wrap.firstElementChild as HTMLElement;
 }
 
-export function renderLogo(url?: string): string {
-  return url ? `<img class="live-logo" alt="" src="${escapeAttr(url)}" />` : "";
-}
-
-export function escapeHtml(s: unknown): string {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export function escapeAttr(s: unknown): string {
-  return escapeHtml(s);
-}
+export { escapeHtml, escapeAttr, renderLogo };
 
 export function optionLayout(opt: AnyRec): { hasText: boolean; hasImage: boolean } {
   return { hasText: !!String(opt.label || "").trim(), hasImage: !!String(opt.imageUrl || "").trim() };
 }
 
-export function renderLobby(state: AnyRec, featuredDock: boolean): HTMLElement {
-  const js = (state.joinScreen || {}) as AnyRec;
-  const box = el(`<div class="live-stage-inner"></div>`);
-  box.innerHTML = `
-    ${renderLogo(String(js.logoUrl || ""))}
-    <p class="live-kicker">Live</p>
-    <h1 class="live-headline">${escapeHtml(js.headline || state.title || "Join")}</h1>
-    <p class="live-body">${escapeHtml(js.instructions || "")}</p>
-    ${featuredDock ? `<div data-dock="featured"></div>` : ""}
-  `;
-  return box;
+export function renderLobby(state: AnyRec, _featuredDock = false): HTMLElement {
+  const js = joinScreenOf(state);
+  const hero = artImg(String(js.heroImageUrl || ""));
+  return contentBox(
+    `
+    <div class="live-split">
+      <div class="live-split-copy">
+        ${js.eyebrow ? `<p class="live-eyebrow">${textHtml(js.eyebrow)}</p>` : ""}
+        <h1 class="live-display">${textHtml(js.headline || state.title || "Join")}</h1>
+        ${js.instructions ? `<p class="live-lede">${textHtml(js.instructions)}</p>` : ""}
+        ${js.joinCue ? `<p class="live-body">${textHtml(js.joinCue)}</p>` : ""}
+      </div>
+      ${hero ? `<div class="live-split-art">${hero}</div>` : ""}
+    </div>
+  `,
+    "is-welcome",
+  );
 }
 
 export function renderClosing(state: AnyRec): HTMLElement {
-  const js = (state.joinScreen || {}) as AnyRec;
-  const box = el(`<div class="live-stage-inner"></div>`);
-  box.innerHTML = `
-    ${renderLogo(String(js.logoUrl || ""))}
-    <h1 class="live-headline">${escapeHtml(js.closingHeadline || "Thanks for playing")}</h1>
-    <p class="live-body">${escapeHtml(js.closingBody || "")}</p>
-  `;
-  return box;
+  const js = joinScreenOf(state);
+  const takeaway = String(js.closingTakeaway || js.closingBody || "");
+  const thanks = String(js.closingThanks || "");
+  return contentBox(
+    `
+    <div class="live-closing">
+      <h1 class="live-display live-display-lg">${textHtml(js.closingHeadline || "Thanks for playing")}</h1>
+      ${takeaway ? `<p class="live-accent-line">${textHtml(takeaway)}</p>` : ""}
+      ${thanks ? `<p class="live-body">${textHtml(thanks)}</p>` : ""}
+    </div>
+  `,
+    "is-closing",
+  );
+}
+
+export function pollImage(component: AnyRec): string {
+  return component.questionImageUrl ? `<img class="live-question-image" src="${escapeAttr(component.questionImageUrl)}" alt="${escapeAttr(component.questionImageAlt || "Question image")}" />` : "";
+}
+
+export function pollAnswer(component: AnyRec, activity: AnyRec): string {
+  if (activity.phase !== "revealed" || !activity.correctOptionId) return "";
+  const option = ((component.options || []) as AnyRec[]).find((o) => o.id === activity.correctOptionId);
+  return option ? `<p class="live-poll-answer">Correct answer: ${escapeHtml(option.label || option.accessibleLabel)}</p>` : "";
 }
 
 export function renderPollPresenter(state: AnyRec): HTMLElement {
-  const activity = (state.activity || {}) as AnyRec;
-  const component = (state.component || {}) as AnyRec;
-  const branding = (component.branding || {}) as AnyRec;
+  const activity = activityOf(state);
+  const component = componentOf(state);
   const phase = String(activity.phase || "idle");
   const cue = state.cue as { startedAt: number; durationMs: number; kind: string } | null;
-  const box = el(`<div class="live-stage-inner"></div>`);
-  const logo = renderLogo(String(branding.logoUrl || component.logoUrl || ""));
   if ((phase === "tallying" || (cue && cue.kind === "tally" && cueProgress(cue) < 1)) && phase !== "revealed") {
-    box.innerHTML = `
-      ${logo}
-      <p class="live-kicker">${escapeHtml(activity.responseCount || 0)} responses</p>
-      <h1 class="live-headline">Results incoming</h1>
-      <div class="live-anticipation" aria-hidden="true"></div>
-    `;
     if (prefersReducedMotion()) {
-      box.innerHTML = `<h1 class="live-headline">Results</h1>`;
+      return contentBox(`<h1 class="live-question">Results</h1>`);
     }
-    return box;
-  }
-  if (phase === "revealed" && activity.tally) {
-    const tally = activity.tally as AnyRec;
-    const opts = (component.options || []) as AnyRec[];
-    const result = String(tally.result || "");
-    const status =
-      result === "zero" ? "No votes yet" : result === "tie" ? "It's a tie" : "";
-    box.innerHTML = `
-      ${logo}
-      <h1 class="live-headline">${escapeHtml(component.question || "Poll")}</h1>
-      ${status ? `<p class="live-body">${status}</p>` : ""}
-      <div class="live-options two"></div>
-    `;
-    const row = box.querySelector(".live-options") as HTMLElement;
-    for (const opt of opts) {
-      const counts = (tally.counts || {}) as AnyRec;
-      const percents = (tally.percents || {}) as AnyRec;
-      const n = Number(counts[String(opt.id)] || 0);
-      const pct = Number(percents[String(opt.id)] || 0);
-      const lay = optionLayout(opt);
-      const card = el(`<div class="live-option${lay.hasImage ? " has-image" : ""}${lay.hasText ? "" : " no-text"}"></div>`);
-      card.innerHTML = `${lay.hasImage ? `<img alt="${escapeAttr(opt.accessibleLabel || opt.label)}" src="${escapeAttr(opt.imageUrl)}" />` : ""}
-        ${lay.hasText ? `<span>${escapeHtml(opt.label)}</span>` : `<span class="live-option-label">${escapeHtml(opt.accessibleLabel || opt.label)}</span>`}
-        <strong>${pct}% · ${n}</strong>`;
-      row.appendChild(card);
-    }
-    return box;
+    return contentBox(
+      `<p class="live-eyebrow">${escapeHtml(activity.responseCount || 0)} responses</p><h1 class="live-question">Results incoming</h1><div class="live-anticipation" aria-hidden="true"></div>`,
+    );
   }
   const opts = (component.options || []) as AnyRec[];
-  box.innerHTML = `
-    ${logo}
-    <p class="live-kicker">${phase === "open" ? "Vote now" : phase === "closed" ? "Voting closed" : "Get ready"} · ${escapeHtml(activity.responseCount || 0)} in</p>
-    <h1 class="live-headline">${escapeHtml(component.question || "Poll")}</h1>
-    <div class="live-options two"></div>
-  `;
-  const row = box.querySelector(".live-options") as HTMLElement;
-  for (const opt of opts) {
-    const lay = optionLayout(opt);
-    const card = el(`<div class="live-option${lay.hasImage ? " has-image" : ""}${lay.hasText ? "" : " no-text"}"></div>`);
-    card.innerHTML = `${lay.hasImage ? `<img alt="${escapeAttr(opt.accessibleLabel || opt.label)}" src="${escapeAttr(opt.imageUrl)}" />` : ""}
-      ${lay.hasText ? `<span>${escapeHtml(opt.label)}</span>` : `<span class="live-option-label">${escapeHtml(opt.accessibleLabel || opt.label)}</span>`}`;
-    row.appendChild(card);
+  const sub = String(component.subquestion || "");
+  if (phase === "revealed" && activity.tally) {
+    const tally = activity.tally as AnyRec;
+    const result = String(tally.result || "");
+    const status = result === "zero" ? "No votes yet" : result === "tie" ? "It's a tie" : "";
+    const box = contentBox(
+      `<h1 class="live-question">${textHtml(component.question || "Poll")}</h1>${pollImage(component)}${pollAnswer(component, activity)}${sub ? `<p class="live-subhead">${textHtml(sub)}</p>` : ""}${status ? `<p class="live-body">${escapeHtml(status)}</p>` : ""}<div class="live-options live-poll-options" style="--poll-columns:${opts.length}"></div>`,
+    );
+    const row = box.querySelector(".live-options") as HTMLElement;
+    for (const opt of opts) appendPollCard(row, opt, tally);
+    return box;
   }
+  const box = contentBox(
+    `<h1 class="live-question">${textHtml(component.question || "Poll")}</h1>${pollImage(component)}${pollAnswer(component, activity)}${sub ? `<p class="live-subhead">${textHtml(sub)}</p>` : ""}<div class="live-options live-poll-options" style="--poll-columns:${opts.length}"></div>`,
+  );
+  const row = box.querySelector(".live-options") as HTMLElement;
+  for (const opt of opts) appendPollCard(row, opt);
   return box;
+}
+
+function appendPollCard(row: HTMLElement, opt: AnyRec, tally?: AnyRec) {
+  const lay = optionLayout(opt);
+  const card = el(`<div class="live-option${lay.hasImage ? " has-image" : ""}${lay.hasText ? "" : " no-text"}"></div>`);
+  const counts = (tally?.counts || {}) as AnyRec;
+  const percents = (tally?.percents || {}) as AnyRec;
+  const n = Number(counts[String(opt.id)] || 0);
+  const pct = Number(percents[String(opt.id)] || 0);
+  card.innerHTML = `${lay.hasImage ? `<img alt="${escapeAttr(opt.accessibleLabel || opt.label)}" src="${escapeAttr(opt.imageUrl)}" />` : ""}
+    ${lay.hasText ? `<span>${escapeHtml(opt.label)}</span>` : `<span class="live-option-label">${escapeHtml(opt.accessibleLabel || opt.label)}</span>`}
+    ${tally ? `<span class="live-tally-bar" style="--pct:${pct}%"></span><strong>${pct}% · ${n}</strong>` : ""}`;
+  row.appendChild(card);
 }
 
 function clampFillPercent(value: unknown, fallback: number, min: number, max: number): number {
@@ -132,27 +135,26 @@ function fillWindowStyle(place: AnyRec | undefined): string {
 }
 
 export function renderFillPresenter(state: AnyRec, seenEvents: Set<string>): HTMLElement {
-  const activity = (state.activity || {}) as AnyRec;
-  const component = (state.component || {}) as AnyRec;
+  const activity = activityOf(state);
+  const component = componentOf(state);
   const teams = (activity.teams || component.teams || []) as AnyRec[];
-  const box = el(`<div class="live-stage-inner"></div>`);
-  const branding = (component.branding || {}) as AnyRec;
   const maskUrl = String(component.maskUrl || activity.maskUrl || "");
   const overlayUrl = String(component.foregroundUrl || activity.foregroundUrl || "");
   const place = ((component.maskPlacement || activity.maskPlacement) || {}) as AnyRec;
   const hasArt = !!(maskUrl || overlayUrl);
-  box.innerHTML = `
-    ${renderLogo(String(branding.logoUrl || ""))}
-    <p class="live-kicker">${activity.phase === "racing" ? "Fill in progress" : activity.finishedTeamId ? "We have a winner" : "Fill game"}</p>
-    <div class="live-fill-row"></div>
-  `;
+  const heading = String(component.presenterHeading || component.title || "Fill game");
+  const body = String(component.presenterBody || "");
+  const box = contentBox(
+    `<h1 class="live-question">${textHtml(heading)}</h1>${raceClockHtml()}${body ? `<p class="live-subhead">${textHtml(body)}</p>` : ""}<div class="live-fill-row"></div>`,
+    "is-fill",
+  );
   const row = box.querySelector(".live-fill-row") as HTMLElement;
   for (const team of teams) {
     const target = Math.max(1, Number(team.target) || 1);
     const score = Number(team.score || 0);
     const pct = Math.max(0, Math.min(100, (score / target) * 100));
     const metric = activity.metric === "percent" ? `${Math.round(pct)}%` : `${score}/${target}`;
-    const col = el(`<div></div>`);
+    const col = el(`<div class="live-fill-team"></div>`);
     const maskCss = maskUrl
       ? `-webkit-mask-image:url('${escapeAttr(maskUrl)}');mask-image:url('${escapeAttr(maskUrl)}');`
       : "";
@@ -167,7 +169,7 @@ export function renderFillPresenter(state: AnyRec, seenEvents: Set<string>): HTM
           ${overlayUrl ? `<div class="live-meter-fg" style="background-image:url('${escapeAttr(overlayUrl)}')"></div>` : ""}
         </div>
       </div>
-      <h2 class="live-headline" style="font-size:2rem;color:${escapeAttr(team.colorHex)}">${escapeHtml(team.name)}</h2>
+      <h2 class="live-team-name" style="color:${escapeAttr(team.colorHex)}">${escapeHtml(team.name)}</h2>
       <p class="live-body">${metric}</p>
     `;
     row.appendChild(col);
@@ -184,7 +186,7 @@ export function renderFillPresenter(state: AnyRec, seenEvents: Set<string>): HTM
     fly.style.bottom = "40%";
     fly.style.color = Number(ev.delta) > 0 ? "#3ecf8e" : "#ff6b6b";
     meter.appendChild(fly);
-    window.setTimeout(() => fly.remove(), 1000);
+    window.setTimeout(() => fly.remove(), 1200);
   }
   if (seenEvents.size > 200) {
     const keep = events.map((e) => String(e.id));
@@ -194,41 +196,38 @@ export function renderFillPresenter(state: AnyRec, seenEvents: Set<string>): HTM
 }
 
 export function renderQuizPresenter(state: AnyRec): HTMLElement {
-  const activity = (state.activity || {}) as AnyRec;
-  const component = (state.component || {}) as AnyRec;
-  const branding = (component.branding || {}) as AnyRec;
+  const activity = activityOf(state);
+  const component = componentOf(state);
   const q = (component.currentQuestion || {}) as AnyRec;
-  const box = el(`<div class="live-stage-inner"></div>`);
   const phase = String(activity.phase || "idle");
   const pct = activity.percentCorrect;
-  const footer =
+  const kicker =
     phase === "revealed"
       ? activity.noAnswers
         ? "No answers yet"
         : `${pct}% correct`
-      : `${activity.responseCount || 0} answered`;
-  box.innerHTML = `
-    ${renderLogo(String(branding.logoUrl || component.logoUrl || ""))}
-    <p class="live-kicker">Q${Number(activity.questionIndex || 0) + 1} / ${escapeHtml(activity.questionCount || 0)} · ${escapeHtml(footer)}</p>
-    <h1 class="live-headline">${escapeHtml(q.prompt || "Get ready")}</h1>
-    <div class="live-options two"></div>
-  `;
+      : `Question ${Number(activity.questionIndex || 0) + 1} / ${escapeHtml(activity.questionCount || 0)}`;
+  const box = contentBox(
+    `<p class="live-eyebrow">${kicker}</p><h1 class="live-question">${textHtml(q.prompt || "Get ready")}</h1><div class="live-options two live-quiz-choices"></div>`,
+  );
   const row = box.querySelector(".live-options") as HTMLElement;
   for (const c of (q.choices || []) as AnyRec[]) {
-    const card = el(`<div class="live-option${phase === "revealed" && c.id === q.correctChoiceId ? " is-selected" : ""}">${escapeHtml(c.label)}</div>`);
+    const card = el(
+      `<div class="live-option live-chip${phase === "revealed" && c.id === q.correctChoiceId ? " is-selected is-correct" : ""}">${escapeHtml(c.label)}</div>`,
+    );
     row.appendChild(card);
   }
   return box;
 }
 
 export function renderPinboardPresenter(state: AnyRec): HTMLElement {
-  const activity = (state.activity || {}) as AnyRec;
-  const component = (state.component || {}) as AnyRec;
+  const activity = activityOf(state);
+  const component = componentOf(state);
   const board = (component.board || {}) as AnyRec;
-  const branding = (component.branding || {}) as AnyRec;
-  const box = el(`<div class="live-stage-inner"></div>`);
   const subs = (activity.submissions || []) as AnyRec[];
-  box.innerHTML = `${renderLogo(String(branding.logoUrl || board.brandLogoUrl || ""))}<h1 class="live-headline">${escapeHtml(board.header || component.title || "Pinboard")}</h1>${board.subhead ? `<p class="live-body">${escapeHtml(board.subhead)}</p>` : ""}<div class="live-pin-grid"></div>`;
+  const box = contentBox(
+    `<h1 class="live-question">${textHtml(board.header || component.title || "Pinboard")}</h1>${board.subhead ? `<p class="live-subhead">${textHtml(board.subhead)}</p>` : ""}<div class="live-pin-grid"></div>`,
+  );
   const grid = box.querySelector(".live-pin-grid") as HTMLElement;
   if (!subs.length) {
     grid.innerHTML = `<p class="live-body">Waiting for approved posts</p>`;
@@ -254,28 +253,103 @@ export function renderPinboardPresenter(state: AnyRec): HTMLElement {
 }
 
 export function renderScratcherPresenter(state: AnyRec): HTMLElement {
-  const activity = (state.activity || {}) as AnyRec;
-  const box = el(`<div class="live-stage-inner"></div>`);
+  const activity = activityOf(state);
+  const component = componentOf(state);
+  const assets = (component.assets || {}) as AnyRec;
   const queue = (activity.celebrationQueue || []) as AnyRec[];
   const latest = queue[queue.length - 1];
+  const cover = String(assets.top || "");
   if (latest && activity.phase !== "idle") {
-    box.innerHTML = `
-      <p class="live-kicker">Scratcher</p>
-      <h1 class="live-headline">We have a winner!</h1>
-      <p class="live-number">${String(latest.participantNumber).padStart(3, "0")}</p>
-    `;
-    return box;
+    const prize = copy(state, "prizeName", "");
+    return contentBox(
+      `
+      <div class="live-winner">
+        <h1 class="live-display">${textHtml(copy(state, "winnerHeadline", "That's a win!"))}</h1>
+        <p class="live-number live-number-accent">${padNumber(latest.participantNumber)}</p>
+        ${prize ? `<p class="live-prize">${textHtml(prize)}</p>` : ""}
+        <p class="live-body">${textHtml(copy(state, "winnerBody", "Give them a cheer."))}</p>
+      </div>
+    `,
+      "is-winner",
+    );
   }
-  box.innerHTML = `
-    <p class="live-kicker">Scratcher</p>
-    <h1 class="live-headline">${activity.phase === "released" ? "Scratchers released" : "Ready to release"}</h1>
-    <p class="live-body">${escapeHtml(activity.revealedCount || 0)} / ${escapeHtml(activity.recipientCount || 0)} revealed</p>
-  `;
-  return box;
+  const released = activity.phase === "released";
+  const eyebrow = released
+    ? copy(state, "releasedEyebrow", "Your card is on your phone")
+    : copy(state, "idleEyebrow", String(component.title || "Scratcher"));
+  const headline = released
+    ? copy(state, "releasedHeadline", copy(state, "idleHeadline", "Your next\nmoment."))
+    : copy(state, "idleHeadline", "Your next\nmoment.");
+  const body = released
+    ? copy(state, "releasedBody", "Scratch your screen.")
+    : copy(state, "idleBody", "Keep your phone ready. Your card is coming.");
+  const winnerCount = Number(activity.winnerCount || 0);
+  const accent =
+    released && winnerCount > 0
+      ? copy(state, "releasedAccent", "{n} winning cards").replace("{n}", String(winnerCount))
+      : "";
+  const revealed = Number(activity.revealedCount || 0);
+  const recipients = Number(activity.recipientCount || 0);
+  const progress =
+    released && recipients > 0
+      ? `<div class="live-progress" data-live-progress><span class="live-progress-bar" style="width:${Math.round((revealed / recipients) * 100)}%"></span><span class="live-progress-label">${revealed} / ${recipients} revealed</span></div>`
+      : "";
+  return contentBox(
+    `
+    <div class="live-split">
+      <div class="live-split-copy">
+        <p class="live-eyebrow">${textHtml(eyebrow)}</p>
+        <h1 class="live-display">${textHtml(headline)}</h1>
+        ${accent ? `<p class="live-accent-line">${textHtml(accent)}</p>` : ""}
+        <p class="live-lede">${textHtml(body)}</p>
+        ${progress}
+      </div>
+      ${cover ? `<div class="live-cover-card">${artImg(cover, "live-cover-art")}</div>` : ""}
+    </div>
+  `,
+    released ? "is-scratch-released" : "is-scratch-idle",
+  );
 }
 
-export function renderUnsupported(state: AnyRec): HTMLElement {
-  const box = el(`<div class="live-stage-inner"></div>`);
-  box.innerHTML = `<h1 class="live-headline">Holding</h1><p class="live-body">This step isn’t live-capable. Use Next on Flow Master.</p>`;
-  return box;
+export function renderWheelPresenter(state: AnyRec): HTMLElement {
+  const activity = activityOf(state);
+  const component = componentOf(state);
+  const assets = (component.assets || {}) as AnyRec;
+  const spinning = activity.phase === "spinning";
+  const revealed = activity.phase === "revealed";
+  const eyebrow = copy(state, "eyebrow", "Live draw");
+  const headline = spinning
+    ? copy(state, "spinningHeadline", copy(state, "headline", "Watch the draw"))
+    : revealed
+      ? copy(state, "winHeadline", "That's your number!")
+      : copy(state, "headline", String(component.title || "Prize draw"));
+  const body = copy(state, "body", "Watch the number. Listen for yours.");
+  const number = revealed && activity.winnerNumber != null ? padNumber(activity.winnerNumber) : "";
+  const frame = String(assets.frame || "");
+  const poolSize = Array.isArray(activity.pool) ? activity.pool.length : 0;
+  const readoutLabel = revealed ? "Winning number" : spinning ? "Under the pointer" : "Numbers in the draw";
+  return contentBox(
+    `
+    <div class="live-split is-wheel-split">
+      <div class="live-split-copy">
+        <p class="live-eyebrow">${textHtml(eyebrow)}</p>
+        <h1 class="live-display">${textHtml(headline)}</h1>
+        <div class="live-wheel-result">
+          <p class="live-wheel-result-label">${readoutLabel}</p>
+          <p class="live-pointer-readout live-number-accent" id="wheel-readout">${number || (spinning ? "—" : String(poolSize))}</p>
+        </div>
+        <p class="live-body">${textHtml(body)}</p>
+      </div>
+      <div class="live-wheel-wrap">
+        <canvas id="live-wheel" role="img" aria-label="Participant prize wheel"></canvas>
+        ${frame ? `<img class="live-wheel-frame" alt="" src="${escapeAttr(frame)}" />` : ""}
+      </div>
+    </div>
+  `,
+    `is-wheel${spinning ? " is-spinning" : revealed ? " is-revealed" : ""}`,
+  );
+}
+
+export function renderUnsupported(_state: AnyRec): HTMLElement {
+  return contentBox(`<h1 class="live-question">Holding</h1><p class="live-body">This step isn’t live-capable. Use Next on Flow Master.</p>`);
 }
