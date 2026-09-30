@@ -1,5 +1,5 @@
 import { startRaceClock, raceClockHtml } from "./race-clock";
-import { liveEndpoint, liveGetUrl, liveJson } from "./api";
+import { liveEndpoint, platformLiveEndpoint, liveGetUrl, liveJson } from "./api";
 import { startLivePoll } from "./poll";
 import { shortJoinUrl } from "./join-dock";
 import { fillPinboardCard } from "./pinboard-card";
@@ -367,9 +367,9 @@ async function ensureRun(forceNew = false) {
   const fromLink = consumeHostKeyFromLocation();
   const body: Record<string, unknown> = { slug: slug(), forceNew };
   if (fromLink) body.hostKey = fromLink;
-  else if (existing && !forceNew) body.hostKey = existing.hostKey;
+  else if (existing) body.hostKey = existing.hostKey;
   try {
-    const data = await liveJson(liveEndpoint("live-run"), {
+    const data = await liveJson(platformLiveEndpoint("live-run"), {
       method: "POST",
       headers: operatorHeaders(),
       body: JSON.stringify(body),

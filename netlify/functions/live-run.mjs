@@ -1,3 +1,4 @@
+import { getLiveRoute, publicConnection, routeResponse, createDedicatedRun, callDedicated, retireLiveRun } from "./lib/live-connection.mjs";
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { requireOperatorAuth } from "./lib/auth.mjs";
@@ -60,6 +61,8 @@ export async function lambdaHandler(event, context) {
       }
       if (!resolved) return { statusCode: 404, headers, body: JSON.stringify({ error: "No active run" }) };
 
+      const route = await getLiveRoute(resolved);
+      if (route) return { statusCode:200, headers, body:JSON.stringify(routeResponse(route)) };
       const run = await hydrateLiveRun(resolved);
       if (!run) return { statusCode: 404, headers, body: JSON.stringify({ error: "Run not found" }) };
 
@@ -99,7 +102,8 @@ export async function lambdaHandler(event, context) {
       const providedKey = String(body.hostKey || "");
 
       const existingCode = await getActiveRunCode(experience.id);
-      const existing = existingCode ? await getLiveRun(existingCode) : null;
+      const existingRoute = await getLiveRoute(existingCode);
+      const existing = existingRoute || (existingCode ? await getLiveRun(existingCode) : null);
       const hostOk = !!(existing && providedKey && secretsEqual(providedKey, String(existing.hostKey || "")));
 
       if (existing && existing.status !== "superseded" && !body.forceNew) {
@@ -112,7 +116,8 @@ export async function lambdaHandler(event, context) {
               hostKey: existing.hostKey,
               runId: existing.runId,
               reused: true,
-              state: projectRun(existing, "moderator", null),
+              state: existingRoute ? (await callDedicated(existingRoute.apiBase,{operation:"resume",code:existing.code,runId:existing.runId})).state : projectRun(existing, "moderator", null),
+              connection: publicConnection(existingRoute),
             }),
           };
         }
@@ -138,15 +143,21 @@ export async function lambdaHandler(event, context) {
 
       const snapshot = await buildSnapshot(experience);
       let run = null;
+      let route = null;
       for (let i = 0; i < 8; i++) {
-        const code = storeCode();
-        if (await getLiveRun(code)) continue;
+        const code = (experience.foundation.liveConnection === "dedicated" ? "L" : "") + storeCode();
+        if (await getLiveRoute(code) || await getLiveRun(code)) continue;
         const candidate = createRunDocument({ experience, snapshot, hostKey: makeSecret(), code });
         try {
-          await createActivatedLiveRun(candidate, {
-            experienceId: experience.id,
-            previousCode: existingCode || "",
-          });
+          if (experience.foundation.liveConnection === "dedicated") {
+            route = await createDedicatedRun(candidate,experience.id,existingCode);
+          } else {
+            await createActivatedLiveRun(candidate, {
+              experienceId: experience.id,
+              previousCode: existingCode || "",
+            });
+            if (existingRoute) await retireLiveRun(existingCode).catch(()=>{});
+          }
           run = candidate;
           break;
         } catch (e) {
@@ -162,7 +173,8 @@ export async function lambdaHandler(event, context) {
           code: run.code,
           hostKey: run.hostKey,
           runId: run.runId,
-          state: projectRun(run, "moderator", null),
+          state: route ? (await callDedicated(route.apiBase,{operation:"resume",code:run.code,runId:run.runId})).state : projectRun(run, "moderator", null),
+          connection: publicConnection(route),
         }),
       };
     }

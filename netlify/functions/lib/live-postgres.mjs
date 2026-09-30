@@ -51,3 +51,10 @@ export async function writePostgresPresence(code,participantId,readyAttempt=null
     ON CONFLICT(code,participant_id) DO UPDATE SET last_seen=EXCLUDED.last_seen,ready_attempt=coalesce(EXCLUDED.ready_attempt,rn_live_presence_v1.ready_attempt)`,[codeOf(code),participantId,readyAttempt]);
   return rowCount>0;
 }
+
+export async function putPostgresMedia(runId, mediaId, payload) {
+  await query('INSERT INTO rn_live_media_v1(run_id,media_id,payload) VALUES($1,$2,$3::jsonb) ON CONFLICT(run_id,media_id) DO UPDATE SET payload=EXCLUDED.payload',[runId,mediaId,JSON.stringify(payload)]);
+}
+export async function getPostgresMedia(runId, mediaId) {
+  return (await query('SELECT payload FROM rn_live_media_v1 WHERE run_id=$1 AND media_id=$2',[runId,mediaId])).rows[0]?.payload || null;
+}

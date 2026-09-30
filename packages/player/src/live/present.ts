@@ -1,3 +1,4 @@
+import { liveJson } from "./api";
 import { enableRaceSound, startRaceClock, timedFillState } from "./race-clock";
 import { startLivePoll } from "./poll";
 import { applyJoinTheme } from "./theme";
@@ -181,11 +182,8 @@ async function main() {
   const slug = getSlug();
 
   if (!code && slug) {
-    const res = await fetch(`/api/live-run?slug=${encodeURIComponent(slug)}&role=public`);
-    if (res.ok) {
-      const data = await res.json();
-      code = String(data.state?.code || "");
-    }
+    const data = await liveJson(`/api/live-run?slug=${encodeURIComponent(slug)}&role=public`);
+    code = String((data.state as AnyRec)?.code || "");
   }
 
   const inner = document.getElementById("live-main") as HTMLElement;

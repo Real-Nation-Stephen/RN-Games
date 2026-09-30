@@ -1,3 +1,4 @@
+import { getLiveRoute, routeResponse } from "./lib/live-connection.mjs";
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { getActiveRunCode, getLiveRunWithRetry, updateLiveRun, writePresence } from "./lib/live-store.mjs";
@@ -36,6 +37,8 @@ export async function lambdaHandler(event) {
     }
     if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: "code or slug required" }) };
 
+    const route = await getLiveRoute(code);
+    if (route) return {statusCode:200,headers,body:JSON.stringify(routeResponse(route))};
     const exists = await getLiveRunWithRetry(code);
     if (!exists) return { statusCode: 404, headers, body: JSON.stringify({ error: "Run not found" }) };
 

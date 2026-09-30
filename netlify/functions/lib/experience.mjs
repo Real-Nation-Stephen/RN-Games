@@ -10,6 +10,7 @@ export function defaultExperienceFoundation() {
     sessionTtlMinutes: 0,
     navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
     interactive: false,
+    liveConnection: "standard",
     joinScreen: {
       logoUrl: "",
       backgroundImageUrl: "",
@@ -180,6 +181,7 @@ export function normalizeExperienceRecord(doc) {
       ...defaultExperienceFoundation(),
       ...(doc.foundation && typeof doc.foundation === "object" ? doc.foundation : {}),
       interactive: !!(doc.foundation && typeof doc.foundation === "object" && doc.foundation.interactive),
+      liveConnection: doc.foundation?.liveConnection === "dedicated" ? "dedicated" : "standard",
       joinScreen: {
         ...defaultExperienceFoundation().joinScreen,
         ...(doc.foundation?.joinScreen && typeof doc.foundation.joinScreen === "object"
@@ -248,6 +250,7 @@ export function toPublicExperience(experience, steps) {
     foundation: {
       trackingEnabled: !!experience.foundation?.trackingEnabled,
       interactive: !!experience.foundation?.interactive,
+      liveConnection: experience.foundation?.liveConnection === "dedicated" ? "dedicated" : "standard",
       joinScreen: experience.foundation?.joinScreen || defaultExperienceFoundation().joinScreen,
       navigation: {
         backButton: experience.foundation?.navigation?.backButton || "one_way",

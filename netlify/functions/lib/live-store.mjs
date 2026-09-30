@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { CasConflict, CasUncertain } from "./cas-store.mjs";
-import { postgresLiveEnabled, readPostgresRun, createPostgresRun, updatePostgresRun, postgresPresence, writePostgresPresence } from './live-postgres.mjs';
+import { postgresLiveEnabled, readPostgresRun, createPostgresRun, updatePostgresRun, postgresPresence, writePostgresPresence, putPostgresMedia, getPostgresMedia } from './live-postgres.mjs';
 import {
   assertStorageAllowed,
   getRuntimeStore,
@@ -108,6 +108,7 @@ export async function getLiveRun(code) {
   if (postgresLiveEnabled()) {
     const row = await readPostgresRun(code);
     if (row) return row.data;
+    if (process.env.LIVE_DEDICATED_SERVER === "1") return null;
   }
   const st = await liveCasStore();
   return st.get(runKey(code), { type: "json" });
@@ -126,6 +127,7 @@ export async function getLiveRunRecord(code) {
   if (postgresLiveEnabled()) {
     const row = await readPostgresRun(code);
     if (row) return row;
+    if (process.env.LIVE_DEDICATED_SERVER === "1") return null;
   }
   const st = await liveCasStore();
   return st.getWithMetadata(runKey(code), { type: "json" });
@@ -238,6 +240,7 @@ export async function setActiveRunCode(experienceId, code, { expectedCode } = {}
 }
 
 export async function putLiveMedia(runId, mediaId, payload) {
+  if (process.env.LIVE_DEDICATED_SERVER === "1" && postgresLiveEnabled()) return putPostgresMedia(runId, mediaId, payload);
   const st = await liveCasStore();
   const written = await st.setJSON(mediaKey(runId, mediaId), payload, { onlyIfNew: true });
   if (!written?.modified) {
@@ -249,6 +252,7 @@ export async function putLiveMedia(runId, mediaId, payload) {
 }
 
 export async function getLiveMedia(runId, mediaId) {
+  if (process.env.LIVE_DEDICATED_SERVER === "1" && postgresLiveEnabled()) return getPostgresMedia(runId, mediaId);
   const st = await liveCasStore();
   return st.get(mediaKey(runId, mediaId), { type: "json" });
 }
@@ -284,6 +288,7 @@ export async function hydrateLiveRun(code) {
   if (postgresLiveEnabled()) {
     const row = await readPostgresRun(code, true);
     if (row) return row.data;
+    if (process.env.LIVE_DEDICATED_SERVER === "1") return null;
   }
   const run = await getLiveRunWithRetry(code);
   if (!run) return null;

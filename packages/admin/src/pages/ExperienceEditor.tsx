@@ -217,6 +217,16 @@ export default function ExperienceEditor() {
             />{" "}
             Interactive experience (one shared live run: Presenter, Flow Master, phones)
           </label>
+          {game.foundation.interactive && <label className="field" style={{ gridColumn: "1 / -1" }}>
+            Live connection
+            <select style={{ display: "block", width: "min(100%, 400px)", margin: "8px 0", padding: "10px 12px", borderRadius: 8, background: "var(--rn-navy)", color: "var(--rn-white)", border: "1px solid var(--rn-border)", fontSize: "0.95rem" }} value={game.foundation.liveConnection || "standard"}
+              onChange={(e) => patch((g) => ({ ...g, foundation: { ...g.foundation,
+                liveConnection: e.target.value === "dedicated" ? "dedicated" : "standard" } }))}>
+              <option value="standard">Standard</option>
+              <option value="dedicated">Dedicated live service</option>
+            </select>
+            <small style={{ display: "block", textTransform: "none", letterSpacing: "normal", fontSize: "0.85rem", lineHeight: 1.5 }}>Applies when you start a new run. An active run keeps its original connection. Dedicated mode requires a configured live service.</small>
+          </label>}
         </div>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           Tracking and reporting settings are configured in Measurement &amp; Reporting below.

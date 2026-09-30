@@ -212,6 +212,7 @@ export interface ExperienceFoundation {
   kiosk?: ExperienceKiosk;
   /** When true, this flow uses one shared live run (Presenter / Master / phones). Default off. */
   interactive?: boolean;
+  liveConnection?: "standard" | "dedicated";
   joinScreen?: LiveJoinScreen;
 }
 
