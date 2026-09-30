@@ -80,3 +80,14 @@ test('three-option poll tallies the third option and hides the answer key until 
   applyControl(run,'tally');let view=projectRun(run,'public');assert.equal(view.activity.tally,null);assert.equal(view.activity.correctOptionId,null);
   now+=1200;view=projectRun(run,'public');assert.equal(view.activity.tally.percents.c,100);assert.deepEqual(view.activity.tally.leadingOptionIds,['c']);assert.equal(view.activity.correctOptionId,'c');
 });
+
+test('readiness gate uses current presence and resets on replay',()=>{
+  const {run,players}=fixture();run.readinessRequired=true;
+  assert.throws(()=>applyControl(run,'start-race'),/phones ready/);
+  const presence=Object.fromEntries(players.map(p=>[p.id,new Date().toISOString()]));
+  const ready=Object.fromEntries(players.map(p=>[p.id,run.roundAttemptId]));
+  applyControl(run,'start-race',{},presence,ready);
+  assert.equal(run.node.phase,'countdown');
+  applyControl(run,'replay');
+  assert.throws(()=>applyControl(run,'start-race',{},presence,ready),/phones ready/);
+});

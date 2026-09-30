@@ -898,7 +898,7 @@ export function applyControl(run, action, payload = {}, presenceById = null, rea
   const cfg = step ? run.snapshot.configs[step.id] : null;
 
   if (kind === "mini-poll") return finish(controlPoll(run, node, cfg, action, payload));
-  if (kind === "fill-game") return finish(controlFill(run, node, cfg, action, payload, presenceById));
+  if (kind === "fill-game") return finish(controlFill(run, node, cfg, action, payload, presenceById, readinessById));
   if (kind === "mini-quiz") return finish(controlQuiz(run, node, cfg, action));
   if (kind === "pinboard") return finish(controlPinboard(run, node, action, payload));
   if (kind === "spinning-wheel") return finish(controlWheel(run, node, cfg, action, presenceById));
@@ -949,7 +949,7 @@ function controlPoll(run, node, cfg, action) {
   throw Object.assign(new Error(`Unknown poll action ${action}`), { statusCode: 400 });
 }
 
-function controlFill(run, node, cfg, action, payload = {}, presenceById = null) {
+function controlFill(run, node, cfg, action, payload = {}, presenceById = null, readinessById = null) {
   const editable = node.phase === "idle";
   if (["set-target", "set-duration", "attendance-target"].includes(action) && !editable) {
     throw Object.assign(new Error("Replay the round before changing its target or timer"), { statusCode: 409 });

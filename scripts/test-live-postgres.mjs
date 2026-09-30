@@ -39,7 +39,25 @@ try{
  const before=await read();const js=structuredClone(before);const input={...attempt(before),questionId:'q1',choiceId:'no'};const expected=applyParticipantAction(js,p.id,'answer',input);const actual=await postgresAction(code,'answer',p.id,p.secret,input);
  assert.equal(actual.result.correct,expected.correct);assert.equal(actual.result.delta,expected.delta);assert.deepEqual(actual.result.nextQuestion,{...expected.nextQuestion});assert.deepEqual(actual.run.node.scores,js.node.scores);assert.deepEqual(actual.run.node.cursors,js.node.cursors);
  assert.ok(!JSON.stringify(projectRun(actual.run,'participant',p.id)).includes('correctChoiceId'));
- await control('hold');await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(before),questionId:'q2',choiceId:'yes'}),/hold/);
+ async function freshFill(target=999,scheduled=false){
+  await control('replay');const fresh=await read();
+  assert.throws(()=>applyControl(fresh,'start-race'),/phones ready/);
+  for(const person of Object.values(fresh.participants))person.readyAttempt=fresh.roundAttemptId;
+  applyControl(fresh,'set-target',{target});applyControl(fresh,scheduled?'start-race':'open');fresh.revision++;
+  assert.ok((await updatePostgresRun(code,fresh,fresh.revision-1)).modified);return fresh;
+ }
+ let fresh=await freshFill(1);const contenders=players.slice(0,2);
+ const wins=await Promise.allSettled(contenders.map(p=>postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'})));
+ assert.equal(wins.filter(r=>r.status==='fulfilled').length,1);assert.equal((await read()).node.finishReason,'target');
+ fresh=await freshFill();const wrong=await postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'no'});
+ assert.equal(wrong.run.node.scores[wrong.run.participants[p.id].teamId],0);assert.equal(wrong.run.node.events.at(-1).clamped,true);
+ await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(before),questionId:'q1',choiceId:'yes'}),/Stale round/);
+ fresh=await freshFill(999,true);await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'}),/not open/);
+ fresh.node.startsAt=Date.now()-2000;fresh.node.endsAt=Date.now()-1000;fresh.revision++;assert.ok((await updatePostgresRun(code,fresh,fresh.revision-1)).modified);
+ await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'}),/not open/);
+ assert.equal(projectRun(await read(),'public').activity.tied,true);
+ console.log('PASS single target winner, zero floor, replay readiness, stale round and deadline guards');
+ fresh=await freshFill();await control('hold');await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'}),/hold/);
  await control('next');let pin=await read();await control('resume');
  const notes=await Promise.all(players.map(p=>postgresAction(code,'submit',p.id,p.secret,{...attempt(pin),text:'Test note',commandId:randomUUID()})));
  state=await read();assert.equal(state.node.submissions.length,150);assert.ok(state.node.submissions.every(n=>n.status==='pending'));assert.equal(projectRun(state,'public').activity.submissions.length,0);
