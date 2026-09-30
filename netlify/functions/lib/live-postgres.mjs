@@ -10,9 +10,17 @@ export function postgresLiveEnabled() {
 export const isPostgresRun = run => run?.storageBackend === 'postgres-v1';
 const codeOf = code => String(code || '').trim().toUpperCase();
 async function query(sql, params) { return (await getDb()).pool.query(sql, params); }
-export async function readPostgresRun(code) {
-  const { rows } = await query('SELECT state, snapshot, revision FROM rn_live_runs_v1 WHERE code=$1',[codeOf(code)]);
+export async function readPostgresRun(code, includePresence = false) {
+  const { rows } = await query(includePresence
+    ? `SELECT state, snapshot, revision,
+        (SELECT coalesce(jsonb_object_agg(participant_id,jsonb_build_object('at',last_seen,'readyAttempt',ready_attempt)),'{}')
+         FROM rn_live_presence_v1 p WHERE p.code=r.code) AS presence
+       FROM rn_live_runs_v1 r WHERE code=$1`
+    : 'SELECT state, snapshot, revision FROM rn_live_runs_v1 WHERE code=$1',[codeOf(code)]);
   const row=rows[0];
+  if (row?.presence) for (const [id, presence] of Object.entries(row.presence)) {
+    if (row.state.participants?.[id]) Object.assign(row.state.participants[id], {lastSeen:presence.at,readyAttempt:presence.readyAttempt});
+  }
   return row ? {data:{...row.state,snapshot:row.snapshot,storageBackend:'postgres-v1'},etag:String(row.revision),storageBackend:'postgres-v1'} : null;
 }
 export async function createPostgresRun(code,run) {

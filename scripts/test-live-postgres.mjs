@@ -24,6 +24,9 @@ try{
  const fill=await control('next');
  assert.throws(()=>applyControl(fill,'start-race'),/phones ready/);
  await Promise.all(players.map(p=>writePostgresPresence(code,p.id,fill.roundAttemptId)));
+ const hydrated=(await readPostgresRun(code,true)).data;
+ assert.equal(projectRun(hydrated,'moderator').activity.readyCount,150);
+ assert.ok(Object.values(hydrated.participants).every(person=>person.readyAttempt===fill.roundAttemptId));
  const presence=await postgresPresence(code);for(const person of Object.values(fill.participants))person.readyAttempt=presence[person.id].readyAttempt;
  applyControl(fill,'open');fill.revision++;assert.ok((await updatePostgresRun(code,fill,fill.revision-1)).modified);
  const payload={...attempt(fill),questionId:'q0',choiceId:'yes',commandId:randomUUID()};

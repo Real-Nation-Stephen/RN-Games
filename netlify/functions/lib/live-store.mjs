@@ -280,6 +280,11 @@ export async function applyPresence(run) {
 }
 
 export async function hydrateLiveRun(code) {
+  // State and presence share one database snapshot and one network round trip.
+  if (postgresLiveEnabled()) {
+    const row = await readPostgresRun(code, true);
+    if (row) return row.data;
+  }
   const run = await getLiveRunWithRetry(code);
   if (!run) return null;
   const working = JSON.parse(JSON.stringify(run));
