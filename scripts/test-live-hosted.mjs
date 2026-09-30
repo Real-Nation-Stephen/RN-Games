@@ -2,10 +2,10 @@
 // Authenticated SDK seeds only an isolated run; all participant traffic uses HTTP.
 // Functional success and a provisional p95 < 3s responsiveness gate are reported separately.
 import fs from 'node:fs/promises';
-import https from 'node:https';
-// Bound the generator to one reusable connection per simulated phone. Queue time
-// remains included in latency; use IPv4 to avoid local IPv6 connection timeouts.
-const transport=new https.Agent({keepAlive:true,maxSockets:150,maxFreeSockets:150,family:4});
+import http2 from 'node:http2';
+// Multiplex the same concurrent participant traffic over persistent HTTP/2,
+// matching the browser protocol without a local storm of short-lived TCP sockets.
+const sessions=[];let transportIndex=0;
 import {createPostgresRun,readPostgresRun,deletePostgresRun} from '../netlify/functions/lib/live-postgres.mjs';
 import {getDb} from '../netlify/functions/lib/db.mjs';
 const postgres=process.env.LIVE_QA_BACKEND==='postgres';
@@ -39,19 +39,24 @@ const snapshot=await buildSnapshot(experience);const code=(postgres?'QA-':'')+ma
 const created=postgres?await createPostgresRun(code,run):await live.setJSON('liverun:'+code,run,{onlyIfNew:true});
 const readRun=async()=>postgres?(await readPostgresRun(code))?.data:live.get('liverun:'+code,{type:'json'});
 assert.ok(created.modified,'Room code collision: rerun with a fresh code');
-let joins=[];const report={date:new Date().toISOString(),base,participants:150,backend:postgres?'postgres':'blobs',databaseBranch:postgres?process.env.LIVE_QA_BRANCH:undefined,seed:'Authenticated isolated fixture, no active-flow pointer',stages:[]};
+let joins=[];const report={date:new Date().toISOString(),base,participants:150,transport:'Four persistent HTTP/2 sessions; 150 concurrent simulated participants',backend:postgres?'postgres':'blobs',databaseBranch:postgres?process.env.LIVE_QA_BRANCH:undefined,seed:'Authenticated isolated fixture, no active-flow pointer',stages:[]};
 async function req(path,body){
  const start=performance.now();
  return new Promise(resolve=>{
+  const index=transportIndex++%4;
+  if(!sessions[index]||sessions[index].destroyed||sessions[index].closed){sessions[index]=http2.connect(base);sessions[index].on('error',()=>{});}
   const payload=body?JSON.stringify(body):undefined;
-  const request=https.request(base+path.replace('/api/','/.netlify/functions/'),{agent:transport,method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)}:{}},res=>{
-   let raw='';res.setEncoding('utf8');res.on('data',chunk=>raw+=chunk);res.on('end',()=>{let data;try{data=JSON.parse(raw)}catch{data={error:'Non-JSON response'}}resolve({status:res.statusCode,data,ms:Math.round(performance.now()-start)});});
-   res.on('error',e=>resolve({status:0,data:{error:e.code||e.message},ms:Math.round(performance.now()-start)}));
-  });
-  const deadline=setTimeout(()=>request.destroy(new Error('Request deadline exceeded')),65000);
-  request.on('close',()=>clearTimeout(deadline));
-  request.setTimeout(65000,()=>request.destroy(new Error('Request timed out')));
-  request.on('error',e=>resolve({status:0,data:{error:e.code||e.message},ms:Math.round(performance.now()-start)}));
+  const url=new URL(path.replace('/api/','/.netlify/functions/'),base);
+  const secret=url.searchParams.get('secret');url.searchParams.delete('secret');
+  const request=sessions[index].request({':path':url.pathname+url.search,':method':body?'POST':'GET',...(secret?{'x-live-secret':secret}:{}),...(body?{'content-type':'application/json','content-length':Buffer.byteLength(payload)}:{})});
+  let status=0,raw='',settled=false;request.setEncoding('utf8');
+  const finish=data=>{if(settled)return;settled=true;resolve({status,data,ms:Math.round(performance.now()-start)});};
+  request.on('response',headers=>status=headers[':status']);
+  request.on('data',chunk=>raw+=chunk);
+  request.on('end',()=>{let data;try{data=JSON.parse(raw)}catch{const challenged=raw.includes('We are verifying your connection');if(challenged)report.blocker='Netlify bot-verification challenge';data={error:challenged?'Netlify bot-verification challenge':'Non-JSON response (HTTP '+status+')'}}finish(data);});
+  request.on('error',e=>{status=0;finish({error:e.code||e.message});});
+  const deadline=setTimeout(()=>{status=0;finish({error:'Request deadline exceeded'});request.close(http2.constants.NGHTTP2_CANCEL);},65000);
+  request.on('close',()=>{clearTimeout(deadline);if(!settled){status=0;finish({error:'Stream closed before response completed'});}});
   request.end(payload);
  });
 }
@@ -95,7 +100,7 @@ try{
  report.functionalPassed=true;
 }catch(e){report.functionalPassed=false;report.failure=e.message;console.log('FAILED '+e.message);}finally{
  const stored=await readRun();if(postgres){await deletePostgresRun(code);await(await getDb()).pool.end();}else{await Promise.all(Object.keys(stored?.participants||{}).map(id=>live.delete('liverun-seen:'+code+':'+id)));await live.delete('liverun:'+code);}report.cleanedUp=true;
- transport.destroy();
+ for(const session of sessions)session?.destroy();
  report.performancePassed=report.functionalPassed&&report.stages.every(s=>s.p95Ms<3000)&&report.preloadsCompletedBeforeStart;
- await fs.writeFile(folder+(postgres?'/hosted-150-postgres-report.json':'/hosted-150-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({functionalPassed:report.functionalPassed,performancePassed:report.performancePassed,cleanedUp:true}));
+ await fs.writeFile(folder+(postgres?'/hosted-150-postgres-report.json':'/hosted-150-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({functionalPassed:report.functionalPassed,performancePassed:report.performancePassed,cleanedUp:true}));if(!report.performancePassed)process.exitCode=1;
 }

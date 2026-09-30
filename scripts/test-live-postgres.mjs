@@ -1,5 +1,6 @@
 /** Integration tests against the additive live schema; only random test rooms are written. */
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {getDb} from '../netlify/functions/lib/db.mjs';
 import {createPostgresRun,readPostgresRun,updatePostgresRun,postgresAction,deletePostgresRun,writePostgresPresence,postgresPresence} from '../netlify/functions/lib/live-postgres.mjs';
@@ -64,6 +65,26 @@ try{
  await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'}),/not open/);
  assert.equal(projectRun(await read(),'public').activity.tied,true);
  console.log('PASS single target winner, zero floor, replay readiness, stale round and deadline guards');
+ if(process.env.LIVE_DB_FULL_RACE==='1'){
+  fresh=await freshFill();fresh.node.endsAt=Date.now()+900000;fresh.revision++;
+  assert.ok((await updatePostgresRun(code,fresh,fresh.revision-1)).modified);
+  const stages=[];
+  for(const [i,q] of questions.entries()){
+   const started=Date.now();
+   const [times]=await Promise.all([
+    Promise.all(players.map(async person=>{const t=Date.now();await postgresAction(code,'answer',person.id,person.secret,{...attempt(fresh),questionId:q.id,choiceId:'yes',commandId:randomUUID()});return Date.now()-t;})),
+    Promise.all(players.map(()=>readPostgresRun(code,true)))
+   ]);
+   times.sort((a,b)=>a-b);const current=await read();
+   assert.equal(Object.keys(current.node.answered).length,150*(i+1));
+   assert.equal(Object.values(current.node.scores).reduce((a,b)=>a+b,0),150*(i+1));
+   assert.ok(Object.keys(current.commandLog).length<20);
+   const stage={question:i+1,answers:150,concurrentReads:150,p95Ms:times[Math.floor(times.length*.95)],totalMs:Date.now()-started};stages.push(stage);console.log('DATABASE ONLY '+JSON.stringify(stage));
+  }
+  const report={date:new Date().toISOString(),scope:'Database integration only; excludes hosted Functions, CDN and venue Wi-Fi',participants:150,answers:1800,concurrentReads:1800,passed:true,stages};
+  if(process.env.LIVE_DB_REPORT)await fs.writeFile(process.env.LIVE_DB_REPORT,JSON.stringify(report,null,2));
+  console.log('PASS 1800 answers and 1800 concurrent database reads across all 12 questions');
+ }
  fresh=await freshFill();await control('hold');await assert.rejects(postgresAction(code,'answer',p.id,p.secret,{...attempt(fresh),questionId:'q0',choiceId:'yes'}),/hold/);
  await control('next');let pin=await read();await control('resume');
  const notes=await Promise.all(players.map(p=>postgresAction(code,'submit',p.id,p.secret,{...attempt(pin),text:'Test note',commandId:randomUUID()})));
