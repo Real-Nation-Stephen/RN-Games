@@ -9,8 +9,9 @@ until an operator explicitly starts a new run.
 ## Deployment
 
 Preview service: `https://rn-games-live-preview.rngames-monorepo.workers.dev`.
-The Wrangler configuration pins the Real Nation account and permits only the
-Studio deploy-preview origin. Production rollout requires separate validation.
+Production service: `https://rn-games-live.rngames-monorepo.workers.dev`.
+`wrangler.jsonc` is preview-only; `wrangler.production.jsonc` is production-only.
+Both pin the Real Nation Free account, with separate room namespaces and secrets.
 
 Use a Cloudflare Workers **Free** account. Do not enable a paid subscription.
 
@@ -23,7 +24,8 @@ Use a Cloudflare Workers **Free** account. Do not enable a paid subscription.
 5. Set `DEDICATED_LIVE_URL` to the deployed HTTPS origin and
    `DEDICATED_LIVE_SECRET` to the same secret in Netlify's **deploy-preview**
    Functions environment. Redeploy the preview.
-6. Run hosted rehearsal before adding production's origin and Netlify settings.
+6. Run hosted rehearsal, then deploy `wrangler.production.jsonc` and configure
+   a separate secret plus production-scoped Netlify Functions settings.
    Use a disposable test room; do not reset the event's active room to load-test it.
 
 The shared secret is for signed server-to-server provisioning. It must never
@@ -42,7 +44,9 @@ own participant secret. Moderator keys remain private.
 - Hosted: supply `CF_LIVE_TEST_URL`, `CF_LIVE_TEST_SECRET` and optionally
   `CF_LIVE_TEST_ORIGIN` in the process environment. The test provisions a unique
   `TEST-…` room, expires it in one hour, and never touches an event active pointer.
-  `LIVE_REPORT_PATH` saves non-secret timings. Hosted mode does not simulate a
+  `CF_LIVE_CONTENT_FILE` may point to a private `{snapshot}` JSON file from the
+  actual event. Tests use concurrent HTTP/2 streams and an independent WebSocket
+  per participant. `LIVE_REPORT_PATH` saves non-secret timings. Hosted mode does not simulate a
   process restart; the local test covers persisted recovery.
 - Regression: `npm run test:live`, `npm run test:live:race`,
   `npm run test:live:connection`, `npm run build`.
@@ -85,7 +89,9 @@ References:
 
 One SQLite-backed Durable Object serializes each room's mutations. Scoring uses
 Studio's shared engine. State and actor-bound command receipts commit together;
-replaying an acknowledged command cannot double-score after another answer,
+Compact WebSocket updates reuse static screen content within a round; round
+changes and reconnects send a full snapshot. Older clients continue receiving
+full updates. Replaying an acknowledged command cannot double-score after another answer,
 round change or process restart. Immutable content is stored separately from
 mutable scores. Public and phone projections never expose moderator keys or
 unrevealed quiz answers. Pinboard photos remain private until approved.
@@ -97,3 +103,18 @@ starting its shared countdown. Runs retain the existing 12-hour expiry; expired
 Cloudflare rooms clear their ephemeral participants, receipts and photos. Start
 a fresh run before the event, not the night before. Cloudflare is not an archive
 of event responses.
+
+## Hosted rehearsal, 1 October 2026
+
+See `validation-hosted.json`. With the actual event content, 100 simulated
+players completed 1,200 answers with per-burst answer p95 of 0.68–1.02 seconds;
+150 players completed 1,800 answers with p95 of 1.16–2.10 seconds. Scores were
+exact, retries did not double-score, answers stayed private, and timed reveals,
+readiness/countdown, reconnects, legacy clients and moderation passed. The
+100-player idle test kept every phone connected without HTTP heartbeat writes.
+
+These are concurrent HTTP/2 command tests with real hosted WebSockets. Earlier
+HTTP/1 tests used hundreds of TCP connections from one laptop and produced
+connection resets and slower timings. HTTP/2 reduced this connection overhead;
+that does not establish reliability on every network. Venue Wi-Fi and real-phone
+lock/unlock checks remain required. No Netlify bot protections were disabled.

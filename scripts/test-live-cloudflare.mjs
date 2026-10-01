@@ -6,11 +6,7 @@ import {mkdtemp, readFile, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve, join} from 'node:path';
 import {WebSocket} from 'ws';
-import {Agent, setGlobalDispatcher} from 'undici';
-// Keep HTTP connections through the countdown, as browsers do. Node's default
-// 4-second idle timeout otherwise measures a synchronized TLS reconnect storm.
-const dispatcher = new Agent({keepAliveTimeout:60000,keepAliveMaxTimeout:60000});
-setGlobalDispatcher(dispatcher);
+import http2 from 'node:http2';
 import {createRunDocument} from '../netlify/functions/lib/live-engine.mjs';
 const hosted = !!process.env.CF_LIVE_TEST_URL;
 const secret = process.env.CF_LIVE_TEST_SECRET || randomUUID()+randomUUID();
@@ -29,10 +25,33 @@ async function start(){
  const until=Date.now()+30000;for(;;){try{if((await fetch(base+'/health')).ok)return;}catch{} if(Date.now()>until)throw new Error(logs);await sleep(200);}
 }
 async function stop(){if(!service)return;const p=service;service=null;const done=new Promise(r=>p.once('exit',r));p.kill('SIGTERM');await done;}
+// Two HTTP/2 sessions provide 150 concurrent streams (Cloudflare advertises
+// 100/session). Independent WebSockets still simulate one connection per phone.
+// This avoids measuring hundreds of HTTP/1 TLS sockets on one load generator.
+const h2=[];let h2RoundRobin=0;
+async function connectHttp2(){
+ if(!hosted)return;
+ for(let i=0;i<2;i++)await new Promise((resolve,reject)=>{
+  const client=http2.connect(base);h2.push(client);client.on('error',reject);
+  client.once('remoteSettings',settings=>{assert.equal(client.alpnProtocol,'h2');assert.ok(settings.maxConcurrentStreams>=75);resolve();});
+ });
+}
 async function request(path,body,headers={}) {
- requests++;const response=await fetch(base+path,{method:body?'POST':'GET',headers:{origin,'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});
+ requests++;const payload=body?JSON.stringify(body):undefined;
+ let response,text;
+ if(h2.length){
+  ({response,text}=await new Promise((resolve,reject)=>{
+   const client=h2[h2RoundRobin++%h2.length];
+   const stream=client.request({':path':path,':method':body?'POST':'GET',origin,'content-type':'application/json',...headers});
+   let meta,buffer='';stream.setEncoding('utf8');stream.on('response',h=>meta=h);stream.on('data',s=>buffer+=s);stream.on('error',reject);
+   stream.on('end',()=>resolve({response:{status:meta[':status'],ok:meta[':status']>=200&&meta[':status']<300,headers:new Headers(Object.entries(meta).filter(([k])=>!k.startsWith(':')))},text:buffer}));
+   stream.end(payload);
+  }));
+ }else{
+  response=await fetch(base+path,{method:body?'POST':'GET',headers:{origin,'content-type':'application/json',...headers},body:payload});text=await response.text();
+ }
  const serverMs=Number(response.headers.get('server-timing')?.match(/live;dur=([0-9.]+)/)?.[1]);if(Number.isFinite(serverMs))serviceTimes.push(serverMs);
- const text=await response.text();let data;try{data=JSON.parse(text);}catch{throw new Error(`Non-JSON response ${response.status}: ${text.slice(0,100)}`);}return {response,data};
+ let data;try{data=JSON.parse(text);}catch{throw new Error(`Non-JSON response ${response.status}: ${text.slice(0,100)}`);}return {response,data};
 }
 async function ok(path,body){const {response,data}=await request(path,body);assert.equal(response.status,200,JSON.stringify(data));return data;}
 function signed(payload){const body=JSON.stringify(payload),stamp=String(Date.now()),nonce=randomUUID();return {method:'POST',headers:{'content-type':'application/json','x-live-timestamp':stamp,'x-live-nonce':nonce,'x-live-signature':createHmac('sha256',secret).update(`${stamp}.${nonce}.${body}`).digest('hex')},body};}
@@ -64,6 +83,7 @@ const master=async()=>(await ok('/api/live-run?code='+code+'&role=moderator&host
 let pingTimer;
 try {
  if(!hosted)await start();
+ await connectHttp2();
  const provision=signed({operation:'create',run});assert.equal((await fetch(base+'/internal/runs',provision)).status,200);
  assert.equal((await fetch(base+'/internal/runs',provision)).status,403,'Signed replay refused');
  assert.equal((await request('/internal/runs',{operation:'create',run})).response.status,403);
@@ -114,9 +134,14 @@ try {
  console.log('PASS compact content stays correct across question changes, reveals and legacy clients');
  if(process.env.CF_IDLE_TEST==='1'){const before=await master();console.log('Checking 70 seconds of idle WebSocket presence without HTTP heartbeats');await sleep(70000);const after=await master();assert.equal(after.connectedCount,N);assert.equal(after.revision,before.revision,'Idle socket presence must not write room state');console.log('PASS idle sockets retain presence without state writes');}
  if(!hosted){for(const ws of sockets)ws.terminate();await stop();await start();await sub('after-restart',{role:'participant',participantId:first.participantId,secret:first.secret});assert.equal(received.get('after-restart').participantCount,N);assert.equal(received.get('after-restart').runId,run.runId);assert.equal((await ok('/api/live-action',firstAnswer)).result.duplicate,true);console.log('PASS persisted state and command receipts survive restart');}
- console.log('PASS exact scores, countdown, timed reveal, private projections, idempotency, stale commands, reconnects, media auth, HMAC and CORS');
- const report={transport:hosted?'Cloudflare hosted HTTP + WebSockets':'local Cloudflare runtime HTTP + WebSockets',participants:N,answers:N*questions.length,requests,socketBytes,compactMessages,stats};
+ const expired=createRunDocument({experience:{id:'expired-qa',slug:'expired-qa'},snapshot:run.snapshot,hostKey:randomUUID(),code:'TEST-'+randomUUID().toUpperCase()});
+ expired.expiresAt=new Date(Date.now()+1000).toISOString();
+ assert.equal((await fetch(base+'/internal/runs',signed({operation:'create',run:expired}))).status,200);
+ await sleep(1800);
+ assert.equal((await fetch(base+'/internal/runs',signed({operation:'resume',code:expired.code,runId:expired.runId}))).status,410,'Expired rooms can be replaced through Flow Master after cleanup');
+ console.log('PASS expired-room recovery, exact scores, countdown, timed reveal, private projections, idempotency, stale commands, reconnects, media auth, HMAC and CORS');
+ const report={transport:hosted?'Cloudflare hosted HTTP/2 + independent WebSockets':'local Cloudflare runtime HTTP + WebSockets',participants:N,answers:N*questions.length,requests,socketBytes,compactMessages,stats};
  if(process.env.LIVE_REPORT_PATH)await writeFile(process.env.LIVE_REPORT_PATH,JSON.stringify(report,null,2));
  console.log(JSON.stringify({participants:N,answers:N*questions.length,requests}));
 } catch(error){console.error(logs.split('\n').filter(s=>/error|warn/i.test(s)).slice(-12).join('\n'));throw error;}
-finally{clearInterval(pingTimer);for(const ws of sockets)ws.terminate();await dispatcher.close();await stop();}
+finally{clearInterval(pingTimer);for(const ws of sockets)ws.terminate();for(const client of h2)client.destroy();await stop();}

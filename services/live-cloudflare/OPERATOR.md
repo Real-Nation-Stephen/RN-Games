@@ -6,7 +6,8 @@ You only need RN Game Studio. No Cloudflare login is needed to run the event.
 
 1. Sign into Studio and open **Keg Talk Live**. Use the event flow, not the demo.
 2. Check the saved flow uses **Dedicated live service**. Open **Flow Master**.
-3. Start a fresh run for this event. This creates a new room code: check that the
+3. Start a fresh run for this event. If the old session has expired, use
+   **Start a fresh session** on the recovery screen. This creates a new room code: check that the
    presenter and phone show the same code. Do this before guests join.
 4. Open the presenter on the room screen and make it full screen. Keep Flow
    Master on your laptop. All activity controls are in Flow Master.

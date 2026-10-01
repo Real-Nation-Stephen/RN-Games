@@ -159,7 +159,8 @@ export class LiveRoom extends DurableObject {
     if (Date.now() >= Date.parse(this.run.expiresAt)) {
       for (const ws of this.ctx.getWebSockets()) ws.close(1000, 'Session expired');
       // Sessions are temporary. Clear their participant identities, receipts and photos after expiry.
-      await this.ctx.storage.deleteAll(); this.run = null; return;
+      this.ctx.storage.transactionSync(() => this.sql.exec('DELETE FROM room; DELETE FROM snapshot; DELETE FROM receipts; DELETE FROM media; DELETE FROM nonces;'));
+      this.run = null; return;
     }
     this.presence(); this.tick();
     for (const ws of this.ctx.getWebSockets()) {
@@ -195,6 +196,7 @@ export class LiveRoom extends DurableObject {
           if (!this.run) { run.readinessRequired = true; this.persist(run, () => this.sql.exec('INSERT INTO snapshot VALUES (1, ?)', JSON.stringify(run.snapshot))); }
           await this.schedule(); return json({ code: run.code, runId: run.runId, socketPresence: true });
         }
+        if (!this.run && body.operation === 'resume') throw fail('This session has expired. Start a fresh session.', 410);
         if (!this.run || this.run.runId !== body.runId) throw fail('Run not found', 404);
         if (body.operation === 'resume') { this.checkRun(); this.tick(); return json({ state: this.state({ role: 'moderator' }, url.origin) }); }
         if (body.operation === 'supersede') { this.persist({ ...this.run, status: 'superseded' }); await this.schedule(true); return json({ ok: true }); }

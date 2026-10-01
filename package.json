@@ -35,7 +35,6 @@
   },
   "devDependencies": {
     "typescript": "^5.6.3",
-    "undici": "^7.30.0",
     "wrangler": "^4.145.0"
   },
   "engines": {

@@ -376,7 +376,13 @@ async function ensureRun(forceNew = false) {
   const existing = loadHost();
   const fromLink = consumeHostKeyFromLocation();
   const body: Record<string, unknown> = { slug: slug(), forceNew };
-  if (fromLink) body.hostKey = fromLink;
+  if (fromLink) {
+    body.hostKey = fromLink;
+    // Keep a trusted Studio handoff key even when the old room has expired.
+    // The fragment is consumed once; recovery still needs this authorization.
+    saveHost({ slug: slug(), code: existing?.code || "", hostKey: fromLink,
+      controllerId: existing?.controllerId || crypto.randomUUID() });
+  }
   else if (existing) body.hostKey = existing.hostKey;
   try {
     const data = await liveJson(platformLiveEndpoint("live-run"), {
@@ -416,6 +422,24 @@ async function main() {
     host = await ensureRun(false);
   } catch (e) {
     const status = (e as Error & { status?: number }).status;
+    if (status === 410 && err) {
+      document.getElementById("app")!.hidden = true;
+      err.hidden = false;
+      err.textContent = "This session has expired. Start a fresh session to get a new join code.";
+      const restart = document.createElement("button");
+      restart.textContent = "Start a fresh session";
+      restart.style.cssText = "display:block;margin-top:16px";
+      restart.addEventListener("click", async () => {
+        restart.disabled = true;
+        try { await ensureRun(true); location.reload(); }
+        catch (failure) {
+          restart.disabled = false;
+          err.replaceChildren(document.createTextNode(failure instanceof Error ? failure.message : "Could not start a session. Please try again."), restart);
+        }
+      });
+      err.append(restart);
+      return;
+    }
     if (status === 401 || status === 403) {
       const pasted = window.prompt(
         "This console cannot start a live run. Open Flow Master from Studio, or paste the current host key to resume.",
