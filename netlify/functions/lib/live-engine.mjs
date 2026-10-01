@@ -435,10 +435,14 @@ export function makeViewToken(state) {
   ].join("|");
 }
 
-export function projectRun(run, role, participantId) {
-  const working = clone(run);
-  tickRun(working);
-  run = working;
+export function projectRun(run, role, participantId, { alreadyTicked = false } = {}) {
+  // Serialized backends tick before projecting and can read their authoritative
+  // state directly. Other backends retain the existing isolated tick behavior.
+  if (!alreadyTicked) {
+    const working = clone(run);
+    tickRun(working);
+    run = working;
+  }
   const kind = nodeKind(run);
   const step = currentStep(run);
   const node = run.node || {};

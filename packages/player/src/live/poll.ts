@@ -9,6 +9,7 @@ export function startLivePoll(opts: {
   let rev = "", activeCode = "", timer = 0, stopped = false, delay = 1000;
   let socket: WebSocket | null = null, retryAt = 0, lastMessage = 0, lastClock = 0, lastPing = 0;
   let badge: HTMLDivElement | null = null;
+  let lastState: Record<string, unknown> | null = null;
   function connectionStatus(message = "") {
     if (!stopped && !message && opts.role === "moderator" && getLiveConnection(opts.code()).mode === "dedicated") {
       message = socket?.readyState === WebSocket.OPEN ? "Live connection ready" : "Live link reconnecting — updates may be delayed";
@@ -24,7 +25,12 @@ export function startLivePoll(opts: {
   function receive(data: Record<string, unknown>, code: string) {
     if (stopped || code !== opts.code()) return;
     if (data.changed && data.state && typeof data.state === "object") {
-      const state = data.state as Record<string, unknown>;
+      const incoming = data.state as Record<string, unknown>;
+      if (data.patch && (!lastState || incoming.runId !== lastState.runId || incoming.roundAttemptId !== lastState.roundAttemptId)) {
+        socket?.close(); return; // Reconnect for a full, authenticated snapshot.
+      }
+      const state = data.patch ? { ...lastState, ...incoming } : incoming;
+      lastState = state;
       rev = String(state.viewToken || state.revision || ""); opts.onState(state);
     } else opts.onUnchanged?.();
   }
@@ -34,7 +40,7 @@ export function startLivePoll(opts: {
     const url = new URL("/live", route.apiBase); url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.searchParams.set("code", code);
     const ws = new WebSocket(url); socket = ws; lastMessage = Date.now(); lastClock = 0; lastPing = 0;
-    ws.onopen = () => ws.send(JSON.stringify({ code, role: opts.role,
+    ws.onopen = () => ws.send(JSON.stringify({ code, role: opts.role, compactUpdates: true,
       participantId: opts.participantId?.(), secret: opts.participantSecret?.(), hostKey: opts.hostKey?.() }));
     ws.onmessage = event => {
       if (socket !== ws || code !== opts.code()) return;
@@ -60,7 +66,7 @@ export function startLivePoll(opts: {
     if (stopped) return;
     const code = opts.code();
     if (code !== activeCode) {
-      setLiveSocketConnected(activeCode, false); const old = socket; socket = null; old?.close(); activeCode = code; rev = ""; retryAt = 0;
+      setLiveSocketConnected(activeCode, false); const old = socket; socket = null; old?.close(); activeCode = code; rev = ""; lastState = null; retryAt = 0;
     }
     if (socket && Date.now() - lastMessage > 45000) { setLiveSocketConnected(code, false); const old = socket; socket = null; old.close(); retryAt = Date.now() + 2500; }
     if (socket?.readyState === WebSocket.OPEN && Date.now() - lastMessage < 45000) {

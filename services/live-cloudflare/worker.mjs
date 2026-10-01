@@ -17,13 +17,20 @@ function verify(request, raw, secret) {
   if (!secretsEqual(signature, expected)) throw fail('Forbidden', 403);
   return nonce;
 }
+// Content is immutable for a run. Copy only mutable scores/participants when
+// staging an atomic command; full-event artwork/config must not be cloned for
+// every answer, timer check and recipient of a broadcast.
+function cloneState(run) {
+  const { snapshot, ...state } = run;
+  return { ...structuredClone(state), snapshot };
+}
 function mediaUrls(value, origin) {
   if (!value || typeof value !== 'object') return value;
-  for (const [key, item] of Object.entries(value)) {
-    if (key === 'imagePath' && typeof item === 'string' && item.startsWith('/api/live-media?')) value[key] = origin + item;
-    else if (item && typeof item === 'object') mediaUrls(item, origin);
-  }
-  return value;
+  if (Array.isArray(value)) return value.map(item => mediaUrls(item, origin));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+    key === 'imagePath' && typeof item === 'string' && item.startsWith('/api/live-media?')
+      ? origin + item : mediaUrls(item, origin)
+  ]));
 }
 async function readBody(request, limit) {
   if (Number(request.headers.get('content-length')) > limit) throw fail('Request too large', 413);
@@ -35,6 +42,7 @@ async function readBody(request, limit) {
 }
 export default {
   async fetch(request, env) {
+    const requestStarted = Date.now();
     const origin = request.headers.get('origin'), url = new URL(request.url);
     const allowed = new Set(String(env.LIVE_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()));
     let response;
@@ -56,6 +64,7 @@ export default {
     } catch (error) { response = json({ error: error.statusCode ? error.message : 'Live service temporarily unavailable' }, error.statusCode || 503); }
     if (response.status === 101) return response;
     const headers = new Headers(response.headers);
+    headers.set('server-timing', `live;dur=${Date.now() - requestStarted}`);
     headers.set('vary', 'Origin'); headers.set('cache-control', 'no-store');
     if (origin && allowed.has(origin)) headers.set('access-control-allow-origin', origin);
     headers.set('access-control-allow-methods', 'GET, POST, OPTIONS');
@@ -100,7 +109,18 @@ export class LiveRoom extends DurableObject {
       if (at > Date.parse(p.lastSeen || 0)) p.lastSeen = new Date(at).toISOString();
     }
   }
-  state(auth, origin) { return mediaUrls(projectRun(this.run, auth.role, auth.participantId || null), origin); }
+  state(auth, origin) {
+    const state = mediaUrls(projectRun(this.run, auth.role, auth.participantId || null, { alreadyTicked: true }), origin);
+    // Answer animations belong on the room screen; each phone has its own
+    // lastFeedback. Avoid broadcasting everyone else's 40-event history to it.
+    if (auth.role === 'participant' && state.activity.kind === 'fill-game') state.activity.events = [];
+    return state;
+  }
+  contentKey() {
+    const node = this.run.node;
+    const quiz = node.kind === 'mini-quiz' ? `:${node.questionIndex}:${node.phase}` : '';
+    return `${this.run.runId}:${this.run.currentStepIndex}:${this.run.roundAttemptId}${quiz}`;
+  }
   checkRun() {
     if (!this.run) throw fail('Run not found', 404);
     if (this.run.status === 'superseded' || Date.now() >= Date.parse(this.run.expiresAt)) throw fail('This session has ended. Rejoin using the current room code.', 410);
@@ -108,7 +128,10 @@ export class LiveRoom extends DurableObject {
   }
   // No await between reading room state and committing a mutation: each command is atomic.
   tick() {
-    const candidate = structuredClone(this.run);
+    const node = this.run.node;
+    if (!node || !(['countdown', 'racing', 'tallying', 'spinning'].includes(node.phase))) return;
+    // tickRun mutates only node state, never participants or the snapshot.
+    const candidate = { ...this.run, node: structuredClone(node) };
     if (tickRun(candidate)) this.persist(candidate);
   }
   async schedule(soon = false) {
@@ -145,7 +168,15 @@ export class LiveRoom extends DurableObject {
       if (!authenticated(this.run, a.auth)) { ws.close(1008, 'Forbidden'); continue; }
       if (this.run.status === 'superseded') { ws.close(1000, 'Session replaced'); continue; }
       const state = this.state(a.auth, a.origin);
-      if (state.viewToken !== a.rev) { ws.send(JSON.stringify({ changed: true, state })); ws.serializeAttachment({ ...a, rev: state.viewToken }); }
+      if (state.viewToken !== a.rev) {
+        const contentKey = this.contentKey();
+        const patch = !!a.auth.compactUpdates && a.contentKey === contentKey;
+        // New/reconnected clients and round changes always receive full content.
+        // Only capable clients reuse immutable content within the same round.
+        const { component, joinScreen, steps, ...updates } = state;
+        ws.send(JSON.stringify({ changed: true, state: patch ? updates : state, patch }));
+        ws.serializeAttachment({ ...a, rev: state.viewToken, contentKey });
+      }
     }
     await this.schedule();
   }
@@ -197,7 +228,7 @@ export class LiveRoom extends DurableObject {
       const body = await request.json();
       // Body parsing can yield; always refresh the authoritative state after it.
       this.checkRun(); this.tick();
-      const candidate = structuredClone(this.run);
+      const candidate = cloneState(this.run);
       if (path === '/api/live-join') {
         if (!body.participantId && Object.keys(candidate.participants).length >= 150) throw fail('This room has reached its 150-player limit', 409);
         const p = joinParticipant(candidate, body.participantId || '', body.secret || '');
@@ -251,7 +282,7 @@ export class LiveRoom extends DurableObject {
       }
       if (message.code !== this.run.code || !authenticated(this.run, message)) throw fail('Forbidden', 403);
       const state = this.state(message, a.origin);
-      ws.serializeAttachment({ ...a, auth: message, at: Date.now(), rev: state.viewToken });
+      ws.serializeAttachment({ ...a, auth: message, at: Date.now(), rev: state.viewToken, contentKey: this.contentKey() });
       ws.send(JSON.stringify({ changed: true, state })); await this.schedule(true);
     } catch { ws.close(1008, 'Session unavailable'); }
   }
@@ -260,7 +291,7 @@ export class LiveRoom extends DurableObject {
     if (this.run && a?.auth?.role === 'participant') {
       this.presence(); const p = this.run.participants[a.auth.participantId];
       const at = Math.max(a.at, this.ctx.getWebSocketAutoResponseTimestamp(ws)?.getTime() || 0);
-      if (p) { const candidate = structuredClone(this.run); candidate.participants[p.id].lastSeen = new Date(Math.max(at, Date.parse(p.lastSeen))).toISOString(); this.persist(candidate); }
+      if (p) { const candidate = cloneState(this.run); candidate.participants[p.id].lastSeen = new Date(Math.max(at, Date.parse(p.lastSeen))).toISOString(); this.persist(candidate); }
     }
     ws.close(code === 1005 ? 1000 : code); await this.schedule(true);
   }

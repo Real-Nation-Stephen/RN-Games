@@ -10,3 +10,6 @@ dist/
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# Local deployment credentials and private rehearsal identities
+.netlify/*.private.json
