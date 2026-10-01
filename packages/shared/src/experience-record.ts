@@ -133,6 +133,7 @@ export function defaultExperienceFoundation(): ExperienceFoundation {
     sessionTtlMinutes: 0,
     navigation: { backButton: "one_way", nextStepButtonLabel: "Next Activity" },
     interactive: false,
+    liveConnection: "standard",
     joinScreen: defaultLiveJoinScreen(),
   };
 }
@@ -201,6 +202,7 @@ export function normalizeExperience(
       ...defaultExperienceFoundation(),
       ...(doc.foundation && typeof doc.foundation === "object" ? doc.foundation : {}),
       interactive: !!(doc.foundation && typeof doc.foundation === "object" && doc.foundation.interactive),
+      liveConnection: doc.foundation?.liveConnection === "dedicated" ? "dedicated" : "standard",
       joinScreen: normalizeLiveJoinScreen(
         doc.foundation && typeof doc.foundation === "object" ? doc.foundation.joinScreen : undefined,
       ),

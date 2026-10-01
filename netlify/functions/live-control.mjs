@@ -31,16 +31,17 @@ export async function lambdaHandler(event) {
     if (!code || !hostKey || !action) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "code, hostKey, action required" }) };
     }
-    const existing = await getLiveRunWithRetry(code);
+    const existing = await hydrateLiveRun(code);
     if (!existing) return { statusCode: 404, headers, body: JSON.stringify({ error: "Run not found" }) };
     if (!secretsEqual(String(existing.hostKey || ""), hostKey)) {
       return { statusCode: 403, headers, body: JSON.stringify({ error: "Forbidden" }) };
     }
 
     let result = {};
-    const presenceById = await readPresenceMap(code, Object.keys(existing.participants || {}));
+    const presenceById = Object.fromEntries(Object.values(existing.participants || {}).map(p => [p.id, p.lastSeen]));
+    const readinessById = Object.fromEntries(Object.values(existing.participants || {}).map(p => [p.id, p.readyAttempt]));
     await updateLiveRun(code, (current) => {
-      result = applyControl(current, action, body, presenceById);
+      result = applyControl(current, action, body, presenceById, readinessById);
       if (result?.duplicate) return null;
       return current;
     });

@@ -6,13 +6,18 @@
     <title>Live presenter</title>
     <link rel="stylesheet" href="/src/css/live.css" />
   </head>
-  <body class="live-page">
+  <body class="live-page" data-live-surface="presenter">
     <p id="err" class="live-error" hidden></p>
     <div id="app" hidden>
       <div class="live-stage">
-        <div class="live-status" id="live-status"></div>
-        <div id="live-main"></div>
-        <div id="live-dock" class="live-dock"></div>
+        <div class="live-frame">
+          <header class="live-frame-head" id="live-head"></header>
+          <div id="live-main" class="live-frame-body"></div>
+          <footer class="live-frame-foot">
+            <p class="live-frame-count" id="live-status"></p>
+            <div id="live-dock" class="live-dock"></div>
+          </footer>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/live/present.ts"></script>

@@ -1,0 +1,347 @@
+{
+  "date": "2026-10-01",
+  "content": "Actual event content and branding; 12 Fill questions; disposable test rooms",
+  "results": {
+    "hosted100": {
+      "transport": "Cloudflare hosted HTTP/2 + independent WebSockets",
+      "participants": 100,
+      "answers": 1200,
+      "requests": 1527,
+      "socketBytes": 9382530,
+      "compactMessages": 2247,
+      "stats": {
+        "100 joins": {
+          "count": 100,
+          "p95Ms": 231,
+          "maxMs": 232,
+          "serviceP95Ms": 116
+        },
+        "100 socket subscriptions": {
+          "count": 100,
+          "p95Ms": 1129,
+          "maxMs": 1163
+        },
+        "100 votes": {
+          "count": 100,
+          "p95Ms": 383,
+          "maxMs": 385,
+          "serviceP95Ms": 244
+        },
+        "100 preload acknowledgements": {
+          "count": 100,
+          "p95Ms": 294,
+          "maxMs": 298,
+          "serviceP95Ms": 209
+        },
+        "100 answers round 1": {
+          "count": 100,
+          "p95Ms": 764,
+          "maxMs": 774,
+          "serviceP95Ms": 304
+        },
+        "100 answers round 2": {
+          "count": 100,
+          "p95Ms": 736,
+          "maxMs": 741,
+          "serviceP95Ms": 381
+        },
+        "100 answers round 3": {
+          "count": 100,
+          "p95Ms": 734,
+          "maxMs": 750,
+          "serviceP95Ms": 434
+        },
+        "100 answers round 4": {
+          "count": 100,
+          "p95Ms": 696,
+          "maxMs": 714,
+          "serviceP95Ms": 396
+        },
+        "100 answers round 5": {
+          "count": 100,
+          "p95Ms": 682,
+          "maxMs": 710,
+          "serviceP95Ms": 396
+        },
+        "100 answers round 6": {
+          "count": 100,
+          "p95Ms": 776,
+          "maxMs": 779,
+          "serviceP95Ms": 477
+        },
+        "100 answers round 7": {
+          "count": 100,
+          "p95Ms": 732,
+          "maxMs": 735,
+          "serviceP95Ms": 418
+        },
+        "100 answers round 8": {
+          "count": 100,
+          "p95Ms": 765,
+          "maxMs": 782,
+          "serviceP95Ms": 449
+        },
+        "100 answers round 9": {
+          "count": 100,
+          "p95Ms": 925,
+          "maxMs": 929,
+          "serviceP95Ms": 456
+        },
+        "100 answers round 10": {
+          "count": 100,
+          "p95Ms": 854,
+          "maxMs": 876,
+          "serviceP95Ms": 493
+        },
+        "100 answers round 11": {
+          "count": 100,
+          "p95Ms": 893,
+          "maxMs": 908,
+          "serviceP95Ms": 567
+        },
+        "100 answers round 12": {
+          "count": 100,
+          "p95Ms": 1018,
+          "maxMs": 1021,
+          "serviceP95Ms": 698
+        }
+      }
+    },
+    "hosted150": {
+      "transport": "Cloudflare hosted HTTP/2 + independent WebSockets",
+      "participants": 150,
+      "answers": 1800,
+      "requests": 2275,
+      "socketBytes": 14652265,
+      "compactMessages": 3803,
+      "stats": {
+        "150 joins": {
+          "count": 150,
+          "p95Ms": 456,
+          "maxMs": 458,
+          "serviceP95Ms": 334
+        },
+        "150 socket subscriptions": {
+          "count": 150,
+          "p95Ms": 3716,
+          "maxMs": 3758
+        },
+        "150 votes": {
+          "count": 150,
+          "p95Ms": 767,
+          "maxMs": 769,
+          "serviceP95Ms": 549
+        },
+        "150 preload acknowledgements": {
+          "count": 150,
+          "p95Ms": 579,
+          "maxMs": 584,
+          "serviceP95Ms": 521
+        },
+        "150 answers round 1": {
+          "count": 150,
+          "p95Ms": 1409,
+          "maxMs": 1430,
+          "serviceP95Ms": 680
+        },
+        "150 answers round 2": {
+          "count": 150,
+          "p95Ms": 1216,
+          "maxMs": 1234,
+          "serviceP95Ms": 730
+        },
+        "150 answers round 3": {
+          "count": 150,
+          "p95Ms": 1482,
+          "maxMs": 1503,
+          "serviceP95Ms": 862
+        },
+        "150 answers round 4": {
+          "count": 150,
+          "p95Ms": 1160,
+          "maxMs": 1178,
+          "serviceP95Ms": 693
+        },
+        "150 answers round 5": {
+          "count": 150,
+          "p95Ms": 1299,
+          "maxMs": 1322,
+          "serviceP95Ms": 825
+        },
+        "150 answers round 6": {
+          "count": 150,
+          "p95Ms": 1460,
+          "maxMs": 1479,
+          "serviceP95Ms": 979
+        },
+        "150 answers round 7": {
+          "count": 150,
+          "p95Ms": 1441,
+          "maxMs": 1470,
+          "serviceP95Ms": 967
+        },
+        "150 answers round 8": {
+          "count": 150,
+          "p95Ms": 1472,
+          "maxMs": 1488,
+          "serviceP95Ms": 1010
+        },
+        "150 answers round 9": {
+          "count": 150,
+          "p95Ms": 1490,
+          "maxMs": 1505,
+          "serviceP95Ms": 1003
+        },
+        "150 answers round 10": {
+          "count": 150,
+          "p95Ms": 1816,
+          "maxMs": 1843,
+          "serviceP95Ms": 1229
+        },
+        "150 answers round 11": {
+          "count": 150,
+          "p95Ms": 2065,
+          "maxMs": 2083,
+          "serviceP95Ms": 1379
+        },
+        "150 answers round 12": {
+          "count": 150,
+          "p95Ms": 2096,
+          "maxMs": 2110,
+          "serviceP95Ms": 1418
+        }
+      }
+    },
+    "productionSmoke": {
+      "transport": "Cloudflare hosted HTTP/2 + independent WebSockets",
+      "participants": 15,
+      "answers": 180,
+      "requests": 250,
+      "socketBytes": 1838238,
+      "compactMessages": 342,
+      "stats": {
+        "15 joins": {
+          "count": 15,
+          "p95Ms": 78,
+          "maxMs": 78,
+          "serviceP95Ms": 46
+        },
+        "15 socket subscriptions": {
+          "count": 15,
+          "p95Ms": 225,
+          "maxMs": 225
+        },
+        "15 votes": {
+          "count": 15,
+          "p95Ms": 78,
+          "maxMs": 78,
+          "serviceP95Ms": 37
+        },
+        "15 preload acknowledgements": {
+          "count": 15,
+          "p95Ms": 67,
+          "maxMs": 67,
+          "serviceP95Ms": 41
+        },
+        "15 answers round 1": {
+          "count": 15,
+          "p95Ms": 142,
+          "maxMs": 142,
+          "serviceP95Ms": 62
+        },
+        "15 answers round 2": {
+          "count": 15,
+          "p95Ms": 111,
+          "maxMs": 111,
+          "serviceP95Ms": 46
+        },
+        "15 answers round 3": {
+          "count": 15,
+          "p95Ms": 124,
+          "maxMs": 124,
+          "serviceP95Ms": 58
+        },
+        "15 answers round 4": {
+          "count": 15,
+          "p95Ms": 137,
+          "maxMs": 137,
+          "serviceP95Ms": 82
+        },
+        "15 answers round 5": {
+          "count": 15,
+          "p95Ms": 132,
+          "maxMs": 132,
+          "serviceP95Ms": 71
+        },
+        "15 answers round 6": {
+          "count": 15,
+          "p95Ms": 135,
+          "maxMs": 135,
+          "serviceP95Ms": 72
+        },
+        "15 answers round 7": {
+          "count": 15,
+          "p95Ms": 125,
+          "maxMs": 125,
+          "serviceP95Ms": 71
+        },
+        "15 answers round 8": {
+          "count": 15,
+          "p95Ms": 131,
+          "maxMs": 131,
+          "serviceP95Ms": 72
+        },
+        "15 answers round 9": {
+          "count": 15,
+          "p95Ms": 141,
+          "maxMs": 141,
+          "serviceP95Ms": 84
+        },
+        "15 answers round 10": {
+          "count": 15,
+          "p95Ms": 121,
+          "maxMs": 121,
+          "serviceP95Ms": 65
+        },
+        "15 answers round 11": {
+          "count": 15,
+          "p95Ms": 119,
+          "maxMs": 119,
+          "serviceP95Ms": 66
+        },
+        "15 answers round 12": {
+          "count": 15,
+          "p95Ms": 99,
+          "maxMs": 99,
+          "serviceP95Ms": 48
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic clients on one laptop; not 150 physical phones or a venue Wi-Fi sign-off.",
+    "Earlier HTTP/1 load-generator runs showed connection resets and multi-second latency; concurrent HTTP/2 runs reduce the generator\u2019s TCP/TLS connection count.",
+    "150-player answer bursts remain slower than 100-player bursts.",
+    "Direct service tests cover live commands/WebSockets; hosted UI rehearsal separately covers Netlify discovery/provisioning and normal browser controls."
+  ],
+  "operatorBrowserChecks": [
+    "Netlify-to-Cloudflare authenticated resume and Start new run",
+    "Join preserves participant identity across refresh",
+    "Poll vote acknowledged; tally hidden until moderator reveals",
+    "Fill readiness reaches 1/1; configurable timer; correct answer adds 1; timeout declares winning team",
+    "Pinboard remains private until approval, then appears in Presenter"
+  ],
+  "cloudflarePreviewDashboard": {
+    "window": "Last 24 hours, inspected 1 October 2026",
+    "requestsApprox": 18000,
+    "rowsReadApprox": 15000,
+    "rowsWrittenApprox": 37000,
+    "billableGbSeconds": 23.04,
+    "exceededCpuLimits": 0,
+    "exceededMemoryLimits": 0,
+    "internalErrors": 0,
+    "uncaughtExceptions": 0,
+    "clientDisconnectsApprox": 1000,
+    "notes": "Aggregated preview rehearsals across versions, including aborted HTTP/1 runs and intentional socket shutdowns. Dashboard metrics are delayed and rounded; not a per-event or account-wide quota guarantee."
+  }
+}

@@ -119,6 +119,9 @@ function toPublicScratcher(s) {
     clearThreshold: typeof s.clearThreshold === "number" ? s.clearThreshold : 0.97,
     winChancePercent: winOnly ? 100 : winChance,
     reportingEnabled: s.reportingEnabled,
+    liveCopy: s.liveCopy && typeof s.liveCopy === "object" ? s.liveCopy : {},
+    layoutMode: s.layoutMode,
+    layout: s.layout,
   };
 }
 

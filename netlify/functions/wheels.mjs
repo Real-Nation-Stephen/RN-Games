@@ -65,6 +65,7 @@ function emptyScratcherRecord(id, slug) {
     hideWinButton: false,
     clearThreshold: 0.97,
     winChancePercent: 50,
+    liveCopy: {},
   };
 }
 
@@ -695,6 +696,7 @@ export const handler = async (event, context) => {
           "showPoweredBy",
           "layoutMode",
           "layout",
+          "liveCopy",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];
@@ -717,6 +719,7 @@ export const handler = async (event, context) => {
           "winChancePercent",
           "layoutMode",
           "layout",
+          "liveCopy",
         ];
         for (const k of assign) {
           if (body[k] !== undefined) existing[k] = body[k];

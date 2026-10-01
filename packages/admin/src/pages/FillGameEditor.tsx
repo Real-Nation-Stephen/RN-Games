@@ -373,8 +373,13 @@ export default function FillGameEditor() {
             Add question
           </button>
         </div>
+        <p className="muted">{doc.questions.filter((q) => q.enabled !== false).length} active of {doc.questions.length} questions. Inactive questions stay in the editor and are excluded from new live runs.</p>
         {doc.questions.map((q, qi) => (
           <div key={q.id} className="card" style={{ marginTop: 8 }}>
+            <label className="field">
+              <input type="checkbox" checked={q.enabled !== false} onChange={(e) => patch((d) => ({ ...d, questions: d.questions.map((x) => x.id === q.id ? { ...x, enabled: e.target.checked } : x) }))} />
+              Include question {qi + 1} in live rounds
+            </label>
             <label className="field">
               Prompt
               <input
@@ -387,6 +392,7 @@ export default function FillGameEditor() {
                 }
               />
             </label>
+            <button type="button" className="btn" disabled={q.choices.length >= 6} onClick={() => patch((d) => ({ ...d, questions: d.questions.map((x) => x.id === q.id ? { ...x, choices: [...x.choices, { id: newMiniQuizId(), label: `Option ${x.choices.length + 1}` }] } : x) }))}>Add answer choice</button>
             {q.choices.map((c, ci) => (
               <label key={c.id} className="field">
                 <input
@@ -401,6 +407,11 @@ export default function FillGameEditor() {
                   }
                 />{" "}
                 Correct
+                <button type="button" className="btn" disabled={q.choices.length <= 2} onClick={() => patch((d) => ({ ...d, questions: d.questions.map((x) => {
+                  if (x.id !== q.id) return x;
+                  const choices = x.choices.filter((ch) => ch.id !== c.id);
+                  return { ...x, choices, correctChoiceId: x.correctChoiceId === c.id ? choices[0].id : x.correctChoiceId };
+                }) }))}>Remove choice</button>
                 <input
                   value={c.label}
                   onChange={(e) =>

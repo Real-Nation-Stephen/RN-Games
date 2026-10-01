@@ -6,6 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Live runtime opt-in is a Functions-scoped Netlify variable, not a build variable:
+# LIVE_STATE_BACKEND=postgres (deploy-preview only until event approval).
+
 [[edge_functions]]
   path = "/*"
   function = "router"

@@ -1,0 +1,131 @@
+# Cloudflare live rooms
+
+Optional backend for Studio flows with `foundation.liveConnection = "dedicated"`.
+The website, editor, assets, content, QR links and moderator UI remain in RN Game
+Studio. Only live-room commands, state and WebSockets use this Worker. Standard
+flows keep their existing backend. Existing runs keep their original backend
+until an operator explicitly starts a new run.
+
+## Deployment
+
+Preview service: `https://rn-games-live-preview.rngames-monorepo.workers.dev`.
+Production service: `https://rn-games-live.rngames-monorepo.workers.dev`.
+`wrangler.jsonc` is preview-only; `wrangler.production.jsonc` is production-only.
+Both pin the Real Nation Free account, with separate room namespaces and secrets.
+
+Use a Cloudflare Workers **Free** account. Do not enable a paid subscription.
+
+1. `npx wrangler login --scopes account:read user:read workers_scripts:write`
+2. Review `wrangler.jsonc`: preview service name, SQLite Durable Object migration,
+   and exact allowed Studio origins. Do not add wildcard origins.
+3. Generate a random secret of at least 32 bytes. Store it using
+   `npx wrangler secret put DEDICATED_LIVE_SECRET --config services/live-cloudflare/wrangler.jsonc`.
+4. `npm run deploy:live:cloudflare`
+5. Set `DEDICATED_LIVE_URL` to the deployed HTTPS origin and
+   `DEDICATED_LIVE_SECRET` to the same secret in Netlify's **deploy-preview**
+   Functions environment. Redeploy the preview.
+6. Run hosted rehearsal, then deploy `wrangler.production.jsonc` and configure
+   a separate secret plus production-scoped Netlify Functions settings.
+   Use a disposable test room; do not reset the event's active room to load-test it.
+
+The shared secret is for signed server-to-server provisioning. It must never
+appear in browser bundles, source control, QR links or reports. Phones use their
+own participant secret. Moderator keys remain private.
+
+## Verification
+
+- `npm run test:live:cloudflare`: actual local Worker runtime; 100 concurrent HTTP
+  participants and WebSockets, poll, 3–2–1 race, 1,200 answers, exact scores,
+  retry receipts, stale input, timed reveal, privacy, photo permissions,
+  reconnect and persisted state after a process restart.
+- `LIVE_N=150 CF_IDLE_TEST=1 npm run test:live:cloudflare`: 150 participants and
+  1,800 answers, plus 70 seconds without HTTP heartbeats. Confirms healthy idle
+  sockets keep participants connected without writing room state.
+- Hosted: supply `CF_LIVE_TEST_URL`, `CF_LIVE_TEST_SECRET` and optionally
+  `CF_LIVE_TEST_ORIGIN` in the process environment. The test provisions a unique
+  `TEST-…` room, expires it in one hour, and never touches an event active pointer.
+  `CF_LIVE_CONTENT_FILE` may point to a private `{snapshot}` JSON file from the
+  actual event. Tests use concurrent HTTP/2 streams and an independent WebSocket
+  per participant. `LIVE_REPORT_PATH` saves non-secret timings. Hosted mode does not simulate a
+  process restart; the local test covers persisted recovery.
+- Regression: `npm run test:live`, `npm run test:live:race`,
+  `npm run test:live:connection`, `npm run build`.
+
+Do not treat local timings as hosted/event Wi-Fi measurements. Rehearse the
+published UI on real phones, including a locked/unlocked phone and a Wi-Fi
+reconnect, before event sign-off.
+
+## Free-plan capacity
+
+Cloudflare currently documents 100,000 Worker requests/day, 100,000 Durable
+Object requests/day, 13,000 GB-s/day, 5 million SQLite rows read/day, 100,000 rows
+written/day and 5 GB total storage on Free. Incoming WebSocket messages have a
+20:1 request ratio for Durable Objects; outgoing messages are not request-billed.
+Account-wide quotas are shared. Exhausting a free quota can interrupt service;
+this is a sizing limit, not a paid overage or availability guarantee.
+
+For **one room, 100 participants, four hours**, healthy sockets send roughly
+96,000 automatic keepalives and 48,000 clock messages (about 7,200 equivalent DO
+requests), plus joins, commands, reconnects and occasional room alarms. An
+always-awake 128 MB room for four hours is approximately 1,843 GB-s. These are
+estimates, not measured account usage. Alarms coalesce updates and run at real
+game deadlines; there is no one-second write loop. A normal command writes the
+room row and its indexed receipt (approximately three SQL row writes), while
+healthy socket presence does not write to SQL. Review Cloudflare usage after
+hosted rehearsal, leaving headroom for other rooms and retries.
+
+If all 100 phones fall back to HTTP for hours, repeated reads/heartbeats can
+consume the free daily allowance. The moderator's connection indicator exposes
+reconnection, but it cannot establish that every phone has a healthy socket.
+Check representative phones and connected/ready counts; don't run a race while
+connections are unstable. No automatic switch back to Netlify happens mid-run.
+
+References:
+- https://developers.cloudflare.com/workers/platform/pricing/
+- https://developers.cloudflare.com/durable-objects/platform/pricing/
+- https://developers.cloudflare.com/durable-objects/best-practices/websockets/
+
+## State and recovery
+
+One SQLite-backed Durable Object serializes each room's mutations. Scoring uses
+Studio's shared engine. State and actor-bound command receipts commit together;
+Compact WebSocket updates reuse static screen content within a round; round
+changes and reconnects send a full snapshot. Older clients continue receiving
+full updates. Replaying an acknowledged command cannot double-score after another answer,
+round change or process restart. Immutable content is stored separately from
+mutable scores. Public and phone projections never expose moderator keys or
+unrevealed quiz answers. Pinboard photos remain private until approved.
+
+WebSockets use the hibernation API and automatic ping/pong responses. A missed
+connection reconnects, with HTTP fallback to the same service. Local clocks use
+server timestamps. Fill waits for phones to acknowledge preloaded content before
+starting its shared countdown. Runs retain the existing 12-hour expiry; expired
+Cloudflare rooms clear their ephemeral participants, receipts and photos. Start
+a fresh run before the event, not the night before. Cloudflare is not an archive
+of event responses.
+
+## Hosted rehearsal, 1 October 2026
+
+See `validation-hosted.json`. With the actual event content, 100 simulated
+players completed 1,200 answers with per-burst answer p95 of 0.68–1.02 seconds;
+150 players completed 1,800 answers with p95 of 1.16–2.10 seconds. Scores were
+exact, retries did not double-score, answers stayed private, and timed reveals,
+readiness/countdown, reconnects, legacy clients and moderation passed. The
+100-player idle test kept every phone connected without HTTP heartbeat writes.
+
+These are concurrent HTTP/2 command tests with real hosted WebSockets. Earlier
+HTTP/1 tests used hundreds of TCP connections from one laptop and produced
+connection resets and slower timings. HTTP/2 reduced this connection overhead;
+that does not establish reliability on every network. Venue Wi-Fi and real-phone
+lock/unlock checks remain required. No Netlify bot protections were disabled.
+
+The preview dashboard later reported approximately 18k requests, 15k SQL rows
+read, 37k rows written and 23.04 GB-s across the repeated rehearsals. It showed
+zero CPU-limit, memory-limit, internal or uncaught-exception errors. Approximately
+1k client disconnects include test shutdowns and earlier connection failures.
+Metrics are delayed/rounded; check account-wide usage before a full event day.
+
+Rollback: select Standard for future runs only, then explicitly start a fresh
+run before guests join. Existing runs remain pinned to their backend. Changing
+this setting mid-event is not a recovery mechanism. Production and preview
+secrets are separate; never copy their routes between environments.

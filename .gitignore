@@ -6,3 +6,10 @@ dist/
 !.env.example
 .netlify/live-cas/
 .netlify/isolated-qa/
+
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Local deployment credentials and private rehearsal identities
+.netlify/*.private.json

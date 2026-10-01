@@ -1,7 +1,10 @@
+import { getLiveRoute, routeResponse } from "./lib/live-connection.mjs";
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
 import { getActiveRunCode, getLiveRunWithRetry, updateLiveRun, writePresence } from "./lib/live-store.mjs";
 import { heartbeat, joinParticipant, loadExperienceBySlug, projectRun } from "./lib/live-run.mjs";
+import { isPostgresRun, postgresAction } from './lib/live-postgres.mjs';
+import { makeId, makeSecret } from './lib/live-store.mjs';
 
 const headers = {
   "Content-Type": "application/json",
@@ -34,8 +37,18 @@ export async function lambdaHandler(event) {
     }
     if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: "code or slug required" }) };
 
+    const route = await getLiveRoute(code);
+    if (route) return {statusCode:200,headers,body:JSON.stringify(routeResponse(route))};
     const exists = await getLiveRunWithRetry(code);
     if (!exists) return { statusCode: 404, headers, body: JSON.stringify({ error: "Run not found" }) };
+
+    if (isPostgresRun(exists)) {
+      const pid = body.participantId || makeId();
+      const secret = body.participantId ? String(body.secret || '') : makeSecret();
+      const {run, result} = await postgresAction(code, 'join', pid, secret, {reconnect:!!body.participantId});
+      const p = run.participants[pid];
+      return {statusCode:200,headers,body:JSON.stringify({participantId:p.id,secret:p.secret,participantNumber:p.number,code:run.code,state:projectRun(run,'participant',p.id)})};
+    }
 
     let joined = null;
     const run = await updateLiveRun(code, (current) => {

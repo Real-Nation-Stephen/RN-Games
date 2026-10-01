@@ -64,11 +64,11 @@ function applyLiveLayout(pane: LivePaneLayout, surface: "phone" | "presenter") {
   if (pane.headingSizePx > 0) root.setProperty("--live-heading-size", `${pane.headingSizePx}px`);
   if (pane.bodySizePx > 0) root.setProperty("--live-body-size", `${pane.bodySizePx}px`);
   if (surface === "presenter") {
-    root.setProperty("--live-logo-width", "184px");
-    root.setProperty("--live-logo-max-height", "168px");
+    root.setProperty("--live-logo-width", "110px");
+    root.setProperty("--live-logo-max-height", "98px");
   } else {
-    root.setProperty("--live-logo-width", "112px");
-    root.setProperty("--live-logo-max-height", "88px");
+    root.setProperty("--live-logo-width", "88px");
+    root.setProperty("--live-logo-max-height", "78px");
   }
   document.body.dataset.liveSurface = surface;
   document.querySelectorAll(".live-stage").forEach((el) => {

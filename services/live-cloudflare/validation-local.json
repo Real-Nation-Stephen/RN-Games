@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-01",
+  "environment": "Local Cloudflare Worker/Durable Object runtime, not hosted event certification",
+  "runs": [
+    {
+      "transport": "local Cloudflare runtime HTTP + WebSockets",
+      "participants": 100,
+      "answers": 1200,
+      "requests": 1523,
+      "stats": {
+        "100 joins": {
+          "count": 100,
+          "p95Ms": 183,
+          "maxMs": 183
+        },
+        "100 socket subscriptions": {
+          "count": 100,
+          "p95Ms": 169,
+          "maxMs": 193
+        },
+        "100 votes": {
+          "count": 100,
+          "p95Ms": 255,
+          "maxMs": 255
+        },
+        "100 preload acknowledgements": {
+          "count": 100,
+          "p95Ms": 213,
+          "maxMs": 249
+        },
+        "100 answers round 1": {
+          "count": 100,
+          "p95Ms": 295,
+          "maxMs": 295
+        },
+        "100 answers round 2": {
+          "count": 100,
+          "p95Ms": 355,
+          "maxMs": 379
+        },
+        "100 answers round 3": {
+          "count": 100,
+          "p95Ms": 343,
+          "maxMs": 343
+        },
+        "100 answers round 4": {
+          "count": 100,
+          "p95Ms": 370,
+          "maxMs": 370
+        },
+        "100 answers round 5": {
+          "count": 100,
+          "p95Ms": 385,
+          "maxMs": 410
+        },
+        "100 answers round 6": {
+          "count": 100,
+          "p95Ms": 359,
+          "maxMs": 359
+        },
+        "100 answers round 7": {
+          "count": 100,
+          "p95Ms": 354,
+          "maxMs": 355
+        },
+        "100 answers round 8": {
+          "count": 100,
+          "p95Ms": 398,
+          "maxMs": 399
+        },
+        "100 answers round 9": {
+          "count": 100,
+          "p95Ms": 439,
+          "maxMs": 440
+        },
+        "100 answers round 10": {
+          "count": 100,
+          "p95Ms": 416,
+          "maxMs": 416
+        },
+        "100 answers round 11": {
+          "count": 100,
+          "p95Ms": 505,
+          "maxMs": 506
+        },
+        "100 answers round 12": {
+          "count": 100,
+          "p95Ms": 491,
+          "maxMs": 491
+        }
+      }
+    },
+    {
+      "transport": "local Cloudflare runtime HTTP + WebSockets",
+      "participants": 150,
+      "answers": 1800,
+      "requests": 2273,
+      "stats": {
+        "150 joins": {
+          "count": 150,
+          "p95Ms": 275,
+          "maxMs": 275
+        },
+        "150 socket subscriptions": {
+          "count": 150,
+          "p95Ms": 259,
+          "maxMs": 312
+        },
+        "150 votes": {
+          "count": 150,
+          "p95Ms": 443,
+          "maxMs": 444
+        },
+        "150 preload acknowledgements": {
+          "count": 150,
+          "p95Ms": 356,
+          "maxMs": 356
+        },
+        "150 answers round 1": {
+          "count": 150,
+          "p95Ms": 530,
+          "maxMs": 531
+        },
+        "150 answers round 2": {
+          "count": 150,
+          "p95Ms": 598,
+          "maxMs": 598
+        },
+        "150 answers round 3": {
+          "count": 150,
+          "p95Ms": 590,
+          "maxMs": 590
+        },
+        "150 answers round 4": {
+          "count": 150,
+          "p95Ms": 650,
+          "maxMs": 650
+        },
+        "150 answers round 5": {
+          "count": 150,
+          "p95Ms": 677,
+          "maxMs": 678
+        },
+        "150 answers round 6": {
+          "count": 150,
+          "p95Ms": 745,
+          "maxMs": 745
+        },
+        "150 answers round 7": {
+          "count": 150,
+          "p95Ms": 721,
+          "maxMs": 721
+        },
+        "150 answers round 8": {
+          "count": 150,
+          "p95Ms": 860,
+          "maxMs": 860
+        },
+        "150 answers round 9": {
+          "count": 150,
+          "p95Ms": 918,
+          "maxMs": 918
+        },
+        "150 answers round 10": {
+          "count": 150,
+          "p95Ms": 1132,
+          "maxMs": 1133
+        },
+        "150 answers round 11": {
+          "count": 150,
+          "p95Ms": 964,
+          "maxMs": 964
+        },
+        "150 answers round 12": {
+          "count": 150,
+          "p95Ms": 1071,
+          "maxMs": 1071
+        }
+      }
+    }
+  ],
+  "browserChecks": [
+    "Studio lifecycle provisions Cloudflare room and returns socketPresence routing",
+    "Phone joins using existing QR route",
+    "Moderator opens poll, phone votes, presenter reveals on tally",
+    "Phone readiness updates Start countdown without refresh",
+    "Shared countdown opens question, answer advances and scores +1",
+    "Moderator Hold pauses phone and presenter",
+    "Phone refresh preserves participant number and paused state"
+  ],
+  "pending": [
+    "Cloudflare authorization and deployment",
+    "Hosted 100-player rehearsal and account quota verification",
+    "Production rollout and real-device venue network rehearsal"
+  ]
+}
