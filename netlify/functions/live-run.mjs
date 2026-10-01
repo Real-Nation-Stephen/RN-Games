@@ -1,3 +1,4 @@
+import { issueOperatorAccess, revokeOperatorAccess, verifyOperatorAccess } from "./lib/live-operator-access.mjs";
 import { getLiveRoute, publicConnection, routeResponse, createDedicatedRun, callDedicated, retireLiveRun } from "./lib/live-connection.mjs";
 import { connectBlobs } from "./lib/blob-runtime.mjs";
 import { asNetlifyFunction } from "./lib/netlify-v2.mjs";
@@ -98,7 +99,24 @@ export async function lambdaHandler(event, context) {
       }
 
       const operator = await requireOperatorAuth(event, context);
-      const hasOperator = !operator.error;
+      const hasStudio = !operator.error;
+      if (body.operatorAccess) {
+        if (!hasStudio) return { statusCode: 401, headers, body: JSON.stringify({ error: "Studio sign-in required" }) };
+        if (body.operatorAccess === "create") {
+          const operatorKey = await issueOperatorAccess(experience.id);
+          return { statusCode: 200, headers, body: JSON.stringify({ operatorKey }) };
+        }
+        if (body.operatorAccess === "revoke") {
+          await revokeOperatorAccess(experience.id);
+          return { statusCode: 200, headers, body: JSON.stringify({ revoked: true }) };
+        }
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid operator access action" }) };
+      }
+      const suppliedGrant = Object.hasOwn(body, "operatorKey");
+      const grantOk = suppliedGrant && await verifyOperatorAccess(experience.id, body.operatorKey);
+      // An invalid/revoked link must not fall back to a cached run key.
+      if (suppliedGrant && !grantOk) return { statusCode: 403, headers, body: JSON.stringify({ error: "This operator link is no longer valid. Ask your event organiser for a new link." }) };
+      const hasOperator = hasStudio || grantOk;
       const providedKey = String(body.hostKey || "");
 
       const existingCode = await getActiveRunCode(experience.id);

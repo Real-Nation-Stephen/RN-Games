@@ -25,14 +25,25 @@ async function create(body,auth=true){const r=await lifecycle(event({slug:'live-
 try {
  assert.equal((await seed(event({}))).statusCode,200);
  const exp=await loadExperienceBySlug('live-demo');assert.equal(exp.foundation.liveConnection,'standard');
- const standard=await create({});assert.equal(standard.connection.mode,'standard');assert.ok(!standard.code.startsWith('L'));
+ const deniedIssue=await lifecycle(event({slug:'live-demo',operatorAccess:'create'},false));assert.equal(deniedIssue.statusCode,401);
+ const grantResponse=await lifecycle(event({slug:'live-demo',operatorAccess:'create'}));assert.equal(grantResponse.statusCode,200);
+ const operatorKey=JSON.parse(grantResponse.body).operatorKey;
+ const {verifyOperatorAccess}=await import('../netlify/functions/lib/live-operator-access.mjs');
+ assert.equal(await verifyOperatorAccess('different-flow',operatorKey),false);
+ const {liveCasStore}=await import('../netlify/functions/lib/live-store.mjs');
+ const stored=await (await liveCasStore()).get('live-operator:'+exp.id,{type:'json'});
+ assert.ok(stored.digest);assert.ok(!JSON.stringify(stored).includes(operatorKey));
+ const standard=await create({operatorKey},false);assert.equal(standard.connection.mode,'standard');assert.ok(!standard.code.startsWith('L'));
  exp.foundation.liveConnection='dedicated';await setExperienceJson(exp.id,exp);
  const pinnedStandard=await create({});assert.equal(pinnedStandard.code,standard.code);assert.equal(pinnedStandard.connection.mode,'standard');
- const dedicated=await create({forceNew:true,hostKey:standard.hostKey},false);
+ const dedicated=await create({forceNew:true,operatorKey},false);
+ const reopened=await create({operatorKey},false);assert.equal(reopened.code,dedicated.code);
+ assert.equal((await lifecycle(event({slug:'live-demo',operatorKey:'invalid',hostKey:dedicated.hostKey},false))).statusCode,403);
+ assert.equal((await lifecycle(event({slug:'live-demo',operatorAccess:'revoke'},false))).statusCode,401);
  assert.match(dedicated.code,/^L[0-9A-F]{6}$/);assert.equal(dedicated.connection.mode,'dedicated');
  assert.equal((await getLiveRun(standard.code)).status,'superseded');assert.equal(await getLiveRun(dedicated.code),null,'Dedicated run state is not duplicated in the Studio store');
  const discovery=await lifecycle({httpMethod:'GET',headers:{},queryStringParameters:{code:dedicated.code}});
- const route=JSON.parse(discovery.body);assert.ok(route.routeOnly);assert.ok(!JSON.stringify(route).includes(dedicated.hostKey));
+ const route=JSON.parse(discovery.body);assert.ok(route.routeOnly);assert.ok(!JSON.stringify(route).includes(dedicated.hostKey));assert.ok(!JSON.stringify(route).includes(operatorKey));
  const joinRoute=await join(event({code:dedicated.code},false));assert.ok(JSON.parse(joinRoute.body).routeOnly);
  const res=await fetch(process.env.DEDICATED_LIVE_URL+'/api/live-join',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:dedicated.code})});assert.equal(res.status,200);const person=await res.json();assert.ok(person.participantId);
  const socket=new WebSocket(process.env.DEDICATED_LIVE_URL.replace('http','ws')+'/live',{origin:'http://localhost:1234'});
@@ -50,6 +61,11 @@ try {
   badSocket.on('close',code=>{clearTimeout(timeout);assert.equal(code,1008);resolve();});
  });
  assert.equal((await lifecycle(event({slug:'live-demo',forceNew:true},false))).statusCode,403);
+ const rotated=JSON.parse((await lifecycle(event({slug:'live-demo',operatorAccess:'create'}))).body).operatorKey;
+ assert.equal((await lifecycle(event({slug:'live-demo',operatorKey},false))).statusCode,403);
+ assert.equal((await create({operatorKey:rotated},false)).code,dedicated.code);
+ assert.equal((await lifecycle(event({slug:'live-demo',operatorAccess:'revoke'}))).statusCode,200);
+ assert.equal((await lifecycle(event({slug:'live-demo',operatorKey:rotated,hostKey:dedicated.hostKey},false))).statusCode,403);
  exp.foundation.liveConnection='standard';await setExperienceJson(exp.id,exp);
  const pinnedDedicated=await create({hostKey:dedicated.hostKey},false);assert.equal(pinnedDedicated.code,dedicated.code);assert.equal(pinnedDedicated.connection.mode,'dedicated');
  const standardAgain=await create({forceNew:true,hostKey:dedicated.hostKey},false);assert.equal(standardAgain.connection.mode,'standard');
@@ -57,7 +73,7 @@ try {
  exp.foundation.liveConnection='dedicated';await setExperienceJson(exp.id,exp);
  delete process.env.DEDICATED_LIVE_SECRET;
  const unavailable=await lifecycle(event({slug:'live-demo',forceNew:true}));assert.equal(unavailable.statusCode,503);assert.equal(await getActiveRunCode(exp.id),standardAgain.code);
- console.log('PASS standard default, per-flow routing, pinned active sessions, authenticated reset both ways, private discovery, fail-closed configuration and preserved active run');
+ console.log('PASS private flow-scoped operator links (initial create, reset, fresh client resume, rotation, revocation, no key fallback), standard default, per-flow routing, pinned active sessions, authenticated reset both ways, private discovery, fail-closed configuration and preserved active run');
 } finally {
  child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));await fs.rm(dir,{recursive:true,force:true});
 }

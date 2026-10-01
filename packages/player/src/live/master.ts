@@ -49,11 +49,23 @@ function operatorHeaders(): Record<string, string> {
   return headers;
 }
 
+function operatorAccess(): string {
+  return sessionStorage.getItem(`${STORE}:operator:${slug()}`) || "";
+}
+
+function consumeOperatorAccess() {
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  if (!hash.has("op")) return;
+  sessionStorage.setItem(`${STORE}:operator:${slug()}`, hash.get("op") || "invalid");
+  history.replaceState(null, "", `${location.pathname}${location.search}`);
+}
+
 function consumeHostKeyFromLocation(): string {
   const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
   const fromHash = hash.get("hk") || hash.get("hostKey") || "";
   const fromQuery = qs().get("hk") || qs().get("hostKey") || "";
   const key = fromHash || fromQuery;
+  if (key) sessionStorage.removeItem(`${STORE}:operator:${slug()}`);
   if (fromHash) {
     history.replaceState(null, "", `${location.pathname}${location.search}`);
   }
@@ -373,9 +385,12 @@ function renderMaster(state: AnyRec, host: { code: string; hostKey: string; cont
 }
 
 async function ensureRun(forceNew = false) {
+  consumeOperatorAccess();
   const existing = loadHost();
   const fromLink = consumeHostKeyFromLocation();
+  const grant = operatorAccess();
   const body: Record<string, unknown> = { slug: slug(), forceNew };
+  if (grant) body.operatorKey = grant;
   if (fromLink) {
     body.hostKey = fromLink;
     // Keep a trusted Studio handoff key even when the old room has expired.
@@ -438,6 +453,14 @@ async function main() {
         }
       });
       err.append(restart);
+      return;
+    }
+    if ((status === 401 || status === 403) && operatorAccess()) {
+      document.getElementById("app")!.hidden = true;
+      if (err) {
+        err.hidden = false;
+        err.textContent = "This operator link is no longer valid. Ask your event organiser for a new link, then open it from the guide.";
+      }
       return;
     }
     if (status === 401 || status === 403) {

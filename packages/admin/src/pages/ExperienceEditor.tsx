@@ -25,6 +25,8 @@ export default function ExperienceEditor() {
   const [warnings, setWarnings] = useState<{ stepId: string; message: string }[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [operatorUrl, setOperatorUrl] = useState<string | null>(null);
+  const [operatorBusy, setOperatorBusy] = useState(false);
   const [masterFallbackUrl, setMasterFallbackUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -300,6 +302,31 @@ export default function ExperienceEditor() {
               >
                 Start new run
               </button>
+              {" "}<button type="button" className="btn-secondary" disabled={operatorBusy}
+                onClick={async () => {
+                  if (!confirm("Create an external operator link? This replaces any previous operator link for this flow. Share it privately with your event operator.")) return;
+                  setOperatorBusy(true);
+                  try {
+                    const res = await apiSend("/api/live-run", "POST", { slug: game.slug, operatorAccess: "create" }) as { operatorKey: string };
+                    setOperatorUrl(`${origin}/x/${game.slug}/master#op=${encodeURIComponent(res.operatorKey)}`);
+                  } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+                  finally { setOperatorBusy(false); }
+                }}>Create operator link</button>
+              {" "}<button type="button" className="btn-secondary" disabled={operatorBusy}
+                onClick={async () => {
+                  if (!confirm("Revoke the operator link? Already-open moderator sessions retain control until you start a new run.")) return;
+                  setOperatorBusy(true);
+                  try {
+                    await apiSend("/api/live-run", "POST", { slug: game.slug, operatorAccess: "revoke" });
+                    setOperatorUrl(null);
+                  } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+                  finally { setOperatorBusy(false); }
+                }}>Revoke operator link</button>
+              {operatorUrl && <>
+                <br /><strong>Private operator link - works across new runs, no Studio login needed.</strong>
+                <br /><input aria-label="Private operator link" readOnly value={operatorUrl} onFocus={(e) => e.target.select()} style={{ width: "100%", marginTop: 8 }} />
+                <br /><small>Copy and share privately. Creating another link replaces this one. Revoke it after the event; start a new run to remove existing moderator access.</small>
+              </>}
               {masterFallbackUrl ? (
                 <>
                   <br />

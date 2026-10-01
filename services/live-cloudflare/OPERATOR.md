@@ -1,47 +1,44 @@
-# Running Keg Talk Live
+# Keg Talk: external operator quick start
 
-You only need RN Game Studio. No Cloudflare login is needed to run the event.
+Use the private RN quick-start PDF supplied for this event. Its **Open moderator**
+button signs you into this flow only. No Studio or Cloudflare account is needed.
+Keep the guide private; guests use the QR on the presenter screen.
 
-## Before people arrive
+## Set up
 
-1. Sign into Studio and open **Keg Talk Live**. Use the event flow, not the demo.
-2. Check the saved flow uses **Dedicated live service**. Open **Flow Master**.
-3. Start a fresh run for this event. If the old session has expired, use
-   **Start a fresh session** on the recovery screen. This creates a new room code: check that the
-   presenter and phone show the same code. Do this before guests join.
-4. Open the presenter on the room screen and make it full screen. Keep Flow
-   Master on your laptop. All activity controls are in Flow Master.
-5. Join on two real phones. Submit a test vote, tally it, and check both screens.
-   Check a Fill countdown, the sound and both team meters.
-6. Start one final fresh run after rehearsal, then leave its join screen up.
-   Keep the laptop awake and connected to reliable power and Wi-Fi.
+1. Click **Open moderator** in the PDF. This is your laptop control panel.
+2. Before guests join, click **Start new run** and confirm. On an expired-session
+   screen, click **Start a fresh session** instead. Both create a fresh room.
+3. Click **Open presenter** in Flow Master (or in the PDF after starting the run).
+   Move that tab to the room display and make it full screen. Keep the moderator
+   on your laptop. If you reset again, close the old presenter and reopen it.
+4. Rehearse with two phones and check sound. After rehearsal, start a final new
+   run, reopen the presenter, and leave the join screen up for guests.
 
-## During the event
+## Run activities
 
-- Guests scan the presenter QR or use its short link/code. They stay on that
-  phone page throughout; the moderator moves everyone together.
-- **Poll:** open voting → invite answers → close voting → **Tally scores**.
-  The result stays hidden until tallying.
-- **Fill the Keg:** check connected numbers and **phones ready**. Set the target
-  from attendance, adjust if needed, and choose the round duration. Start only
-  when phones are ready. The shared countdown opens the race; the first team to
-  fill wins, or the highest score wins at the time limit.
-- **Pinboard:** review incoming posts in Flow Master and approve what should
-  appear on the room screen.
-- Use **Next** to move through activities. Guests can join late.
+- **Next step** moves the room and phones together.
+- **Poll:** Open voting, invite answers, Close voting, then Tally scores.
+- **Fill:** wait for phones ready, set target and duration, then Start countdown.
+  The countdown starts everyone together. First full keg wins; otherwise the
+  highest score at the time limit wins.
+- **Pinboard:** invite posts and approve those you want on screen.
+- **Hold / Resume** pauses and resumes play. **End run** finishes the run.
 
-## If a connection drops
+## If something drops
 
-- If Flow Master shows **Reconnecting**, pause your commentary and wait. Saved
-  scores and participant places remain in the current room.
-- If control still responds, **Hold** pauses play. Resume when connections
-  recover; Fill uses a fresh countdown.
-- A guest should reopen the same phone tab, or refresh it if necessary. Keeping
-  the same browser preserves their participant number.
-- Don't start a new run to fix one disconnected phone: that would change the
-  room for everyone. Don't switch backend during a session.
-- If the moderator's connection is down, its Hold command cannot reach the
-  server. Tell the room to pause and reconnect the laptop before continuing.
+Reopen the moderator using the same PDF button to resume the current run.
+Guests should refresh their existing phone tab. Avoid Start new run during an
+activity: it clears the run and changes everyone's join code. If the laptop is
+reconnecting, tell the room to pause until it reconnects. Keep the laptop awake,
+powered and online. Sessions last up to 12 hours; start on the event day.
 
-A session lasts up to 12 hours. Start it on the event day. A successful server
-rehearsal does not replace checking the venue's Wi-Fi and mobile reception.
+## RN setup only
+
+Studio's **Create operator link** generates a private link for the saved flow.
+It can create/resume/reset this flow, but does not grant Studio access. The
+server stores only its hash, separately from public game configuration.
+Copy it immediately; generating another replaces it. **Revoke operator link**
+stops future access through the link. Already-open consoles retain their current
+run key; start a new run from Studio to remove those sessions too.
+Do not commit real operator links or guides containing them to the repository.
