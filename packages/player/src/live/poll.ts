@@ -1,4 +1,4 @@
-import { getLiveConnection, liveGetUrl, liveJson } from "./api";
+import { getLiveConnection, liveGetUrl, liveJson, setLiveSocketConnected } from "./api";
 import { observeServerTime } from "./race-clock";
 export type LivePollRole = "public" | "participant" | "moderator";
 export function startLivePoll(opts: {
@@ -7,9 +7,12 @@ export function startLivePoll(opts: {
   onState: (state: Record<string, unknown>) => void; onUnchanged?: () => void;
 }) {
   let rev = "", activeCode = "", timer = 0, stopped = false, delay = 1000;
-  let socket: WebSocket | null = null, retryAt = 0, lastMessage = 0, lastClock = 0;
+  let socket: WebSocket | null = null, retryAt = 0, lastMessage = 0, lastClock = 0, lastPing = 0;
   let badge: HTMLDivElement | null = null;
   function connectionStatus(message = "") {
+    if (!stopped && !message && opts.role === "moderator" && getLiveConnection(opts.code()).mode === "dedicated") {
+      message = socket?.readyState === WebSocket.OPEN ? "Live connection ready" : "Live link reconnecting — updates may be delayed";
+    }
     if (!message) { badge?.remove(); badge = null; return; }
     if (!badge) {
       badge = document.createElement("div"); badge.setAttribute("role", "status");
@@ -29,12 +32,14 @@ export function startLivePoll(opts: {
     const route = getLiveConnection(code);
     if (route.mode !== "dedicated" || socket || Date.now() < retryAt) return;
     const url = new URL("/live", route.apiBase); url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(url); socket = ws; lastMessage = Date.now(); lastClock = 0;
+    url.searchParams.set("code", code);
+    const ws = new WebSocket(url); socket = ws; lastMessage = Date.now(); lastClock = 0; lastPing = 0;
     ws.onopen = () => ws.send(JSON.stringify({ code, role: opts.role,
       participantId: opts.participantId?.(), secret: opts.participantSecret?.(), hostKey: opts.hostKey?.() }));
     ws.onmessage = event => {
       if (socket !== ws || code !== opts.code()) return;
-      lastMessage = Date.now(); connectionStatus();
+      lastMessage = Date.now(); setLiveSocketConnected(code, true); connectionStatus();
+      if (event.data === "pong") { opts.onUnchanged?.(); return; }
       try {
         const data = JSON.parse(event.data);
         if (data.type === "clock") observeServerTime(data.now, data.sentAt);
@@ -46,7 +51,8 @@ export function startLivePoll(opts: {
     };
     ws.onclose = () => {
       if (socket !== ws) return;
-      socket = null; retryAt = Date.now() + 2500 + Math.random() * 1500;
+      setLiveSocketConnected(code, false); socket = null; retryAt = Date.now() + 2500 + Math.random() * 1500;
+      if (!stopped) connectionStatus("Reconnecting… Your place is saved.");
     };
     ws.onerror = () => ws.close();
   }
@@ -54,10 +60,12 @@ export function startLivePoll(opts: {
     if (stopped) return;
     const code = opts.code();
     if (code !== activeCode) {
-      const old = socket; socket = null; old?.close(); activeCode = code; rev = ""; retryAt = 0;
+      setLiveSocketConnected(activeCode, false); const old = socket; socket = null; old?.close(); activeCode = code; rev = ""; retryAt = 0;
     }
-    if (socket && Date.now() - lastMessage > 6000) { const old = socket; socket = null; old.close(); retryAt = Date.now() + 2500; }
-    if (socket?.readyState === WebSocket.OPEN && Date.now() - lastMessage < 6000) {
+    if (socket && Date.now() - lastMessage > 45000) { setLiveSocketConnected(code, false); const old = socket; socket = null; old.close(); retryAt = Date.now() + 2500; }
+    if (socket?.readyState === WebSocket.OPEN && Date.now() - lastMessage < 45000) {
+      if (Date.now() - lastPing > 15000) { lastPing = Date.now(); socket.send("ping"); }
+      if (Date.now() - lastClock > 30000) { lastClock = Date.now(); socket.send(JSON.stringify({type:"clock",sentAt:lastClock})); }
       timer = window.setTimeout(tick, 1000); return;
     }
     try {
@@ -84,5 +92,5 @@ export function startLivePoll(opts: {
     if (!stopped) timer = window.setTimeout(tick, delay);
   }
   void tick();
-  return () => { stopped = true; window.clearTimeout(timer); socket?.close(); connectionStatus(); };
+  return () => { stopped = true; setLiveSocketConnected(activeCode, false); window.clearTimeout(timer); socket?.close(); connectionStatus(); };
 }

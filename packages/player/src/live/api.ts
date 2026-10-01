@@ -1,5 +1,8 @@
-type LiveConnection = { mode: "standard" | "dedicated"; apiBase?: string; code?: string; runId?: string };
+type LiveConnection = { mode: "standard" | "dedicated"; apiBase?: string; code?: string; runId?: string; socketPresence?: boolean };
 let connection: LiveConnection = { mode: "standard" };
+const sockets = new Set<string>();
+export const setLiveSocketConnected = (code: string, connected: boolean) => connected ? sockets.add(code.toUpperCase()) : sockets.delete(code.toUpperCase());
+export const hasLiveSocketPresence = (code: string) => !!getLiveConnection(code).socketPresence && sockets.has(code.toUpperCase());
 const connections = new Map<string, LiveConnection>();
 export const platformLiveEndpoint = (name: string) => import.meta.env.DEV ? `/api/${name}` : `/.netlify/functions/${name}`;
 export function getLiveConnection(code: string): LiveConnection {
@@ -32,7 +35,9 @@ export async function liveJson(url: string, init?: RequestInit): Promise<Record<
   const text = await res.text();
   let data: Record<string, unknown> = {};
   try { data = text ? JSON.parse(text) : {}; }
-  catch { data = { error: "The live service returned an unexpected response. Please reconnect." }; }
+  catch {
+    throw Object.assign(new Error("The live service returned an unexpected response. Please reconnect."), {status: res.status >= 400 ? res.status : 502});
+  }
   if (!res.ok) {
     const err = new Error(String(data.error || `HTTP ${res.status}`));
     Object.assign(err, { status: res.status, payload: data });

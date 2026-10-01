@@ -1,5 +1,5 @@
 import { startRaceClock, timedFillState, raceClockHtml, fillResultText, observeServerTime } from "./race-clock";
-import { liveEndpoint, liveJson } from "./api";
+import { liveEndpoint, liveJson, hasLiveSocketPresence } from "./api";
 import { startLivePoll } from "./poll";
 import { applyJoinTheme } from "./theme";
 import { optionLayout, escapeHtml, escapeAttr, pollImage, pollAnswer } from "./render";
@@ -582,7 +582,7 @@ async function main() {
     const stopClock = startRaceClock(root, () => lastState, (state) => renderPhone(root, state, code));
     window.addEventListener("pagehide", stopClock, { once: true });
     // Presence does not need to be written for every score update.
-    const heartbeatTimer = window.setInterval(() => { void act(code, "heartbeat").catch(() => undefined); }, 15_000);
+    const heartbeatTimer = window.setInterval(() => { if (hasLiveSocketPresence(code)) return; void act(code, "heartbeat").catch(() => undefined); }, 15_000);
     window.addEventListener("pagehide", () => window.clearInterval(heartbeatTimer), { once: true });
     startLivePoll({
       code: () => code,

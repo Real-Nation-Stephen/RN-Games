@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { nowIso } from "./live-identity.mjs";
 import { CasConflict, CasUncertain } from "./cas-store.mjs";
 import { postgresLiveEnabled, readPostgresRun, createPostgresRun, updatePostgresRun, postgresPresence, writePostgresPresence, putPostgresMedia, getPostgresMedia } from './live-postgres.mjs';
 import {
@@ -22,29 +22,7 @@ export function setLiveTestHooks(next = {}) {
   resetRuntimeStores();
 }
 
-export function makeRoomCode() {
-  return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
-}
-
-export function nowIso() {
-  return new Date().toISOString();
-}
-
-export function makeId() {
-  return randomUUID();
-}
-
-export function makeSecret() {
-  return randomBytes(24).toString("base64url");
-}
-
-export function secretsEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string" || !a || !b) return false;
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
-}
+export { makeRoomCode, nowIso, makeId, makeSecret, secretsEqual } from "./live-identity.mjs";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

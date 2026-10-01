@@ -247,9 +247,11 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
     const attendance = addButton(actions, "Suggest target from attendance", () => void control(host, "attendance-target").catch((e) => alert((e as Error).message)));
     attendance.disabled = activity.phase !== "idle";
     const start = addButton(actions, "Start countdown", () => void control(host, "start-race").catch((e) => alert((e as Error).message)));
+    start.id = "master-fill-start";
     if (activity.readinessRequired) {
       const ready = document.createElement('p');
       ready.className = 'live-body';
+      ready.id = 'master-fill-ready';
       ready.textContent = `${Number(activity.readyCount || 0)} / ${Number(activity.readyTotal || 0)} phones ready`;
       panel.appendChild(ready);
     }
@@ -355,6 +357,14 @@ function renderMaster(state: AnyRec, host: { code: string; hostKey: string; cont
     lastActivitySig = sig;
     renderActivity(state, host);
   }
+
+  // Readiness changes independently of the activity panel (including while a
+  // moderator is editing the timer). Keep these controls current without
+  // replacing focused inputs or losing their edits.
+  const readiness = document.getElementById("master-fill-ready");
+  if (readiness) readiness.textContent = `${Number(activity.readyCount || 0)} / ${Number(activity.readyTotal || 0)} phones ready`;
+  const fillStart = document.getElementById("master-fill-start") as HTMLButtonElement | null;
+  if (fillStart) fillStart.disabled = activity.phase !== "idle" || (!!activity.readinessRequired && (!activity.readyTotal || activity.readyCount !== activity.readyTotal));
 
   const awards = (state.awards || []) as AnyRec[];
   byId("master-awards").textContent = awards.length

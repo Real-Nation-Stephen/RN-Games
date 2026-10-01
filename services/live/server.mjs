@@ -109,7 +109,7 @@ export async function startDedicatedServer({port=Number(process.env.PORT || 8080
   server.requestTimeout=20000;server.headersTimeout=15000;
   const wss=new WebSocketServer({noServer:true,maxPayload:8192,perMessageDeflate:false});
   server.on('upgrade',(req,socket,head)=>{
-    if(req.url!=='/live' || !allowed.has(req.headers.origin) || wss.clients.size>=1000) {socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return;}
+    if(new URL(req.url,'http://local').pathname!=='/live' || !allowed.has(req.headers.origin) || wss.clients.size>=1000) {socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return;}
     wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws,req));
   });
   function write(ws,data) {
@@ -143,6 +143,7 @@ export async function startDedicatedServer({port=Number(process.env.PORT || 8080
     ws.alive=true;ws.on('pong',()=>{ws.alive=true;});
     const authTimer=setTimeout(()=>ws.close(1008,'Authentication required'),5000);
     ws.on('message',async raw=>{
+      if(ws.auth && raw.toString()==='ping'){ws.send('pong');return;}
       if(ws.auth) {
         try {
           const message=JSON.parse(raw.toString());

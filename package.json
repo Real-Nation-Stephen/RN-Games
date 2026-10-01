@@ -19,7 +19,9 @@
     "test:live:race": "LIVE_STORE_DRIVER=memory LIVE_DEV_AUTH=1 node --test scripts/test-live-race.mjs",
     "test:live:150": "LIVE_N=150 npm run test:live:http",
     "test:live:connection": "node scripts/test-live-connection.mjs",
-    "test:live:dedicated": "node scripts/test-live-dedicated.mjs"
+    "test:live:dedicated": "node scripts/test-live-dedicated.mjs",
+    "test:live:cloudflare": "node scripts/test-live-cloudflare.mjs",
+    "deploy:live:cloudflare": "wrangler deploy --config services/live-cloudflare/wrangler.jsonc"
   },
   "dependencies": {
     "@netlify/aws-lambda-compat": "^2.0.0",
@@ -32,7 +34,8 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "wrangler": "^4.145.0"
   },
   "engines": {
     "node": ">=22.12.0"

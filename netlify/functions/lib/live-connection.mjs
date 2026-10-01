@@ -20,7 +20,7 @@ export async function getLiveRoute(code) {
   return (await liveCasStore()).get(routeKey(code), {type:'json'});
 }
 export const publicConnection = route => route
-  ? {mode:'dedicated', apiBase:route.apiBase, code:route.code, runId:route.runId}
+  ? {mode:'dedicated', apiBase:route.apiBase, code:route.code, runId:route.runId, socketPresence:!!route.socketPresence}
   : {mode:'standard'};
 export const routeResponse = route => ({routeOnly:true, connection:publicConnection(route)});
 export async function callDedicated(apiBase, payload) {
@@ -45,7 +45,8 @@ export async function retireLiveRun(code) {
 export async function createDedicatedRun(run, experienceId, previousCode) {
   const {apiBase} = dedicatedConfig();
   const route = {apiBase,code:run.code,runId:run.runId,hostKey:run.hostKey,status:run.status};
-  await callDedicated(apiBase,{operation:'create',run});
+  const provisioned = await callDedicated(apiBase,{operation:'create',run});
+  route.socketPresence = !!provisioned.socketPresence;
   try {
     const stored = await (await liveCasStore()).setJSON(routeKey(run.code),route,{onlyIfNew:true});
     if (!stored?.modified) throw new Error('Live run code already exists');
