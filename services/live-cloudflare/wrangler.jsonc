@@ -1,6 +1,7 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "rn-games-live-preview",
+  "account_id": "cb68a7648183fcfcc61623ced7fd5ceb",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],

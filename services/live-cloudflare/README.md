@@ -8,6 +8,10 @@ until an operator explicitly starts a new run.
 
 ## Deployment
 
+Preview service: `https://rn-games-live-preview.rngames-monorepo.workers.dev`.
+The Wrangler configuration pins the Real Nation account and permits only the
+Studio deploy-preview origin. Production rollout requires separate validation.
+
 Use a Cloudflare Workers **Free** account. Do not enable a paid subscription.
 
 1. `npx wrangler login --scopes account:read user:read workers_scripts:write`
