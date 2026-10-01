@@ -118,3 +118,14 @@ HTTP/1 tests used hundreds of TCP connections from one laptop and produced
 connection resets and slower timings. HTTP/2 reduced this connection overhead;
 that does not establish reliability on every network. Venue Wi-Fi and real-phone
 lock/unlock checks remain required. No Netlify bot protections were disabled.
+
+The preview dashboard later reported approximately 18k requests, 15k SQL rows
+read, 37k rows written and 23.04 GB-s across the repeated rehearsals. It showed
+zero CPU-limit, memory-limit, internal or uncaught-exception errors. Approximately
+1k client disconnects include test shutdowns and earlier connection failures.
+Metrics are delayed/rounded; check account-wide usage before a full event day.
+
+Rollback: select Standard for future runs only, then explicitly start a fresh
+run before guests join. Existing runs remain pinned to their backend. Changing
+this setting mid-event is not a recovery mechanism. Production and preview
+secrets are separate; never copy their routes between environments.

@@ -322,8 +322,7 @@
     "Synthetic clients on one laptop; not 150 physical phones or a venue Wi-Fi sign-off.",
     "Earlier HTTP/1 load-generator runs showed connection resets and multi-second latency; concurrent HTTP/2 runs reduce the generator\u2019s TCP/TLS connection count.",
     "150-player answer bursts remain slower than 100-player bursts.",
-    "Direct service tests cover live commands/WebSockets; hosted UI rehearsal separately covers Netlify discovery/provisioning and normal browser controls.",
-    "Cloudflare Free account confirmed; daily Durable Object usage metrics had not populated at inspection. Capacity figures remain estimates."
+    "Direct service tests cover live commands/WebSockets; hosted UI rehearsal separately covers Netlify discovery/provisioning and normal browser controls."
   ],
   "operatorBrowserChecks": [
     "Netlify-to-Cloudflare authenticated resume and Start new run",
@@ -331,5 +330,18 @@
     "Poll vote acknowledged; tally hidden until moderator reveals",
     "Fill readiness reaches 1/1; configurable timer; correct answer adds 1; timeout declares winning team",
     "Pinboard remains private until approval, then appears in Presenter"
-  ]
+  ],
+  "cloudflarePreviewDashboard": {
+    "window": "Last 24 hours, inspected 1 October 2026",
+    "requestsApprox": 18000,
+    "rowsReadApprox": 15000,
+    "rowsWrittenApprox": 37000,
+    "billableGbSeconds": 23.04,
+    "exceededCpuLimits": 0,
+    "exceededMemoryLimits": 0,
+    "internalErrors": 0,
+    "uncaughtExceptions": 0,
+    "clientDisconnectsApprox": 1000,
+    "notes": "Aggregated preview rehearsals across versions, including aborted HTTP/1 runs and intentional socket shutdowns. Dashboard metrics are delayed and rounded; not a per-event or account-wide quota guarantee."
+  }
 }
