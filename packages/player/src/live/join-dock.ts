@@ -1,6 +1,8 @@
 import QRCode from "qrcode";
 
 export async function renderJoinDock(el: HTMLElement, opts: { code: string; joinUrl: string; featured?: boolean }) {
+  if (el.dataset.joinUrl === opts.joinUrl && el.querySelector("img")?.getAttribute("src")) return;
+  el.dataset.joinUrl = opts.joinUrl;
   el.className = "live-dock";
   const host = opts.joinUrl.replace(/^https?:\/\//, "");
   el.innerHTML = `
@@ -13,7 +15,8 @@ export async function renderJoinDock(el: HTMLElement, opts: { code: string; join
   `;
   const img = el.querySelector("img");
   if (img) {
-    img.src = await QRCode.toDataURL(opts.joinUrl, { margin: 1, width: 76 });
+    const svg = await QRCode.toString(opts.joinUrl, { type: "svg", margin: 4 });
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 }
 

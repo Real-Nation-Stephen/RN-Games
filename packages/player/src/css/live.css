@@ -1863,3 +1863,14 @@ body[data-live-surface="presenter"] [data-countdown-digit="true"] {
   }
   body[data-live-surface="presenter"] .live-pin-card p { margin-bottom: 10px; }
 }
+
+/* Session-controlled presentation scale, independent of the physical output resolution. */
+body[data-live-surface="presenter"] .live-stage.live-scaled-stage {
+  position: absolute;
+  inset: 0 auto auto 0;
+  flex: none;
+  min-height: 0;
+  transform-origin: top left;
+}
+body[data-live-surface="presenter"] .live-scaled-stage .live-dock img { width: 104px; height: 104px; }
+body[data-live-surface="presenter"] .live-scaled-stage .live-frame-foot { min-height: 104px; }

@@ -1,5 +1,6 @@
 /** Real Worker/Durable Object runtime, HTTP commands and authenticated WebSockets. */
 import assert from 'node:assert/strict';
+import {liveStageKey} from '../packages/shared/src/live-guide.mjs';
 import {randomUUID, createHmac} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {mkdtemp, readFile, writeFile} from 'node:fs/promises';
@@ -78,6 +79,10 @@ run.snapshot.configs.quiz={questions:quizQuestions};run.snapshot.secrets.quiz={q
 // Disposable rehearsal room expires in an hour, with no effect on an event's active pointer.
 run.expiresAt=new Date(Date.now()+3600000).toISOString();
 const control=async(action,payload={})=>(await ok('/api/live-control',{code,hostKey:run.hostKey,action,commandId:randomUUID(),...payload})).state;
+const advance=async()=>{
+ const state=(await ok('/api/live-run?code='+code+'&role=moderator&hostKey='+encodeURIComponent(run.hostKey))).state;
+ return control('advance',{expectedStage:liveStageKey(state)});
+};
 const attempt=s=>({nodeId:s.steps[s.currentStepIndex]?.id,roundAttemptId:s.roundAttemptId,runId:s.runId});
 const master=async()=>(await ok('/api/live-run?code='+code+'&role=moderator&hostKey='+run.hostKey)).state;
 let pingTimer;
@@ -94,15 +99,28 @@ try {
  await burst(`${N} socket subscriptions`,players,async p=>sub(p.participantId,{role:'participant',participantId:p.participantId,secret:p.secret}));
  await sub('presenter',{role:'public'});await sub('legacy',{role:'public',compactUpdates:false});await sub('master',{role:'moderator',hostKey:run.hostKey});
  pingTimer=setInterval(()=>{for(const ws of sockets)if(ws.readyState===WebSocket.OPEN)ws.send('ping');},15000);
- await control('next');const poll=await control('open');
+ const poll=await advance();assert.equal(poll.activity.phase,"open");
  let duplicateVote;
  await burst(`${N} votes`,players,async(p,i)=>{const body={code,participantId:p.participantId,secret:p.secret,action:'vote',...attempt(poll),optionId:pollOptions[0],commandId:randomUUID()};if(!i)duplicateVote=body;await ok('/api/live-action',body);});
  assert.equal((await ok('/api/live-action',duplicateVote)).result.duplicate,true);
  assert.equal((await request('/api/live-action',{...duplicateVote,optionId:pollOptions[1]})).response.status,409);
  await until(()=>received.get('master')?.revision>=poll.revision+N);
  const pub=(await ok('/api/live-run?code='+code)).state;assert.equal(pub.activity.phase,'open');assert.equal(pub.activity.tally,null,'Tallies stay private before reveal');
- await control('tally');await until(()=>received.get('presenter')?.activity.phase==='revealed');
- const fill=await control('next');
+ const manual=await control('set-auto-open-polls',{enabled:false});
+ assert.equal(manual.autoOpenPolls,false);assert.equal(manual.activity.phase,'open');assert.equal(manual.activity.responseCount,N);
+ await until(()=>received.get('master')?.autoOpenPolls===false);
+ await control('set-auto-open-polls',{enabled:true});
+ await until(()=>received.get('master')?.autoOpenPolls===true);
+ await control('set-presenter-scale',{scale:125});
+ await until(()=>received.get('presenter')?.presenterScale===125);
+ const counted=await advance();assert.equal(counted.activity.phase,'tallied');
+ await until(()=>received.get('presenter')?.activity.phase==='tallied');
+ assert.equal(received.get('presenter').activity.tally,null);
+ const stale=await request('/api/live-control',{code,hostKey:run.hostKey,action:'advance',commandId:randomUUID(),expectedStage:liveStageKey(pub)});
+ assert.equal(stale.response.status,409);
+ await advance();await until(()=>received.get('presenter')?.activity.phase==='revealed');
+ const fill=await advance();assert.equal(fill.presenterScale,125);
+ console.log('PASS guided Next, private tally, stale Next protection and shared presenter size');
  assert.equal((await request('/api/live-action',{...duplicateVote,commandId:randomUUID()})).response.status,409);
  await burst(`${N} preload acknowledgements`,players,p=>ok('/api/live-action',{code,participantId:p.participantId,secret:p.secret,action:'ready',...attempt(fill)}));
  await until(()=>received.get('master')?.activity?.readyCount===N);

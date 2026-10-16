@@ -7,7 +7,7 @@ Keep the guide private; guests use the QR on the presenter screen.
 ## Set up
 
 1. Click **Open moderator** in the PDF. This is your laptop control panel.
-2. Before guests join, click **Start new run** and confirm. On an expired-session
+2. Before guests join, open **Advanced tools → Start new run** and confirm. On an expired-session
    screen, click **Start a fresh session** instead. Both create a fresh room.
 3. Click **Open presenter** in Flow Master (or in the PDF after starting the run).
    Move that tab to the room display and make it full screen. Keep the moderator
@@ -17,13 +17,19 @@ Keep the guide private; guests use the QR on the presenter screen.
 
 ## Run activities
 
-- **Next step** moves the room and phones together.
-- **Poll:** Open voting, invite answers, Close voting, then Tally scores.
-- **Fill:** wait for phones ready, set target and duration, then Start countdown.
-  The countdown starts everyone together. First full keg wins; otherwise the
-  highest score at the time limit wins.
-- **Pinboard:** invite posts and approve those you want on screen.
-- **Hold / Resume** pauses and resumes play. **End run** finishes the run.
+The default console shows **Back / Reset / Next**, plus a short tip describing what happens next.
+
+- **Next** follows the activity, rather than skipping it. Its small label names the action.
+- **Poll:** Voting opens automatically on entry → Next counts votes privately → Next shows the animated results → Next moves on.
+- **Open polls automatically** in Advanced tools is on by default. Turn it off to preview each poll before Next opens voting. It applies when entering/resetting a poll and keeps existing votes when toggled. A new run defaults to on.
+- **Fill:** wait for phones ready, then Next starts the countdown. The race ends automatically at a full keg or the time limit. Next then moves on. Timer, target and Finish early are in Advanced tools.
+- **Pinboard:** approve the responses below the main controls. Next moves on when the discussion is finished.
+- **Back / Reset** restart an activity with fresh responses; both ask for confirmation.
+- **Advanced tools** holds Pause/Resume, Skip activity, detailed settings and session controls.
+- **Screen size − / +** changes the presenter and QR together (75–150%). Fit restores 100%. It applies to this run, survives refresh and follows activity changes; phones stay the same size.
+- **Quick start guide** opens illustrated setup and operating instructions in Flow Master.
+
+Check the real conference display after changing size. A computer screenshot cannot confirm reading/scanning distance in the venue.
 
 ## If something drops
 

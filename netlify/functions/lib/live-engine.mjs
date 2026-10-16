@@ -1,3 +1,4 @@
+import { nextLiveAction, liveStageKey } from "../../../packages/shared/src/live-guide.mjs";
 import { finishFill, tickFill, scheduleFill } from "./fill-race.mjs";
 /**
  * Authoritative live-run engine: cursor, phases, answers, prize ledger.
@@ -481,6 +482,8 @@ export function projectRun(run, role, participantId, { alreadyTicked = false } =
     title: run.snapshot?.title || "",
     status: run.status,
     held: !!run.held,
+    presenterScale: Number(run.presenterScale) || 100,
+    autoOpenPolls: run.autoOpenPolls !== false,
     currentStepIndex: run.currentStepIndex,
     roundAttemptId: run.roundAttemptId,
     cue: run.cue || null,
@@ -629,6 +632,7 @@ export function activateStep(run, index) {
   const kind = LIVE_CAPABLE.has(step.moduleType) ? step.moduleType : "unsupported";
   run.node = emptyNodeState(kind, step, run.snapshot.configs, run.roundAttemptId);
   run.cue = null;
+  if (kind === "mini-poll" && run.autoOpenPolls !== false) run.node.phase = "open";
   if (kind === "fill-game") {
     const cfg = run.snapshot.configs[step.id];
     for (const p of participantList(run)) {
@@ -793,6 +797,26 @@ export function applyControl(run, action, payload = {}, presenceById = null, rea
     return result;
   };
 
+  if (action === "advance") {
+    const state = projectRun(run, "moderator", null, { alreadyTicked: true });
+    if (payload.expectedStage !== liveStageKey(state)) {
+      throw Object.assign(new Error("The activity has changed. Check the next action and try again."), { statusCode: 409, code: "stale_stage" });
+    }
+    const next = nextLiveAction(state);
+    if (next.disabled || !next.action) throw Object.assign(new Error(next.tip), { statusCode: 409 });
+    action = next.action;
+  }
+  if (action === "set-auto-open-polls") {
+    if (typeof payload.enabled !== "boolean") throw Object.assign(new Error("Auto-open polls must be on or off"), { statusCode: 400 });
+    run.autoOpenPolls = payload.enabled;
+    return finish({ autoOpenPolls: run.autoOpenPolls });
+  }
+  if (action === "set-presenter-scale") {
+    const scale = Number(payload.scale);
+    if (!Number.isInteger(scale) || scale < 75 || scale > 150) throw Object.assign(new Error("Screen size must be between 75% and 150%"), { statusCode: 400 });
+    run.presenterScale = scale;
+    return finish({ presenterScale: scale });
+  }
   if (action === "takeover") {
     run.controllerId = controllerId || makeId();
     return finish({ controllerId: run.controllerId });
@@ -856,6 +880,13 @@ export function applyControl(run, action, payload = {}, presenceById = null, rea
 }
 
 function controlPoll(run, node, cfg, action) {
+  if (action === "reveal-results") {
+    if (node.phase !== "tallied") throw Object.assign(new Error("Count the votes first"), { statusCode: 409 });
+    node.phase = "tallying";
+    node.tallyStartedAt = Date.now();
+    run.cue = { kind: "tally", startedAt: node.tallyStartedAt, durationMs: node.revealDurationMs };
+    return {};
+  }
   if (action === "open") {
     node.phase = "open";
     node.votes = {};
@@ -867,7 +898,8 @@ function controlPoll(run, node, cfg, action) {
     if (node.phase === "open") node.phase = "closed";
     return {};
   }
-  if (action === "tally") {
+  if (action === "tally" || action === "prepare-tally") {
+    if (action === "prepare-tally" && !["open", "closed"].includes(node.phase)) throw Object.assign(new Error("Voting must be opened before counting"), { statusCode: 409 });
     if (node.tally && node.phase === "revealed") return { alreadyTallied: true };
     if (node.tally && node.phase === "tallying") return { alreadyTallied: true };
     const opts = cfg?.options || [];
@@ -885,10 +917,10 @@ function controlPoll(run, node, cfg, action) {
       result: !total ? "zero" : leaders.length > 1 ? "tie" : opts.length === 2 ? (leaders[0].id === opts[0].id ? "a" : "b") : "split",
       leadingOptionIds: total ? leaders.map((o) => o.id) : [],
     };
-    node.phase = "tallying";
-    node.tallyStartedAt = Date.now();
+    node.phase = action === "prepare-tally" ? "tallied" : "tallying";
+    node.tallyStartedAt = action === "prepare-tally" ? null : Date.now();
     node.revealDurationMs = cfg?.revealDurationMs || 3000;
-    run.cue = { kind: "tally", startedAt: node.tallyStartedAt, durationMs: node.revealDurationMs };
+    run.cue = action === "prepare-tally" ? null : { kind: "tally", startedAt: node.tallyStartedAt, durationMs: node.revealDurationMs };
     return {};
   }
   if (action === "complete-tally") {

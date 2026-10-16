@@ -21,7 +21,9 @@
     "test:live:connection": "node scripts/test-live-connection.mjs",
     "test:live:dedicated": "node scripts/test-live-dedicated.mjs",
     "test:live:cloudflare": "node scripts/test-live-cloudflare.mjs",
-    "deploy:live:cloudflare": "wrangler deploy --config services/live-cloudflare/wrangler.jsonc"
+    "deploy:live:cloudflare": "wrangler deploy --config services/live-cloudflare/wrangler.jsonc",
+    "test:live:guide": "node --test scripts/test-live-guide.mjs",
+    "test:live:master-ui": "node scripts/test-live-master-ui.cjs"
   },
   "dependencies": {
     "@netlify/aws-lambda-compat": "^2.0.0",

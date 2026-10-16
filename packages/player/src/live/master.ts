@@ -1,3 +1,4 @@
+import { nextLiveAction, liveStageKey } from "../../../shared/src/live-guide.mjs";
 import { startRaceClock, raceClockHtml } from "./race-clock";
 import { liveEndpoint, platformLiveEndpoint, liveGetUrl, liveJson } from "./api";
 import { startLivePoll } from "./poll";
@@ -72,19 +73,61 @@ function consumeHostKeyFromLocation(): string {
   return key;
 }
 
+let currentState: AnyRec | null = null;
+let commandPending = false;
+let pendingAutoOpen: boolean | null = null;
+
+function showCommandError(message: string) {
+  const error = byId("master-command-error");
+  error.textContent = message; error.hidden = !message;
+}
+
 async function control(host: { code: string; hostKey: string; controllerId: string }, action: string, extra: Record<string, unknown> = {}) {
-  return liveJson(liveEndpoint("live-control"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      code: host.code,
-      hostKey: host.hostKey,
-      controllerId: host.controllerId,
-      commandId: commandId(),
-      action,
-      ...extra,
-    }),
-  });
+  if (commandPending) return;
+  commandPending = true;
+  showCommandError("");
+  if (currentState) updateGuide(currentState);
+  try {
+    const data = await liveJson(liveEndpoint("live-control"), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: host.code, hostKey: host.hostKey, controllerId: host.controllerId,
+        commandId: commandId(), action, ...extra }),
+    });
+    if (data.state) renderMaster(data.state as AnyRec, host);
+    return data;
+  } catch (e) {
+    showCommandError(e instanceof Error ? e.message : "That action could not be completed. Check your connection and try again.");
+  } finally {
+    // Keep a fast double click from becoming two different phase transitions.
+    window.setTimeout(() => { commandPending = false; pendingAutoOpen = null; if (currentState) updateGuide(currentState); }, 600);
+  }
+}
+
+function updateGuide(state: AnyRec) {
+  const a = (state.activity || {}) as AnyRec;
+  const next = nextLiveAction(state);
+  const button = byId("btn-next") as HTMLButtonElement;
+  button.disabled = commandPending || next.disabled;
+  button.setAttribute("aria-label", `Next: ${next.label}`);
+  byId("master-next-label").textContent = commandPending ? "Updating…" : next.label;
+  byId("master-tip").textContent = next.tip;
+  const steps = (state.steps || []) as AnyRec[];
+  const current = steps.find(s => s.current);
+  byId("master-current-title").textContent = String(current?.label || kindLabel(String(a.kind)));
+  byId("master-progress").textContent = a.kind === "lobby" ? "Welcome / ready when you are" : a.kind === "closing" ? "All done" : `Activity ${Number(state.currentStepIndex) + 1} of ${steps.length}`;
+  (byId("btn-prev") as HTMLButtonElement).disabled = commandPending || a.kind === "lobby";
+  (byId("btn-replay") as HTMLButtonElement).disabled = commandPending || ["lobby", "closing"].includes(String(a.kind));
+  const autoOpen = byId("master-auto-open-polls") as HTMLInputElement;
+  autoOpen.checked = pendingAutoOpen ?? (state.autoOpenPolls !== false);
+  autoOpen.disabled = commandPending;
+  const scale = Number(state.presenterScale) || 100;
+  byId("master-scale").textContent = `${scale}%`;
+  (byId("btn-size-down") as HTMLButtonElement).disabled = commandPending || scale <= 75;
+  (byId("btn-size-up") as HTMLButtonElement).disabled = commandPending || scale >= 150;
+  (byId("btn-size-reset") as HTMLButtonElement).disabled = commandPending || scale === 100;
+  const summary = byId("master-live-summary");
+  summary.textContent = a.kind === "fill-game"
+    ? (a.readinessRequired && a.phase === "idle" ? `${a.readyCount || 0} / ${a.readyTotal || 0} phones ready · ` : "") + ((a.teams || []) as AnyRec[]).map(t => `${t.name || t.id}: ${t.score || 0}/${t.target}`).join(" · ") : "";
 }
 
 function byId(id: string): HTMLElement {
@@ -116,7 +159,8 @@ function phaseLabel(kind: string, phase: string): string {
   }
   if (kind === "mini-poll") {
     if (phase === "open") return "Voting open";
-    if (phase === "tallying") return "Tallying";
+    if (phase === "tallied") return "Results ready — hidden";
+    if (phase === "tallying") return "Revealing";
     if (phase === "revealed") return "Results shown";
     if (phase === "closed") return "Voting closed";
     return "Waiting to open";
@@ -210,6 +254,7 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
   const kind = String(activity.kind || "lobby");
   const panel = byId("master-activity");
   panel.replaceChildren();
+  const review = byId("master-review"); review.replaceChildren(); review.hidden = kind !== "pinboard";
   const actions = document.createElement("div");
   actions.className = "live-actions";
   const add = (label: string, action: string, extra?: Record<string, unknown>) =>
@@ -223,6 +268,7 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
     add("Open voting", "open");
     add("Close voting", "close");
     add("Tally scores", "tally");
+    if (activity.phase === "tallied") add("Show results", "reveal-results");
     panel.appendChild(actions);
   } else if (kind === "fill-game") {
     const teams = (activity.teams || []) as AnyRec[];
@@ -297,6 +343,7 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
     const input = document.createElement("input");
     input.type = "number";
     input.min = "1";
+    input.id = "master-winning-cards";
     input.value = String(activity.winnerCount || 1);
     input.disabled = activity.phase !== "idle";
     field.appendChild(input);
@@ -337,7 +384,8 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
     };
     renderGroup(`Needs review (${pending.length})`, pending, "Nothing waiting");
     renderGroup(`Reviewed (${reviewed.length})`, reviewed, "Nothing reviewed yet");
-    panel.appendChild(queue);
+    review.appendChild(queue);
+    panel.textContent = "Review responses below the main controls.";
   } else {
     const p = document.createElement("p");
     p.className = "live-body";
@@ -347,11 +395,14 @@ function renderActivity(state: AnyRec, host: { code: string; hostKey: string; co
 }
 
 function renderMaster(state: AnyRec, host: { code: string; hostKey: string; controllerId: string }) {
+  if (currentState?.runId === state.runId && Number(currentState.revision) > Number(state.revision)) return;
+  currentState = state;
+  updateGuide(state);
   const activity = (state.activity || {}) as AnyRec;
   const kind = String(activity.kind || "lobby");
   byId("master-title").textContent = String(state.title || slug() || "Live run");
   byId("master-code").textContent = String(state.code || host.code);
-  byId("master-counts").textContent = `${state.connectedCount || 0} connected · ${state.participantCount || 0} joined · ${state.eligibleCount || 0} eligible`;
+  byId("master-counts").textContent = `${state.connectedCount || 0} connected · ${state.participantCount || 0} joined`;
   byId("master-join").textContent = shortJoinUrl(String(state.code || host.code));
   const held = byId("master-held");
   held.hidden = !state.held;
@@ -483,15 +534,49 @@ async function main() {
     }
   }
 
-  byId("btn-next").addEventListener("click", () => void control(host, "next").catch((e) => alert(e.message)));
-  byId("btn-prev").addEventListener("click", () => void control(host, "prev").catch((e) => alert(e.message)));
+  const previewWindow = document.querySelector(".master-preview-window") as HTMLElement;
+  const previewFrame = byId("master-preview");
+  const resizePreview = new ResizeObserver(() => {
+    const scale = Math.min(previewWindow.clientWidth / 1600, previewWindow.clientHeight / 900);
+    previewFrame.style.transform = `scale(${scale})`;
+    previewFrame.style.left = `${(previewWindow.clientWidth - 1600 * scale) / 2}px`;
+    previewFrame.style.top = `${(previewWindow.clientHeight - 900 * scale) / 2}px`;
+  });
+  resizePreview.observe(previewWindow);
+  window.addEventListener("pagehide", () => resizePreview.disconnect(), { once: true });
+  byId("btn-next").addEventListener("click", () => {
+    if (!currentState || commandPending) return;
+    const next = nextLiveAction(currentState);
+    if (!next.disabled) void control(host, "advance", {
+      expectedStage: liveStageKey(currentState),
+      ...(next.action === "release" ? { winnerCount: Number((document.getElementById("master-winning-cards") as HTMLInputElement | null)?.value) || 1 } : {}),
+    });
+  });
+  byId("btn-skip").addEventListener("click", () => {
+    if (confirm("Skip this activity and move everyone to the next one?")) void control(host, "next");
+  });
+  byId("master-auto-open-polls").addEventListener("change", (event) => {
+    pendingAutoOpen = (event.target as HTMLInputElement).checked;
+    void control(host, "set-auto-open-polls", { enabled: pendingAutoOpen });
+  });
+  byId("btn-advanced").addEventListener("click", () => {
+    const panel = byId("master-advanced"); panel.hidden = !panel.hidden;
+    byId("btn-advanced").setAttribute("aria-expanded", String(!panel.hidden));
+    byId("btn-advanced").textContent = panel.hidden ? "Advanced tools" : "Hide advanced tools";
+  });
+  byId("btn-guide").addEventListener("click", () => (byId("master-guide") as HTMLDialogElement).showModal());
+  for (const [id, delta] of [["btn-size-down", -5], ["btn-size-up", 5], ["btn-size-reset", 0]] as const) {
+    byId(id).addEventListener("click", () => void control(host, "set-presenter-scale", { scale: delta ? Math.max(75, Math.min(150, (Number(currentState?.presenterScale) || 100) + delta)) : 100 }));
+  }
+  byId("btn-prev").addEventListener("click", () => { if (confirm("Go back? The previous activity will restart with fresh responses.")) void control(host, "prev"); });
   byId("btn-hold").addEventListener("click", () => void control(host, "hold"));
   byId("btn-resume").addEventListener("click", () => void control(host, "resume"));
-  byId("btn-replay").addEventListener("click", () => void control(host, "replay"));
-  byId("btn-end").addEventListener("click", () => void control(host, "end"));
+  byId("btn-replay").addEventListener("click", () => { if (confirm("Reset this activity? Its current responses and scores will be cleared.")) void control(host, "replay"); });
+  byId("btn-end").addEventListener("click", () => { if (confirm("End the run and show the closing screen?")) void control(host, "end"); });
   byId("btn-new").addEventListener("click", async () => {
-    if (!confirm("Start a new run? This resets event state and prize history.")) return;
-    host = await ensureRun(true);
+    if (commandPending || !confirm("Start a new run? This resets event state and prize history.")) return;
+    commandPending = true; if (currentState) updateGuide(currentState);
+    try { host = await ensureRun(true); currentState = null; lastActivitySig = ""; showCommandError("New run started. Open presenter again and ask guests to join the new code."); } catch (e) { showCommandError((e as Error).message); } finally { commandPending = false; if (currentState) updateGuide(currentState); }
   });
   byId("btn-takeover").addEventListener("click", () => void control(host, "takeover", { takeover: true, controllerId: host.controllerId }));
   byId("btn-present").addEventListener("click", () => {

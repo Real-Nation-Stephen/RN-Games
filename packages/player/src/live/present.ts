@@ -1,3 +1,4 @@
+import { startPresenterSize } from "./presenter-size";
 import { liveJson } from "./api";
 import { enableRaceSound, startRaceClock, timedFillState } from "./race-clock";
 import { startLivePoll } from "./poll";
@@ -199,6 +200,7 @@ async function main() {
     return;
   }
   app.hidden = false;
+  const resizePresenter = startPresenterSize(app.querySelector(".live-stage") as HTMLElement);
 
   const stopClock = startRaceClock(inner, () => lastPresenterState, (state) => mountActivity(inner, state), true);
   window.addEventListener("pagehide", stopClock, { once: true });
@@ -206,6 +208,7 @@ async function main() {
     code: () => code,
     role: "public",
     onState(state) {
+      resizePresenter(state.presenterScale);
       applyJoinTheme(state.joinScreen as Record<string, unknown>, undefined, {
         surface: "presenter",
         component: ((state.component as AnyRec) || {}) as Record<string, unknown>,
